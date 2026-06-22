@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Cài đặt Email', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+
+  <main class="col">
+    <nav class="settings-breadcrumb" aria-label="Breadcrumb">
+      <a th:href="@{/admin/settings}">Cài đặt hệ thống</a>
+      <span class="sep" aria-hidden="true">/</span>
+      <span aria-current="page">Email (SMTP)</span>
+    </nav>
+
+    <h1 class="detail-title">Cấu hình Email (SMTP)</h1>
+    <p class="detail-sub">Cấu hình SMTP transport và sender identity. Thay đổi
+      có hiệu lực ngay, không cần khởi động lại ứng dụng.</p>
+
+    <!-- Flash → toast on page load (admin.js xử lý).
+         Dùng pattern data attribute giống admin/dashboard để tái dùng
+         UlpToast thay vì render inline alert. -->
+    <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
+         th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
+
+    <!-- Empty state khi fresh install (chưa cấu hình) -->
+    <div th:if="${form != null and (form.host == null or form.host.isBlank())}"
+         class="alert alert-info" role="status">
+      Chưa có cấu hình SMTP. Điền thông tin bên dưới để kích hoạt tính năng gửi email.
+    </div>
+
+    <!-- ===== Form ===== -->
+    <section class="settings-form-panel">
+      <form th:action="@{/admin/settings/email}" method="post"
+            th:object="${form}" class="settings-form" novalidate>
+
+        <fieldset class="settings-fieldset">
+          <legend>SMTP Transport</legend>
+
+          <div class="form-row">
+            <label for="host">Host <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="host" th:field="*{host}"
+                   placeholder="smtp.gmail.com" autocomplete="off"
+                   maxlength="255" required aria-required="true"
+                   th:attr="aria-invalid=${#fields.hasErrors('host')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('host')} ? 'host-error' : ''">
+            <span id="host-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('host')}" th:errors="*{host}">Lỗi host</span>
+          </div>
+
+          <div class="form-row">
+            <label for="port">Port <span class="req" aria-hidden="true">*</span></label>
+            <input type="number" id="port" th:field="*{port}"
+                   placeholder="587" min="1" max="65535"
+                   inputmode="numeric" required aria-required="true"
+                   th:attr="aria-invalid=${#fields.hasErrors('port')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('port')} ? 'port-error' : ''">
+            <span id="port-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('port')}" th:errors="*{port}">Lỗi port</span>
+          </div>
+
+          <div class="form-row">
+            <span id="encryption-label" class="form-row-label">
+              Encryption <span class="req" aria-hidden="true">*</span>
+            </span>
+            <div class="radio-group" role="radiogroup"
+                 aria-labelledby="encryption-label"
+                 aria-required="true"
+                 th:attr="aria-invalid=${#fields.hasErrors('encryption')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('encryption')} ? 'encryption-error' : ''">
+              <label class="radio-option">
+                <input type="radio" th:field="*{encryption}" value="none">
+                <span>None</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" th:field="*{encryption}" value="tls">
+                <span>TLS (STARTTLS)</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" th:field="*{encryption}" value="ssl">
+                <span>SSL</span>
+              </label>
+            </div>
+            <span id="encryption-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('encryption')}" th:errors="*{encryption}">Lỗi encryption</span>
+          </div>
+
+          <div class="form-row">
+            <label for="username">Username <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="username" th:field="*{username}"
+                   placeholder="noreply@example.com" autocomplete="off"
+                   maxlength="255" required aria-required="true"
+                   th:attr="aria-invalid=${#fields.hasErrors('username')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('username')} ? 'username-error' : ''">
+            <span id="username-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('username')}" th:errors="*{username}">Lỗi username</span>
+          </div>
+
+          <div class="form-row">
+            <label for="password">Password</label>
+            <input type="password" id="password" th:field="*{password}"
+                   autocomplete="new-password"
+                   aria-describedby="password-hint">
+            <p id="password-hint" class="field-hint">Để trống hoặc giữ <code>********</code>
+              để giữ nguyên mật khẩu hiện tại.</p>
+          </div>
+        </fieldset>
+
+        <fieldset class="settings-fieldset">
+          <legend>Sender Identity</legend>
+
+          <div class="form-row">
+            <label for="fromName">From Name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="fromName" th:field="*{fromName}"
+                   placeholder="ULP" maxlength="100"
+                   required aria-required="true"
+                   th:attr="aria-invalid=${#fields.hasErrors('fromName')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('fromName')} ? 'fromName-error' : ''">
+            <span id="fromName-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('fromName')}" th:errors="*{fromName}">Lỗi from name</span>
+          </div>
+
+          <div class="form-row">
+            <label for="fromEmail">From Email <span class="req" aria-hidden="true">*</span></label>
+            <input type="email" id="fromEmail" th:field="*{fromEmail}"
+                   placeholder="noreply@ulp.edu.vn" autocomplete="email"
+                   required aria-required="true"
+                   th:attr="aria-invalid=${#fields.hasErrors('fromEmail')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('fromEmail')} ? 'fromEmail-error' : ''">
+            <span id="fromEmail-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('fromEmail')}" th:errors="*{fromEmail}">Lỗi from email</span>
+          </div>
+
+          <div class="form-row">
+            <label for="replyTo">Reply-To</label>
+            <input type="email" id="replyTo" th:field="*{replyTo}"
+                   placeholder="support@ulp.edu.vn (tùy chọn)" autocomplete="email"
+                   th:attr="aria-invalid=${#fields.hasErrors('replyTo')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('replyTo')} ? 'replyTo-error' : ''">
+            <span id="replyTo-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('replyTo')}" th:errors="*{replyTo}">Lỗi reply to</span>
+          </div>
+        </fieldset>
+
+        <div class="settings-form-actions">
+          <a th:href="@{/admin/settings}" class="btn btn-ghost">Hủy</a>
+          <button type="submit" class="btn btn-primary">Lưu cài đặt</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== Test send panel ===== -->
+    <section class="settings-form-panel">
+      <h2 class="panel-title">Gửi email thử</h2>
+      <p class="panel-sub">Xác thực cấu hình SMTP bằng cách gửi một email thử
+        tới địa chỉ bạn chọn.</p>
+
+      <div class="form-row test-send-row">
+        <label for="testRecipient">Email người nhận</label>
+        <input type="email" id="testRecipient"
+               th:value="${defaultTestRecipient}"
+               placeholder="ban@example.com" autocomplete="email">
+        <button type="button" id="sendTestBtn" class="btn btn-primary"
+                aria-controls="testRecipient testSendResult">
+          Gửi email thử
+        </button>
+      </div>
+
+      <!-- ARIA live region cho screen reader (visually hidden) -->
+      <div id="testSendResult" class="sr-only" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin.js}"></script>
+<script th:src="@{/js/admin-settings.js}"></script>
+</body>
+</html>

@@ -22,9 +22,13 @@ import java.util.List;
  * <p>URL pattern: {@code /admin/{tab}} — 5 mục sidebar:
  * <ul>
  *   <li>{@code /dashboard} — stat + chart + recent (Sprint 2 wireframe).</li>
- *   <li>{@code /users}, {@code /departments}, {@code /classes}, {@code /settings}
+ *   <li>{@code /settings}  — Settings index (link sang Email/General/...).</li>
+ *   <li>{@code /users}, {@code /departments}, {@code /classes}
  *       — placeholder, Sprint 6 noi data that.</li>
  * </ul>
+ *
+ * <p>Sub-tab {@code /admin/settings/email} duoc xu ly boi
+ * {@link com.ulp.admin.settings.controller.EmailSettingsController}.
  */
 @Controller
 @RequestMapping("/admin")
@@ -55,7 +59,13 @@ public class AdminController {
         return "admin/dashboard";
     }
 
-    @GetMapping({"/users", "/departments", "/classes", "/settings"})
+    @GetMapping("/settings")
+    public String settingsIndex(Model model) {
+        populateSidebar(model, "settings");
+        return "admin/settings";
+    }
+
+    @GetMapping({"/users", "/departments", "/classes"})
     public String placeholder(HttpServletRequest request, Model model) {
         String path = request.getRequestURI();
         String tab = path.substring(path.lastIndexOf('/') + 1);
@@ -71,11 +81,9 @@ public class AdminController {
 
     private static String labelFor(String tab) {
         return switch (tab) {
-            case "dashboard" -> "Dashboard";
             case "users" -> "Tài khoản";
             case "departments" -> "Bộ môn";
             case "classes" -> "Lớp học";
-            case "settings" -> "Cài đặt hệ thống";
             default -> tab;
         };
     }

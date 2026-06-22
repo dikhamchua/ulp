@@ -16,11 +16,16 @@ DB_PASSWORD=your_password_here
 #spring.security.oauth2.client.registration.google.client-secret=your-client-secret
 #spring.security.oauth2.client.registration.google.scope=openid,profile,email
 
-# ===== SMTP (BO COMMENT de bat gui email quen-mat-khau) =====
-# Dev: Mailtrap sandbox (https://mailtrap.io) — an toan, khong gui email that.
-# Prod: Gmail App Password / SendGrid / Resend SMTP.
-# Khi spring.mail.host VANG MAT, MailService khong duoc tao -> forgot-password
-# van chay nhung chi log link reset ra console thay vi gui email that.
+# ============================================================================
+# SMTP — CAU HINH O ADMIN UI, KHONG O DAY
+# ============================================================================
+# Tu Sprint 2, SMTP credentials duoc luu o bang system_settings (key-value)
+# va chinh sua qua /admin/settings/email khi dang nhap voi role ADMIN.
+#
+# Cac dong spring.mail.* BEN DUOI LA LEGACY va KHONG duoc doc tai runtime
+# (MailService delegate cho DbConfiguredMailSender thay vi JavaMailSender bean).
+# Khong can bo comment — chi luu lai cho lich su.
+#
 #spring.mail.host=sandbox.smtp.mailtrap.io
 #spring.mail.port=2525
 #spring.mail.username=your-mailtrap-username

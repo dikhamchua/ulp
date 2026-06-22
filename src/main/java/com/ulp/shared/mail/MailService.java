@@ -1,45 +1,35 @@
 package com.ulp.shared.mail;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 /**
- * Gui email don gian qua SMTP. Duoc boc trong try/catch de khong bao gio
- * throw ra ngoai — email that bai chi log, khong anh huong den UX.
+ * Facade gui email cho cac caller noi bo (vd {@code PasswordRecoveryService}).
+ * Tu Sprint 2: bean LUON ton tai, khong con conditional theo {@code spring.mail.host}.
+ * Cau hinh SMTP doc tu bang {@code system_settings} qua {@link DbConfiguredMailSender}.
+ *
+ * <p>Contract: {@link #send} tra ve {@code true} khi gui thanh cong,
+ * {@code false} khi SMTP chua cau hinh hoac gui that bai. Caller dung
+ * boolean return de quyet dinh fallback (vd log reset link ra console).
  */
 @Service
-@ConditionalOnProperty("spring.mail.host")
 public class MailService {
 
-    private static final Logger log = LoggerFactory.getLogger(MailService.class);
+    private final DbConfiguredMailSender sender;
 
-    private final JavaMailSender mailSender;
+    public MailService(DbConfiguredMailSender sender) {
+        this.sender = sender;
+    }
 
-    public MailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    /** Gui email best-effort. Tra ve {@code true} neu thanh cong. */
+    public boolean send(String to, String subject, String body) {
+        return sender.send(to, subject, body);
     }
 
     /**
-     * Gui mot email. Neu that bai (SMTP down, sai credential, ...) chi log
-     * loi, khong throw. Tra ve true neu gui thanh cong.
+     * Gui email va surface chi tiet loi neu co — phuc vu test-send tren
+     * admin settings. Caller dung error message de show toast.
      */
-    public boolean send(String to, String subject, String body) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
-            log.info("Email sent to {}", to);
-            return true;
-        } catch (MailException e) {
-            log.warn("Failed to send email to {}: {}", to, e.getMessage());
-            return false;
-        }
+    public MailSendResult sendWithDetail(String to, String subject, String body) {
+        return sender.sendWithDetail(to, subject, body);
     }
 }

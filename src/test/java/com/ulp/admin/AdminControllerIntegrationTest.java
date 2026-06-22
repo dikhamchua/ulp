@@ -86,11 +86,17 @@ class AdminControllerIntegrationTest {
                 .andExpect(content().string(containsString("Tài khoản")));
     }
 
+    // ───────────────────── Settings index ──────────────────────────
+
     @Test
     @WithUserDetails("admin@ulp.edu.vn")
-    void admin_settings_placeholder_renders() throws Exception {
+    void admin_settings_index_renders() throws Exception {
         mockMvc.perform(get("/admin/settings"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Cài đặt hệ thống")));
+                .andExpect(content().string(containsString("Cài đặt hệ thống")))
+                .andExpect(content().string(containsString("Email")))
+                // Spec requires Email entry to LINK to /admin/settings/email,
+                // not just appear as text.
+                .andExpect(content().string(containsString("/admin/settings/email")));
     }
 }

@@ -16,6 +16,9 @@
 <head th:fragment="head(title, extraCss)">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- CSRF token for AJAX endpoints (safe-navigation: pages without CSRF still render) -->
+  <meta name="_csrf" th:content="${_csrf?.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf?.headerName}"/>
   <title th:text="${title} + ' | ULP — University Learning Platform'">ULP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

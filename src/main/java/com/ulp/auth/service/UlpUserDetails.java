@@ -16,6 +16,7 @@ import java.util.List;
  */
 public class UlpUserDetails implements UserDetails {
 
+    private final Long id;
     private final String username;
     private final String password;
     private final String fullName;
@@ -24,12 +25,18 @@ public class UlpUserDetails implements UserDetails {
     private final Collection<GrantedAuthority> authorities;
 
     public UlpUserDetails(User user) {
+        this.id = user.getId();
         this.username = user.getEmail();
         this.password = user.getPasswordHash();
         this.fullName = user.getFullName();
         this.active = user.isActive();
         this.locked = user.isLocked();
         this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
+    }
+
+    /** ID cua user dang dang nhap — dung cho audit (updated_by) o cac service admin. */
+    public Long getId() {
+        return id;
     }
 
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */
