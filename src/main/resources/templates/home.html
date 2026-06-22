@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Trang chủ', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('home')}">
+  <!-- Shared app shell header: logo, nav, user dropdown -->
+</header>
+
+<main class="app-page">
+  <h1>Chào mừng đến với ULP — University Learning Platform</h1>
+
+  <div class="card" style="padding:20px;margin-bottom:20px;">
+    <p style="margin-bottom:10px;">
+      Đang đăng nhập với: <strong sec:authentication="principal.fullName">email</strong>
+      (<span th:text="${#authentication.principal.username}">email</span>)
+    </p>
+    <p>
+      Vai trò:
+      <span sec:authorize="hasRole('ADMIN')"
+            style="display:inline-block;background:var(--danger-soft);color:var(--danger);padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600;">ADMIN</span>
+      <span sec:authorize="hasRole('LECTURER')"
+            style="display:inline-block;background:var(--primary-soft);color:var(--primary);padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600;">LECTURER</span>
+      <span sec:authorize="hasRole('STUDENT')"
+            style="display:inline-block;background:var(--success-soft);color:var(--success);padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600;">STUDENT</span>
+    </p>
+  </div>
+
+  <p style="color:var(--muted);">
+    Sprint 1 — Auth & Account. Đang hoàn thiện: Google OAuth, quên mật khẩu, hồ sơ, đổi mật khẩu.
+  </p>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

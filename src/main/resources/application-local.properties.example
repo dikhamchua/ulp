@@ -1,0 +1,33 @@
+# ===== MAU file cau hinh local — COPY thanh application-local.properties =====
+# Moi thanh vien tao file application-local.properties tu file nay va dien gia tri that.
+# File application-local.properties da duoc .gitignore — KHONG commit.
+# File nay duoc nap qua spring.config.import trong application.properties.
+
+# ----- Datasource (feed cho placeholder ${DB_USERNAME}/${DB_PASSWORD}) -----
+DB_USERNAME=root
+DB_PASSWORD=your_password_here
+
+# ===== Google OAuth (BO COMMENT 3 dong duoi de bat dang nhap Google) =====
+# Tao OAuth client ID tu https://console.cloud.google.com/apis/credentials
+# Authorized redirect URI: http://localhost:8080/login/oauth2/code/google
+# Provider Google duoc Spring Boot tu dien qua CommonOAuth2Provider.GOOGLE.
+# Khi cac key nay VANG MAT (van comment), OAuth auto-config tu back off -> app van chay.
+#spring.security.oauth2.client.registration.google.client-id=your-client-id.apps.googleusercontent.com
+#spring.security.oauth2.client.registration.google.client-secret=your-client-secret
+#spring.security.oauth2.client.registration.google.scope=openid,profile,email
+
+# ===== SMTP (BO COMMENT de bat gui email quen-mat-khau) =====
+# Dev: Mailtrap sandbox (https://mailtrap.io) — an toan, khong gui email that.
+# Prod: Gmail App Password / SendGrid / Resend SMTP.
+# Khi spring.mail.host VANG MAT, MailService khong duoc tao -> forgot-password
+# van chay nhung chi log link reset ra console thay vi gui email that.
+#spring.mail.host=sandbox.smtp.mailtrap.io
+#spring.mail.port=2525
+#spring.mail.username=your-mailtrap-username
+#spring.mail.password=your-mailtrap-password
+#spring.mail.properties.mail.smtp.auth=true
+#spring.mail.properties.mail.smtp.starttls.enable=true
+
+# ===== Base URL (dung trong link reset password) =====
+# Prod: dat URL that, vi du https://ulp.edu.vn
+#APP_BASE_URL=http://localhost:8080

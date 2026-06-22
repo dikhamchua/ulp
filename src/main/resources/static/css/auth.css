@@ -1,0 +1,55 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Auth pages (login, forgot-password, reset-password)
+   Consumes tokens & components from main.css. Only auth-card specifics here.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.page { min-height: 100vh; display: flex; flex-direction: column; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 48px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--bg); z-index: 30;
+}
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; color: var(--primary); }
+.logo svg { flex: none; }
+
+main { flex: 1; display: flex; align-items: stretch; }
+
+/* Split layout (login page) */
+.split {
+  display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 1200px;
+  margin: 0 auto; align-items: center; gap: 48px; padding: 40px 48px;
+}
+.panel { display: flex; justify-content: center; }
+.illus { display: flex; align-items: center; justify-content: center; }
+.illus svg { width: 100%; max-width: 480px; height: auto; }
+
+/* Centered layout (forgot/reset-password) */
+.centered {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; padding: 40px 24px;
+}
+
+/* Auth card (shared by login/forgot/reset) */
+.auth-card { width: 100%; max-width: 420px; }
+.auth-card h1 { font-size: 21px; font-weight: 600; color: var(--heading); margin-bottom: 24px; }
+
+/* OAuth button */
+.oauth-sep {
+  display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--muted-2); font-size: 13px;
+}
+.oauth-sep::before, .oauth-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.btn-google {
+  width: 100%; padding: 11px 16px; border-radius: var(--radius); font-size: 14px;
+  font-weight: 600; display: flex; align-items: center; justify-content: center;
+  gap: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+  transition: background .15s;
+}
+.btn-google:hover { background: var(--bg-soft); }
+.btn-google svg { flex: none; }
+
+@media (max-width: 880px) {
+  .split { grid-template-columns: 1fr; padding: 32px 20px; }
+  .illus { display: none; }
+  header { padding: 14px 20px; }
+}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Fragment: head(title, extraCss)
+    - title    : page title (prepended to "| ULP — University Learning Platform")
+    - extraCss : optional fragment expression with additional <link> tags. Pass ~{}
+                 when the page does not need extra CSS. To include extra stylesheets,
+                 define them in a fragment in the page and reference it, e.g.:
+
+      <head th:replace="~{fragments/head :: head('Đăng nhập', ~{::link.page-css})}">
+        <link class="page-css" rel="stylesheet" th:href="@{/css/auth.css}">
+      </head>
+
+  Requires main.css; auth.css / app-shell.css are page-specific and injected via extraCss.
+-->
+<head th:fragment="head(title, extraCss)">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${title} + ' | ULP — University Learning Platform'">ULP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" th:href="@{/css/main.css}">
+  <th:block th:replace="${extraCss}"></th:block>
+</head>
+</html>

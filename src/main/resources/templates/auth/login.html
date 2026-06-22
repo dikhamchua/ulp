@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập vào tài khoản của bạn | ULP — University Learning Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --primary:#1E88E5; --primary-dark:#1565C0; --fg:#202227; --heading:#22313F;
+      --muted:#6B7280; --border:#D8DCF0; --bg:#FFFFFF; --surface-hover:rgba(32,34,39,0.04);
+      --danger:#D32F2F; --danger-soft:#FDECEA; --success:#2BB673; --success-soft:#E6F7EF;
+      --radius:6px; --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{font-family:var(--font);color:var(--fg);background:var(--bg);-webkit-font-smoothing:antialiased;line-height:1.5}
+    button{font-family:inherit;cursor:pointer;border:none;background:none}
+    a{color:inherit;text-decoration:none}
+    .page{min-height:100vh;display:flex;flex-direction:column}
+    header{display:flex;align-items:center;justify-content:space-between;padding:16px 48px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:30}
+    .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;color:var(--primary)}
+    .logo svg{flex:none}
+    .header-right{display:flex;align-items:center;gap:8px}
+    .nav-btn{padding:8px 18px;border-radius:var(--radius);font-size:14px;font-weight:500;color:var(--fg);transition:background .15s}
+    .nav-btn:hover{background:var(--surface-hover)}
+    .nav-btn.signup{color:var(--primary);font-weight:600}
+    .role-chip-wrap{position:relative}
+    .role-chip{display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-weight:500;background:var(--bg);transition:border-color .15s}
+    .role-chip:hover{border-color:var(--primary)}
+    .role-chip .caret{transition:transform .2s}
+    .role-chip.open .caret{transform:rotate(180deg)}
+    main{flex:1;display:flex;align-items:stretch}
+    .split{display:grid;grid-template-columns:1fr 1fr;width:100%;max-width:1200px;margin:0 auto;align-items:center;gap:48px;padding:40px 48px}
+    .panel{display:flex;justify-content:center}
+    .illus{display:flex;align-items:center;justify-content:center}
+    .illus svg{width:100%;max-width:480px;height:auto}
+    .card{width:100%;max-width:420px}
+    .card h1{font-size:21px;font-weight:600;color:var(--heading);margin-bottom:24px}
+    .title-row{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+    .title-row h1{margin-bottom:0}
+    .back-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;color:var(--muted);transition:background .15s,color .15s;flex:none}
+    .back-btn:hover{background:var(--surface-hover);color:var(--primary)}
+    .role-block{margin-bottom:24px}
+    .role-label{font-size:14px;color:var(--muted);margin-bottom:8px}
+    .select{position:relative}
+    .select-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:15px;font-weight:500;color:var(--fg);transition:border-color .15s}
+    .select-trigger:hover,.select.open .select-trigger{border-color:var(--primary)}
+    .select-trigger .caret{transition:transform .2s;color:var(--muted)}
+    .select.open .select-trigger .caret{transform:rotate(180deg)}
+    .options{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;z-index:40;opacity:0;visibility:hidden;transform:translateY(-6px);transition:.15s}
+    .select.open .options{opacity:1;visibility:visible;transform:translateY(0)}
+    .option{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:6px;font-size:15px;transition:background .12s;cursor:pointer}
+    .option:hover{background:var(--surface-hover)}
+    .option.selected{background:rgba(30,136,229,.08);color:var(--primary);font-weight:600}
+    .option .tick{margin-left:auto;color:var(--primary);opacity:0}
+    .option.selected .tick{opacity:1}
+    .role-chip-wrap .options{min-width:200px}
+    .btn{width:100%;padding:13px 16px;border-radius:var(--radius);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .15s,opacity .15s}
+    .btn-primary{background:var(--primary);color:#fff}
+    .btn-primary:hover{background:var(--primary-dark)}
+    .btn-outline{border:1px solid var(--border);color:var(--fg);background:var(--bg)}
+    .btn-outline:hover{background:var(--surface-hover)}
+    .btn-fb{background:rgba(32,34,39,.04);border:1px solid var(--border);color:var(--fg)}
+    .btn-fb:hover{background:rgba(32,34,39,.08)}
+    .field{margin-bottom:18px}
+    .field-label{font-size:14px;color:var(--fg);margin-bottom:6px;display:block}
+    .input-wrap{position:relative;display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;transition:border-color .15s}
+    .input-wrap:focus-within{border-color:var(--primary)}
+    .input-wrap input{flex:1;border:none;outline:none;background:none;padding:13px 14px;font-size:15px;font-family:inherit;color:var(--fg)}
+    .input-wrap .toggle-pass{padding:0 14px;color:var(--muted);display:flex;align-items:center}
+    .forgot{display:block;text-align:right;color:var(--primary);font-size:14px;font-weight:500;margin:-6px 0 20px}
+    .forgot:hover{text-decoration:underline}
+    .divider{display:flex;align-items:center;gap:16px;margin:24px 0}
+    .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
+    .divider span{font-size:13px;color:var(--muted)}
+    .social-stack{display:flex;flex-direction:column;gap:12px}
+    .signup-line{text-align:center;font-size:14px;color:var(--muted);margin-top:24px}
+    .signup-line a{color:var(--primary);font-weight:600}
+    .signup-line a:hover{text-decoration:underline}
+    .alert{padding:12px 14px;border-radius:8px;font-size:14px;margin-bottom:18px}
+    .alert-error{background:var(--danger-soft);color:var(--danger)}
+    .alert-success{background:var(--success-soft);color:var(--success)}
+    .hint{font-size:13px;color:var(--muted);margin-top:18px;line-height:1.7;text-align:center}
+    .hint code{background:rgba(32,34,39,.04);padding:2px 6px;border-radius:4px;font-size:12px}
+    .screen{display:none}
+    .screen.active{display:block}
+    @media(max-width:880px){.split{grid-template-columns:1fr;padding:32px 20px}.illus{display:none}header{padding:14px 20px}}
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a th:href="@{/login}" class="logo" id="logo">
+      <svg width="30" height="30" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#1E88E5"/><path d="M16 7l8 4v6c0 4.4-3.4 7.2-8 8-4.6-.8-8-3.6-8-8v-6l8-4z" fill="#fff"/><path d="M16 11l4 2-4 2-4-2 4-2z" fill="#1E88E5"/></svg>
+      ULP
+    </a>
+    <div class="header-right" id="headerRight">
+      <button class="nav-btn" data-act="home">Trang chủ</button>
+      <button class="nav-btn signup" data-act="signup">Đăng ký</button>
+    </div>
+  </header>
+  <main>
+    <!-- ── Screen 1: Role selection ───────────────────────────────────── -->
+    <section class="screen active" id="screen-role">
+      <div class="split">
+        <div class="panel">
+          <div class="card">
+            <h1>Chào mừng bạn đến với ULP</h1>
+            <div class="role-block">
+              <p class="role-label">Chọn vai trò của bạn</p>
+              <div class="select" id="roleSelect">
+                <button type="button" class="select-trigger" id="roleTrigger" aria-haspopup="listbox" aria-expanded="false">
+                  <span id="roleValue">Tôi là giảng viên</span>
+                  <svg class="caret" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="options" role="listbox">
+                  <div class="option selected" role="option" data-value="lecturer">Tôi là giảng viên<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                  <div class="option" role="option" data-value="student">Tôi là sinh viên<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="continueBtn">Tiếp tục</button>
+          </div>
+        </div>
+        <div class="panel illus">
+          <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E3F2FD"/><stop offset="1" stop-color="#BBDEFB"/></linearGradient></defs>
+            <rect x="40" y="40" width="400" height="260" rx="16" fill="url(#g1)"/>
+            <rect x="70" y="80" width="180" height="14" rx="7" fill="#1E88E5" opacity=".8"/>
+            <rect x="70" y="110" width="260" height="10" rx="5" fill="#90CAF9"/>
+            <rect x="70" y="132" width="220" height="10" rx="5" fill="#90CAF9"/>
+            <circle cx="360" cy="200" r="48" fill="#1E88E5" opacity=".85"/>
+            <path d="M345 200l10 10 22-22" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <rect x="70" y="180" width="150" height="64" rx="10" fill="#fff" opacity=".7"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Screen 2: Login form ───────────────────────────────────────── -->
+    <section class="screen" id="screen-login">
+      <div class="split">
+        <div class="panel">
+          <div class="card">
+            <div class="title-row">
+              <button type="button" class="back-btn" id="backToRole" aria-label="Quay lại chọn vai trò" title="Quay lại">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <h1 id="loginTitle">Giảng viên đăng nhập</h1>
+            </div>
+
+            <div class="alert alert-error" th:if="${param.error}">
+              <span th:if="${param.error[0] == 'oauth_unregistered'}">Email Google này chưa được đăng ký trong hệ thống. Vui lòng liên hệ quản trị viên.</span>
+              <span th:unless="${param.error[0] == 'oauth_unregistered'}">Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khoá.</span>
+            </div>
+            <div class="alert alert-success" th:if="${param.logout}">
+              Bạn đã đăng xuất thành công.
+            </div>
+
+            <form id="loginForm" th:action="@{/login}" method="post">
+              <div class="field">
+                <label class="field-label" for="account">Email/ Số điện thoại</label>
+                <div class="input-wrap"><input id="account" name="username" type="text" placeholder="Email/ Số điện thoại" autocomplete="username" required autofocus></div>
+              </div>
+              <div class="field">
+                <label class="field-label" for="password">Mật khẩu</label>
+                <div class="input-wrap">
+                  <input id="password" name="password" type="password" placeholder="Mật khẩu" autocomplete="current-password" required>
+                  <button type="button" class="toggle-pass" id="togglePass" aria-label="Hiện mật khẩu"><svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg></button>
+                </div>
+              </div>
+              <a th:href="@{/forgot-password}" class="forgot">Quên mật khẩu?</a>
+              <button class="btn btn-primary" type="submit">Đăng nhập</button>
+            </form>
+
+            <div class="divider"><span>Hoặc</span></div>
+            <div class="social-stack">
+              <a th:if="${@environment.getProperty('spring.security.oauth2.client.registration.google.client-id') != null
+                          and @environment.getProperty('spring.security.oauth2.client.registration.google.client-id') != ''}"
+                 th:href="@{/oauth2/authorization/google}" class="btn btn-outline">
+                <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                Đăng nhập bằng Google
+              </a>
+              <button type="button" class="btn btn-fb"><svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.69.24 2.69.24v2.97h-1.52c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>Đăng nhập bằng Facebook</button>
+              <button type="button" class="btn btn-outline"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="5" fill="#C62828"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>Đăng nhập bằng SGD - HCM</button>
+            </div>
+            <p class="signup-line">Bạn chưa có tài khoản? <a href="#" data-act="signup">Đăng ký ngay</a></p>
+
+            <p class="hint" th:if="${@environment.acceptsProfiles('dev') or @environment.getProperty('app.show-test-accounts') == 'true'}">
+              Tài khoản thử nghiệm (Sprint 0):<br>
+              <code>admin@ulp.edu.vn</code> · <code>lecturer@ulp.edu.vn</code> · <code>student@ulp.edu.vn</code><br>
+              Mật khẩu: <code>password</code>
+            </p>
+          </div>
+        </div>
+        <div class="panel illus">
+          <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E3F2FD"/><stop offset="1" stop-color="#BBDEFB"/></linearGradient></defs>
+            <rect x="40" y="40" width="400" height="260" rx="16" fill="url(#g2)"/>
+            <circle cx="240" cy="130" r="44" fill="#1E88E5" opacity=".85"/>
+            <path d="M222 130l12 12 24-26" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <rect x="120" y="200" width="240" height="14" rx="7" fill="#1E88E5" opacity=".7"/>
+            <rect x="150" y="228" width="180" height="10" rx="5" fill="#90CAF9"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script th:inline="none">
+(function(){
+  var roleLabels={lecturer:'Tôi là giảng viên',student:'Tôi là sinh viên'};
+  var titleLabels={lecturer:'Giảng viên đăng nhập',student:'Sinh viên đăng nhập'};
+  var currentRole='lecturer';
+  var roleSelect=document.getElementById('roleSelect');
+  var roleTrigger=document.getElementById('roleTrigger');
+  var roleValue=document.getElementById('roleValue');
+  var headerRight=document.getElementById('headerRight');
+
+  roleTrigger.addEventListener('click',function(e){
+    e.stopPropagation();
+    var open=roleSelect.classList.toggle('open');
+    roleTrigger.setAttribute('aria-expanded',open);
+  });
+  roleSelect.querySelectorAll('.option').forEach(function(opt){
+    opt.addEventListener('click',function(){
+      currentRole=opt.dataset.value;
+      roleValue.textContent=roleLabels[currentRole];
+      roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.remove('selected')});
+      opt.classList.add('selected');
+      roleSelect.classList.remove('open');
+    });
+  });
+
+  document.getElementById('continueBtn').addEventListener('click',function(){
+    document.getElementById('loginTitle').textContent=titleLabels[currentRole];
+    buildHeaderChip();
+    showScreen('login');
+    history.replaceState(null,'','#/login/'+currentRole);
+  });
+
+  function buildRoleScreenHeader(){
+    headerRight.innerHTML='<button class="nav-btn" data-act="home">Trang chủ</button><button class="nav-btn signup" data-act="signup">Đăng ký</button>';
+  }
+  function buildHeaderChip(){
+    headerRight.innerHTML='<div class="role-chip-wrap" id="chipWrap"><button class="role-chip" id="chipTrigger"><span id="chipValue">'+roleLabels[currentRole]+'</span><svg class="caret" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="options" role="listbox"><div class="option'+(currentRole==='lecturer'?' selected':'')+'" data-value="lecturer">Tôi là giảng viên<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="option'+(currentRole==='student'?' selected':'')+'" data-value="student">Tôi là sinh viên<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div></div>';
+    var chipWrap=document.getElementById('chipWrap');
+    var chipTrigger=document.getElementById('chipTrigger');
+    var chipValue=document.getElementById('chipValue');
+    chipTrigger.addEventListener('click',function(e){
+      e.stopPropagation();
+      chipTrigger.classList.toggle('open');
+      chipWrap.classList.toggle('open');
+    });
+    chipWrap.querySelectorAll('.option').forEach(function(opt){
+      opt.addEventListener('click',function(){
+        currentRole=opt.dataset.value;
+        chipValue.textContent=roleLabels[currentRole];
+        document.getElementById('loginTitle').textContent=titleLabels[currentRole];
+        roleValue.textContent=roleLabels[currentRole];
+        roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value===currentRole)});
+        chipWrap.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value===currentRole)});
+        chipWrap.classList.remove('open');
+        chipTrigger.classList.remove('open');
+        history.replaceState(null,'','#/login/'+currentRole);
+      });
+    });
+  }
+
+  function showScreen(name){
+    document.getElementById('screen-role').classList.toggle('active',name==='role');
+    document.getElementById('screen-login').classList.toggle('active',name==='login');
+    if(name==='role'){buildRoleScreenHeader();}
+  }
+
+  document.getElementById('logo').addEventListener('click',function(e){
+    e.preventDefault();showScreen('role');history.replaceState(null,'','#/');
+  });
+  document.getElementById('backToRole').addEventListener('click',function(){
+    showScreen('role');history.replaceState(null,'','#/');
+  });
+  headerRight.addEventListener('click',function(e){
+    var b=e.target.closest('[data-act]');
+    if(!b)return;
+    if(b.dataset.act==='home'){showScreen('role');history.replaceState(null,'','#/');}
+  });
+
+  document.getElementById('togglePass').addEventListener('click',function(){
+    var inp=document.getElementById('password');
+    var eye=document.getElementById('eyeIcon');
+    if(inp.type==='password'){
+      inp.type='text';
+      eye.innerHTML='<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>';
+    }else{
+      inp.type='password';
+      eye.innerHTML='<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>';
+    }
+  });
+
+  document.addEventListener('click',function(){
+    roleSelect.classList.remove('open');
+    roleTrigger.setAttribute('aria-expanded','false');
+    var cw=document.getElementById('chipWrap');
+    if(cw){cw.classList.remove('open');}
+  });
+
+  // Auto-jump to login screen when there is a login error or hash route,
+  // so flashed Spring messages are visible to the user.
+  var hasError = document.querySelector('.alert-error, .alert-success');
+  if(hasError || location.hash.indexOf('/login')>=0){
+    if(location.hash.indexOf('/login/student')>=0){
+      currentRole='student';
+      roleValue.textContent=roleLabels.student;
+      roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value==='student')});
+    }
+    document.getElementById('loginTitle').textContent=titleLabels[currentRole];
+    buildHeaderChip();
+    showScreen('login');
+  }
+})();
+</script>
+</body>
+</html>

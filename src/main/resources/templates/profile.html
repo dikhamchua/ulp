@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Hồ sơ', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('profile')}"></header>
+
+<main class="app-page">
+  <h1>Hồ sơ cá nhân</h1>
+
+  <div th:if="${profileUpdated}" class="alert alert-success">Cập nhật hồ sơ thành công.</div>
+  <div th:if="${avatarUpdated}" class="alert alert-success">Cập nhật ảnh đại diện thành công.</div>
+  <div th:if="${avatarError}" class="alert alert-error" th:text="${avatarError}">Lỗi upload</div>
+
+  <div class="card profile-card">
+    <!-- Avatar row -->
+    <div class="avatar-row">
+      <img th:if="${user.avatarUrl}" th:src="${user.avatarUrl}" alt="Avatar"
+           style="width:80px;height:80px;border-radius:50%;object-fit:cover;">
+      <div th:unless="${user.avatarUrl}" class="avatar avatar-lg">
+        <span th:text="${#strings.substring(user.fullName,0,1)}" style="text-transform:uppercase;">U</span>
+      </div>
+      <div class="info">
+        <h2 th:text="${user.fullName}">Full Name</h2>
+        <p th:text="${user.email}">email</p>
+        <p th:text="'Vai trò: ' + ${user.role}">Role</p>
+      </div>
+    </div>
+
+    <!-- Avatar upload form -->
+    <form th:action="@{/profile/avatar}" method="post" enctype="multipart/form-data"
+          style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--border-soft);">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <label class="field-label" style="margin-bottom:8px;">Đổi ảnh đại diện (JPEG/PNG/WebP, tối đa 2 MB)</label>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp"
+               style="font-size:13px;">
+        <button type="submit" class="btn-ghost" style="width:auto;">Tải lên</button>
+      </div>
+    </form>
+
+    <!-- Profile edit form -->
+    <form th:action="@{/profile}" method="post" th:object="${profileForm}">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <div class="field">
+        <label class="field-label" for="fullName">Họ và tên</label>
+        <div class="input-wrap">
+          <input id="fullName" name="fullName" type="text" th:field="*{fullName}"
+                 placeholder="Nguyễn Văn A" required>
+        </div>
+        <p th:if="${#fields.hasErrors('fullName')}" class="text-danger text-xs" style="margin-top:4px;">
+          Họ tên không được để trống (2-100 ký tự)
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="bio">Giới thiệu</label>
+        <div class="input-wrap">
+          <textarea id="bio" name="bio" th:field="*{bio}" rows="3"
+                    placeholder="Giới thiệu ngắn về bản thân (tối đa 500 ký tự)"></textarea>
+        </div>
+        <p class="text-xs text-muted" style="margin-top:2px;">
+          <span th:text="${#strings.length(profileForm.bio != null ? profileForm.bio : '')}">0</span>/500
+        </p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="phone">Số điện thoại</label>
+        <div class="input-wrap">
+          <input id="phone" name="phone" type="tel" th:field="*{phone}"
+                 placeholder="0912345678 hoặc +849****5678">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" type="submit" style="width:auto;padding:12px 24px;">Lưu thay đổi</button>
+    </form>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
