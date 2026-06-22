@@ -1,5 +1,6 @@
 package com.ulp.shared.config;
 
+import com.ulp.auth.Roles;
 import com.ulp.auth.service.CustomOidcUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -50,7 +51,7 @@ public class SecurityConfig {
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
-                        .requestMatchers("/lecturer/**").hasAnyRole("LECTURER", "HEAD", "ADMIN")
+                        .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form

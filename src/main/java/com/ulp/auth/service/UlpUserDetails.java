@@ -29,7 +29,7 @@ public class UlpUserDetails implements UserDetails {
         this.fullName = user.getFullName();
         this.active = user.isActive();
         this.locked = user.isLocked();
-        this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
     }
 
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */

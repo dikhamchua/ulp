@@ -26,7 +26,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
         this.delegate = delegate;
         this.fullName = user.getFullName();
         this.username = user.getEmail();
-        this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
     }
 
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */

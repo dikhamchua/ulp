@@ -89,8 +89,8 @@
            th:attr="data-class-id=${cls.id}">
         <div class="class-main">
           <div class="class-thumb"
-               th:style="'background:' + ${cls.gradient}"
-               th:text="${cls.thumbLabel}">SE</div>
+               th:style="'background:' + ${cls.gradientCss}"
+               th:text="${cls.thumbLabel()}">SE</div>
           <div class="class-info">
             <h4 th:text="${cls.name}">SE1865</h4>
             <div class="class-code">
