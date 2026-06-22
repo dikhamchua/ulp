@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${mode == 'edit' ? 'Sửa lớp' : 'Tạo lớp'}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<main class="class-page">
+  <div class="class-form-card">
+    <h1 th:text="${mode == 'edit' ? 'Chỉnh sửa lớp học' : 'Tạo lớp học mới'}">Tạo lớp học mới</h1>
+
+    <form th:action="@{${formAction}}" method="post" th:object="${form}" novalidate>
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+      <!-- Name -->
+      <div class="field-row">
+        <label for="name">Tên lớp <span class="required" aria-hidden="true">*</span></label>
+        <input id="name" type="text" th:field="*{name}"
+               th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''"
+               th:attr="aria-invalid=${#fields.hasErrors('name')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('name')} ? 'name-error' : ''"
+               placeholder="VD: Java cơ bản - Ca 1" maxlength="300" required aria-required="true">
+        <span id="name-error" class="field-error" role="alert" th:if="${#fields.hasErrors('name')}"
+              th:errors="*{name}">Lỗi tên</span>
+      </div>
+
+      <!-- Description -->
+      <div class="field-row">
+        <label for="description">Mô tả</label>
+        <textarea id="description" th:field="*{description}"
+                  th:classappend="${#fields.hasErrors('description')} ? 'is-invalid' : ''"
+                  th:attr="aria-invalid=${#fields.hasErrors('description')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('description')} ? 'description-error' : ''"
+                  placeholder="Mô tả ngắn về lớp học (tối đa 2000 ký tự)"></textarea>
+        <span id="description-error" class="field-error" role="alert" th:if="${#fields.hasErrors('description')}"
+              th:errors="*{description}">Lỗi mô tả</span>
+      </div>
+
+      <!-- Date range -->
+      <div class="field-grid">
+        <div class="field-row">
+          <label for="startDate">Ngày khai giảng</label>
+          <input id="startDate" type="date" th:field="*{startDate}"
+                 th:classappend="${#fields.hasErrors('startDate')} ? 'is-invalid' : ''"
+                 th:attr="aria-invalid=${#fields.hasErrors('startDate')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('startDate')} ? 'startDate-error' : ''">
+          <span id="startDate-error" class="field-error" role="alert" th:if="${#fields.hasErrors('startDate')}"
+                th:errors="*{startDate}">Lỗi ngày bắt đầu</span>
+        </div>
+        <div class="field-row">
+          <label for="endDate">Ngày kết thúc</label>
+          <input id="endDate" type="date" th:field="*{endDate}"
+                 th:classappend="${#fields.hasErrors('endDate')} ? 'is-invalid' : ''"
+                 th:attr="aria-invalid=${#fields.hasErrors('endDate')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('endDate')} ? 'endDate-error' : ''">
+          <span id="endDate-error" class="field-error" role="alert" th:if="${#fields.hasErrors('endDate')}"
+                th:errors="*{endDate}">Lỗi ngày kết thúc</span>
+        </div>
+      </div>
+
+      <!-- Max students -->
+      <div class="field-row">
+        <label for="maxStudents">Sĩ số tối đa</label>
+        <input id="maxStudents" type="number" th:field="*{maxStudents}"
+               th:classappend="${#fields.hasErrors('maxStudents')} ? 'is-invalid' : ''"
+               th:attr="aria-invalid=${#fields.hasErrors('maxStudents')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('maxStudents')} ? 'maxStudents-error' : ''"
+               min="1" max="1000" placeholder="100">
+        <span id="maxStudents-error" class="field-error" role="alert" th:if="${#fields.hasErrors('maxStudents')}"
+              th:errors="*{maxStudents}">Lỗi sĩ số</span>
+      </div>
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <a th:href="@{/lecturer/classes}" class="btn-ghost">Huỷ</a>
+        <button type="submit" class="btn-primary"
+                th:text="${mode == 'edit' ? 'Lưu thay đổi' : 'Tạo lớp'}">Tạo lớp</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

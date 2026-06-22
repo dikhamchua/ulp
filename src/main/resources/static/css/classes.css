@@ -1,11 +1,29 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ULP — Class Management page styles
-   Used by /classes (list/manage view).
+   Used by /lecturer/classes (list + form).
    Requires main.css + app-shell.css to be loaded first.
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Page layout (overrides .app-page max-width for wider table) ───── */
-.class-page { max-width: 1180px; margin: 0 auto; padding: 22px 28px 60px; background: var(--bg-soft); }
+/* ── Page layout — full width + chiều cao tràn viewport.
+   Dùng flex column để panel có thể grow chiếm hết phần còn lại sau khi
+   trừ header app-shell (~64px) và rank-toggle button. ── */
+.class-page {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  margin: 0;
+  padding: 22px 28px 28px;
+  background: var(--bg-soft);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Flash banners ─────────────────────────────────────────────────── */
+.flash {
+  padding: 12px 16px; border-radius: 9px; margin-bottom: 14px;
+  font-size: 13px; font-weight: 600;
+}
+.flash-success { background: var(--success-soft); color: #1B7E51; border: 1px solid #BFEBD6; }
+.flash-error { background: var(--danger-soft); color: #B71C1C; border: 1px solid #F5C2C0; }
 
 /* ── Rank toggle button (above the panel) ──────────────────────────── */
 .rank-toggle {
@@ -21,6 +39,19 @@
 .panel {
   background: var(--bg); border: 1px solid var(--border);
   border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden;
+  /* Grow to fill remaining vertical space in .class-page flex column */
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Class-list grows inside panel so empty state stays anchored to the
+   top while panel still extends to the bottom of the viewport. */
+.class-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 /* ── Tabs row + actions ────────────────────────────────────────────── */
@@ -93,12 +124,23 @@
   display: grid; grid-template-columns: 1fr 88px 88px 88px 88px 40px;
   align-items: center; gap: 8px; padding: 16px 20px;
   border-bottom: 1px solid var(--border-soft);
-  transition: .15s; cursor: pointer;
+  transition: background .15s;
 }
 .class-row:hover { background: var(--primary-soft); }
 .class-row:last-child { border-bottom: none; }
 
 .class-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
+/* Whole class-main row is a link to /edit — restore normal text colors,
+   show pointer + soft hover affordance so user knows it's clickable. */
+.class-main-link {
+  color: inherit; text-decoration: none;
+  cursor: pointer; border-radius: 8px;
+}
+.class-main-link:hover .class-info h4 { color: var(--primary); }
+.class-main-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 .class-thumb {
   width: 46px; height: 46px; border-radius: 11px; flex: none;
   display: grid; place-items: center; color: #fff;
@@ -137,13 +179,116 @@
 .quota .bar { height: 5px; border-radius: 3px; background: var(--border-soft); overflow: hidden; }
 .quota .bar i { display: block; height: 100%; width: 1%; background: var(--primary); border-radius: 3px; }
 
+/* ── Form (create/edit class) ──────────────────────────────────────── */
+.class-form-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: var(--shadow-sm);
+  padding: 28px 32px; max-width: 720px; margin: 0 auto;
+}
+.class-form-card h1 {
+  font-size: 22px; font-weight: 700; color: var(--heading);
+  margin-bottom: 22px;
+}
+.field-row { margin-bottom: 18px; }
+.field-row label {
+  display: block; font-weight: 600; font-size: 13px;
+  color: var(--fg); margin-bottom: 6px;
+}
+.field-row .required { color: var(--danger); margin-left: 2px; }
+.field-row input[type="text"],
+.field-row input[type="number"],
+.field-row input[type="date"],
+.field-row textarea {
+  width: 100%; padding: 10px 14px;
+  border-radius: 9px; border: 1px solid var(--border);
+  background: var(--bg-soft); font-size: 14px; color: var(--fg);
+  font-family: inherit; transition: .15s;
+}
+.field-row input:focus,
+.field-row textarea:focus {
+  outline: none; border-color: var(--primary); background: #fff;
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.field-row textarea { min-height: 110px; resize: vertical; }
+.field-row input.is-invalid,
+.field-row textarea.is-invalid {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+.field-error {
+  display: block; margin-top: 6px;
+  font-size: 12.5px; color: var(--danger);
+}
+.field-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+}
+.form-actions {
+  display: flex; gap: 12px; justify-content: flex-end;
+  margin-top: 26px; padding-top: 20px;
+  border-top: 1px solid var(--border-soft);
+}
+.btn-primary {
+  height: 42px; padding: 0 22px; border-radius: 9px;
+  background: var(--primary); color: #fff;
+  font-weight: 700; font-size: 13px; transition: .15s;
+}
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-ghost {
+  height: 42px; padding: 0 18px; border-radius: 9px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-weight: 600; font-size: 13px; color: var(--fg);
+  display: inline-flex; align-items: center; gap: 6px; transition: .15s;
+}
+.btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+.btn-danger {
+  height: 42px; padding: 0 22px; border-radius: 9px;
+  background: var(--danger); color: #fff;
+  font-weight: 700; font-size: 13px; transition: .15s;
+}
+.btn-danger:hover { background: #B71C1C; }
+
+/* ── Confirm modal (window.UlpModal.confirm) ───────────────────────── */
+.ulp-modal {
+  border: none; padding: 0; border-radius: 14px;
+  box-shadow: var(--shadow);
+  max-width: 420px; width: 90%;
+  background: var(--bg);
+}
+.ulp-modal::backdrop { background: rgba(32, 34, 39, .42); }
+.ulp-modal-form { padding: 24px 26px; }
+.ulp-modal-title {
+  font-size: 17px; font-weight: 700;
+  color: var(--heading); margin-bottom: 10px;
+}
+.ulp-modal-body {
+  font-size: 14px; color: var(--muted);
+  line-height: 1.55; margin-bottom: 22px;
+}
+.ulp-modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   .class-page { padding: 16px; }
   .list-head, .class-row { grid-template-columns: 1fr 56px 40px; }
   .list-head .col:nth-child(3),
   .list-head .col:nth-child(4),
+  .list-head .col:nth-child(5),
   .class-row .stat:nth-child(3),
-  .class-row .stat:nth-child(4) { display: none; }
+  .class-row .stat:nth-child(4),
+  .class-row .stat:nth-child(5) { display: none; }
   .quota { display: none; }
+  .field-grid { grid-template-columns: 1fr; }
+  .class-form-card { padding: 20px; }
+}
+
+/* ── Accessibility helpers ─────────────────────────────────────────── */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+.menu-item:disabled, .menu-item[disabled] {
+  opacity: 0.45; cursor: not-allowed;
 }

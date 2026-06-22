@@ -1,52 +1,248 @@
 package com.ulp.classes.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ulp.auth.Role;
+import com.ulp.auth.entity.User;
+import com.ulp.auth.repository.UserRepository;
 import com.ulp.classes.ClassGradient;
+import com.ulp.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.classes.dto.ClassesDtos.ClassRow;
+import com.ulp.classes.entity.ClassActivity;
+import com.ulp.classes.entity.ClassEntity;
+import com.ulp.classes.repository.ClassActivityRepository;
+import com.ulp.classes.repository.ClassRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
+import java.security.Principal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 /**
- * Doc danh sach lop hoc cho giang vien.
+ * Service nghiep vu CRUD lop hoc cho man hinh giang vien.
  *
- * <p>Sprint hien tai dung mock data inline. Sprint sau thay
- * {@link #findAllForLecturer()} bang truy van DB qua ClassRepository.
+ * <p>Quy tac phan quyen (enforce o day, KHONG dua o controller):
+ * <ul>
+ *   <li>LECTURER chi thay/sua/xoa lop cua minh ({@code lecturer_id == user.id}).</li>
+ *   <li>HEAD va ADMIN thay het, sua/xoa moi lop.</li>
+ *   <li>Vi pham phan quyen nem {@link AccessDeniedException} → 403.</li>
+ *   <li>Lop khong ton tai / da soft-delete nem {@link EntityNotFoundException} → 404.</li>
+ * </ul>
+ *
+ * <p>Moi mutation (create/update/softDelete) deu ghi 1 row vao
+ * {@link ClassActivity}. Vi service method la {@code @Transactional},
+ * neu insert activity fail thi class mutation cung rollback.
  */
 @Service
 public class ClassesService {
 
-    /**
-     * Tra ve danh sach lop cua giang vien hien tai. Mock data — sprint sau
-     * thay bang query JPA loc theo user dang dang nhap.
-     */
-    public List<ClassRow> findAllForLecturer() {
-        List<RawClass> raw = List.of(
-                new RawClass(1L, "SE1865",           "NILXM",  1,  0,  5,  1),
-                new RawClass(2L, "SE1729",           "KQ8WP", 38, 12,  9,  6),
-                new RawClass(3L, "Toán 10A2",        "MZ3RT", 42,  8, 15,  4),
-                new RawClass(4L, "Lý 11 Nâng cao",   "XB9LK", 35, 21, 18, 11),
-                new RawClass(5L, "Ôn thi THPT 2026", "PVC4N", 57, 30, 24,  9)
-        );
+    private static final Logger log = LoggerFactory.getLogger(ClassesService.class);
+    private static final int MAX_CODE_GEN_ATTEMPTS = 3;
 
-        return IntStream.range(0, raw.size())
-                .mapToObj(i -> toRow(raw.get(i), i))
+    private final ClassRepository classRepository;
+    private final ClassActivityRepository activityRepository;
+    private final ClassCodeGenerator codeGenerator;
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
+
+    public ClassesService(ClassRepository classRepository,
+                          ClassActivityRepository activityRepository,
+                          ClassCodeGenerator codeGenerator,
+                          UserRepository userRepository,
+                          ObjectMapper objectMapper) {
+        this.classRepository = classRepository;
+        this.activityRepository = activityRepository;
+        this.codeGenerator = codeGenerator;
+        this.userRepository = userRepository;
+        this.objectMapper = objectMapper;
+    }
+
+    // ───────────────────── Public CRUD API ──────────────────────────
+
+    /**
+     * Tra ve danh sach lop nguoi dung duoc thay.
+     * LECTURER → chi lop cua minh.
+     * HEAD/ADMIN → tat ca lop chua soft-delete.
+     */
+    @Transactional(readOnly = true)
+    public List<ClassRow> listForUser(Principal principal) {
+        User user = currentUser(principal);
+        List<ClassEntity> rows = user.getRole() == Role.LECTURER
+                ? classRepository.findAllByLecturerIdOrderByCreatedAtDesc(user.getId())
+                : classRepository.findAllByOrderByCreatedAtDesc();
+        return IntStream.range(0, rows.size())
+                .mapToObj(i -> toRow(rows.get(i), i))
                 .toList();
     }
 
-    private static ClassRow toRow(RawClass r, int index) {
+    /** Load lop de edit, da kiem tra quyen. */
+    @Transactional(readOnly = true)
+    public ClassEntity getEditable(Long id, Principal principal) {
+        User user = currentUser(principal);
+        return loadEditable(id, user);
+    }
+
+    /**
+     * Load lop de XEM CHI TIET (members, board, ...). Cung kiem tra
+     * quyen nhu {@link #getEditable}: LECTURER chi xem duoc lop minh,
+     * HEAD/ADMIN xem het. Tach ra de Sprint sau co the noi long quy
+     * tac (vd. ai cung xem duoc bang tin) ma khong dung den edit path.
+     */
+    @Transactional(readOnly = true)
+    public ClassEntity getViewable(Long id, Principal principal) {
+        User user = currentUser(principal);
+        return loadEditable(id, user);
+    }
+
+    /**
+     * Tao lop moi. Sinh code, retry toi da 3 lan khi collision tren
+     * {@code uk_classes_code}; nem ngay neu unique-violation tren cot khac.
+     */
+    @Transactional
+    public ClassEntity create(ClassForm form, Principal principal) {
+        User user = currentUser(principal);
+
+        DataIntegrityViolationException lastCollision = null;
+        for (int attempt = 1; attempt <= MAX_CODE_GEN_ATTEMPTS; attempt++) {
+            ClassEntity entity = new ClassEntity(
+                    form.name(), user.getId(), user.getId(),
+                    form.description(), form.startDate(), form.endDate(),
+                    form.maxStudents());
+            entity.setCode(codeGenerator.generate());
+            try {
+                ClassEntity saved = classRepository.saveAndFlush(entity);
+                activityRepository.save(new ClassActivity(
+                        saved.getId(),
+                        ClassActivity.TYPE_CREATED,
+                        "Tạo lớp " + saved.getName(),
+                        null,
+                        user.getId()
+                ));
+                return saved;
+            } catch (DataIntegrityViolationException ex) {
+                if (!isCodeCollision(ex)) {
+                    throw ex;
+                }
+                lastCollision = ex;
+                log.warn("Class code collision on attempt {} — retrying", attempt);
+            }
+        }
+        throw new ClassCodeGenerationException(
+                "Không sinh được mã lớp sau " + MAX_CODE_GEN_ATTEMPTS + " lần thử",
+                lastCollision);
+    }
+
+    /** Cap nhat lop. Phan quyen enforced. Ghi activity UPDATED voi diff. */
+    @Transactional
+    public ClassEntity update(Long id, ClassForm form, Principal principal) {
+        User user = currentUser(principal);
+        ClassEntity entity = loadEditable(id, user);
+
+        Map<String, Object> oldState = snapshot(entity);
+        entity.updateDetails(form.name(), form.description(),
+                form.startDate(), form.endDate(), form.maxStudents());
+        ClassEntity saved = classRepository.save(entity);
+
+        Map<String, Object> newState = snapshot(saved);
+        Map<String, Object> diff = new LinkedHashMap<>();
+        diff.put("old", oldState);
+        diff.put("new", newState);
+
+        activityRepository.save(new ClassActivity(
+                saved.getId(),
+                ClassActivity.TYPE_UPDATED,
+                "Cập nhật lớp " + saved.getName(),
+                serialize(diff),
+                user.getId()
+        ));
+        return saved;
+    }
+
+    /** Soft-delete lop. Phan quyen enforced. Ghi activity DELETED. */
+    @Transactional
+    public void softDelete(Long id, Principal principal) {
+        User user = currentUser(principal);
+        ClassEntity entity = loadEditable(id, user);
+
+        entity.softDelete();
+        classRepository.save(entity);
+        activityRepository.save(new ClassActivity(
+                entity.getId(),
+                ClassActivity.TYPE_DELETED,
+                "Xoá lớp " + entity.getName(),
+                null,
+                user.getId()
+        ));
+    }
+
+    // ──────────────────────── Internal ──────────────────────────────
+
+    /** Load + authz, dung trong noi bo (khi user da resolve). DRY voi {@link #getEditable}. */
+    private ClassEntity loadEditable(Long id, User user) {
+        ClassEntity entity = classRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
+        requireEditableBy(entity, user);
+        return entity;
+    }
+
+    private User currentUser(Principal principal) {
+        return userRepository.findByEmail(principal.getName())
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found in DB"));
+    }
+
+    private void requireEditableBy(ClassEntity entity, User user) {
+        if (user.getRole() == Role.LECTURER && !entity.getLecturerId().equals(user.getId())) {
+            throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
+        }
+    }
+
+    private boolean isCodeCollision(DataIntegrityViolationException ex) {
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String msg = cause.getMessage();
+        return msg != null && msg.contains("uk_classes_code");
+    }
+
+    private ClassRow toRow(ClassEntity e, int index) {
+        // TODO Sprint 3/5: wire real counts from enrollments/lessons/assignments/lesson_attachments
+        int studentCount = 0;
+        int lectureCount = 0;
+        int assignmentCount = 0;
+        int materialCount = 0;
+        String createdAtIso = e.getCreatedAt() != null ? e.getCreatedAt().toString() : "";
         return new ClassRow(
-                r.id(), r.name(), r.code(),
+                e.getId(),
+                e.getName(),
+                e.getCode(),
                 ClassGradient.forIndex(index).css(),
-                r.studentCount(), r.lectureCount(),
-                r.assignmentCount(), r.materialCount()
+                studentCount, lectureCount, assignmentCount, materialCount,
+                createdAtIso
         );
     }
 
-    /** Mock seed shape; xoa khi co entity Class. */
-    private record RawClass(
-            Long id, String name, String code,
-            int studentCount, int lectureCount,
-            int assignmentCount, int materialCount
-    ) {}
+    private Map<String, Object> snapshot(ClassEntity e) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("name", e.getName());
+        m.put("description", e.getDescription());
+        m.put("startDate", e.getStartDate() != null ? e.getStartDate().toString() : null);
+        m.put("endDate", e.getEndDate() != null ? e.getEndDate().toString() : null);
+        m.put("maxStudents", e.getMaxStudents());
+        return m;
+    }
+
+    private String serialize(Map<String, Object> payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            log.warn("Failed to serialize activity metadata", ex);
+            return null;
+        }
+    }
 }
