@@ -1,0 +1,132 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Admin pages styles (dashboard, placeholder tabs)
+   Used by /admin/*. Reuses sidebar pattern from class-detail.css.
+   Requires main.css + app-shell.css + class-detail.css to be loaded first.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Re-use class-detail-layout for 2-col grid; admin pages add own panels ── */
+
+/* Stat cards row */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.stat-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  padding: 18px 18px 16px;
+  display: flex; align-items: flex-start; gap: 14px;
+  transition: transform .15s, box-shadow .15s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.stat-icon {
+  width: 46px; height: 46px; border-radius: 12px; flex: none;
+  display: grid; place-items: center;
+  color: #fff;
+}
+.stat-icon.users      { background: linear-gradient(135deg, #42A5F5, #1E88E5); }
+.stat-icon.classes    { background: linear-gradient(135deg, #26A69A, #00897B); }
+.stat-icon.departments { background: linear-gradient(135deg, #7E57C2, #5E35B1); }
+.stat-icon.courses    { background: linear-gradient(135deg, #FFA726, #FB8C00); }
+.stat-meta { min-width: 0; }
+.stat-meta h6 {
+  font-size: 12.5px; font-weight: 600;
+  color: var(--muted); margin-bottom: 4px;
+}
+.stat-meta .num {
+  font-weight: 800; font-size: 24px;
+  letter-spacing: -.5px; color: var(--heading);
+  line-height: 1.1;
+}
+
+/* 2-col split: chart + recent activity */
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px;
+}
+.admin-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.admin-panel-head {
+  padding: 16px 18px 10px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.admin-panel-head h3 {
+  font-size: 15px; font-weight: 700;
+  color: var(--heading);
+}
+.admin-panel-head .sub {
+  font-size: 12.5px; color: var(--muted);
+}
+
+/* Chart canvas wrap */
+.chart-wrap {
+  padding: 8px 18px 18px;
+  display: flex; align-items: center; gap: 18px;
+}
+.chart-canvas-box { flex: none; width: 180px; height: 180px; position: relative; }
+.chart-legend { flex: 1; min-width: 0; }
+.legend-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 0;
+}
+.legend-item + .legend-item { border-top: 1px dashed var(--border-soft); }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.legend-label { flex: 1; font-size: 13px; color: var(--fg); font-weight: 600; }
+.legend-count {
+  font-weight: 800; font-size: 14px; color: var(--heading);
+  letter-spacing: -.3px;
+}
+
+/* Recent classes table */
+.recent-table { width: 100%; border-collapse: collapse; }
+.recent-table th,
+.recent-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px; vertical-align: middle;
+}
+.recent-table th {
+  text-align: left; font-weight: 700; font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: .4px;
+  color: var(--muted); background: var(--bg-soft);
+  border-top: 1px solid var(--border-soft);
+}
+.recent-table td { color: var(--fg); }
+.recent-table tbody tr:last-child td { border-bottom: none; }
+.recent-table tbody tr:hover { background: var(--primary-soft); }
+.recent-table .col-code b { color: var(--primary); font-weight: 700; letter-spacing: .3px; }
+.recent-table .status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 11.5px; font-weight: 700;
+  background: var(--bg-soft); color: var(--muted);
+  border: 1px solid var(--border-soft);
+}
+.recent-table .status-pill.upcoming  { background: #FFF4E5; color: #D97706; border-color: #FCD9A1; }
+.recent-table .status-pill.active    { background: var(--success-soft); color: #1B7E51; border-color: #BFEBD6; }
+.recent-table .status-pill.completed { background: var(--primary-soft); color: var(--primary-dark); border-color: #BFDEFC; }
+.recent-table .status-pill.cancelled { background: var(--danger-soft); color: #B71C1C; border-color: #F5C2C0; }
+
+.recent-empty { padding: 60px 20px; text-align: center; color: var(--muted); }
+
+/* Responsive */
+@media (max-width: 1080px) {
+  .admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .admin-stats { grid-template-columns: 1fr; }
+  .chart-wrap { flex-direction: column; align-items: stretch; }
+  .chart-canvas-box { width: 100%; max-width: 240px; margin: 0 auto; }
+}

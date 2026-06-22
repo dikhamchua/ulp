@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Fragment: adminSidebar(activeTab)
+    activeTab : 'dashboard' | 'users' | 'departments' | 'classes' | 'settings'
+
+  Render mot card sidebar 280px (cot trai layout admin).
+  Reuse cau truc visual cua class-detail sidebar de UI nhat quan.
+
+  Yeu cau: main.css + app-shell.css + admin.css da load truoc.
+-->
+<aside th:fragment="adminSidebar(activeTab)" class="col">
+  <div class="side">
+    <div class="class-head">
+      <div class="class-name">Quản trị</div>
+      <div class="class-ma">Bảng điều khiển hệ thống</div>
+    </div>
+
+    <div class="side-sep"></div>
+    <p class="menu-title">Quản trị</p>
+
+    <ul class="side-nav">
+      <li>
+        <a th:href="@{/admin/dashboard}"
+           th:classappend="${activeTab == 'dashboard'} ? 'active' : ''">
+          <svg class="ico ico-sm" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="9" rx="1"/>
+            <rect x="14" y="3" width="7" height="5" rx="1"/>
+            <rect x="14" y="12" width="7" height="9" rx="1"/>
+            <rect x="3" y="16" width="7" height="5" rx="1"/>
+          </svg>Dashboard
+        </a>
+      </li>
+      <li>
+        <a th:href="@{/admin/users}"
+           th:classappend="${activeTab == 'users'} ? 'active' : ''">
+          <svg class="ico ico-sm" viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>Tài khoản
+        </a>
+      </li>
+      <li>
+        <a th:href="@{/admin/departments}"
+           th:classappend="${activeTab == 'departments'} ? 'active' : ''">
+          <svg class="ico ico-sm" viewBox="0 0 24 24">
+            <path d="M3 21h18"/><path d="M5 21V7l8-4v18"/>
+            <path d="M19 21V11l-6-4"/>
+            <line x1="9" y1="9" x2="9" y2="9.01"/>
+            <line x1="9" y1="12" x2="9" y2="12.01"/>
+            <line x1="9" y1="15" x2="9" y2="15.01"/>
+            <line x1="9" y1="18" x2="9" y2="18.01"/>
+          </svg>Bộ môn
+        </a>
+      </li>
+      <li>
+        <a th:href="@{/admin/classes}"
+           th:classappend="${activeTab == 'classes'} ? 'active' : ''">
+          <svg class="ico ico-sm" viewBox="0 0 24 24">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+          </svg>Lớp học
+        </a>
+      </li>
+    </ul>
+
+    <div class="side-foot">
+      <a th:href="@{/admin/settings}"
+         class="settings-btn"
+         th:classappend="${activeTab == 'settings'} ? 'active' : ''">
+        <svg class="ico ico-sm" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Cài đặt hệ thống
+      </a>
+    </div>
+  </div>
+</aside>
+</html>

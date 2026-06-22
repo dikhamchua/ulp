@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin Dashboard', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <!-- Chart.js (CDN) cho donut chart users-by-role -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('dashboard')}"></aside>
+
+  <main class="col">
+    <h1 class="detail-title">Bảng điều khiển hệ thống</h1>
+
+    <!-- ===== 4 stat card ===== -->
+    <div class="admin-stats">
+      <div class="stat-card">
+        <div class="stat-icon users">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="stat-meta">
+          <h6>Tài khoản hoạt động</h6>
+          <div class="num" th:text="${stats.userCount}">0</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon classes">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        </div>
+        <div class="stat-meta">
+          <h6>Lớp học</h6>
+          <div class="num" th:text="${stats.classCount}">0</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon departments">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+        </div>
+        <div class="stat-meta">
+          <h6>Bộ môn</h6>
+          <div class="num" th:text="${stats.departmentCount}">0</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon courses">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <div class="stat-meta">
+          <h6>Khoá học</h6>
+          <div class="num" th:text="${stats.courseCount}">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Chart + Recent table ===== -->
+    <div class="admin-grid">
+      <!-- Chart panel -->
+      <section class="admin-panel">
+        <div class="admin-panel-head">
+          <h3>Phân bố vai trò</h3>
+          <span class="sub">Người dùng đang hoạt động</span>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-canvas-box">
+            <canvas id="roleChart"
+                    th:attr="data-labels=${#strings.listJoin(rolesBreakdown.![displayRole()],'|')},
+                             data-values=${#strings.listJoin(rolesBreakdown.![count],',')},
+                             data-colors=${#strings.listJoin(rolesBreakdown.![color()],'|')}"></canvas>
+          </div>
+          <div class="chart-legend">
+            <div th:if="${rolesBreakdown.isEmpty()}" class="recent-empty" style="padding:20px 0;">
+              Chưa có dữ liệu vai trò
+            </div>
+            <div th:each="r : ${rolesBreakdown}" class="legend-item">
+              <span class="legend-dot" th:style="'background:' + ${r.color()}"></span>
+              <span class="legend-label" th:text="${r.displayRole()}">Vai trò</span>
+              <span class="legend-count" th:text="${r.count}">0</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recent classes panel -->
+      <section class="admin-panel">
+        <div class="admin-panel-head">
+          <h3>Lớp học mới tạo</h3>
+          <span class="sub">5 lớp gần nhất</span>
+        </div>
+        <table class="recent-table" th:if="${not recentClasses.isEmpty()}">
+          <thead>
+            <tr>
+              <th>Tên lớp</th>
+              <th class="col-code">Mã</th>
+              <th>Giảng viên</th>
+              <th>Trạng thái</th>
+              <th>Tạo lúc</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="r : ${recentClasses}">
+              <td th:text="${r.name}">Lớp</td>
+              <td class="col-code"><b th:text="${r.code}">CODE</b></td>
+              <td th:text="${r.lecturerName != null ? r.lecturerName : '—'}">GV</td>
+              <td>
+                <span class="status-pill"
+                      th:classappend="${#strings.toLowerCase(r.status)}"
+                      th:text="${r.displayStatus()}">Trạng thái</span>
+              </td>
+              <td th:text="${r.displayCreatedAt()}">—</td>
+            </tr>
+          </tbody>
+        </table>
+        <div th:if="${recentClasses.isEmpty()}" class="recent-empty">
+          Chưa có lớp học nào được tạo.
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>
