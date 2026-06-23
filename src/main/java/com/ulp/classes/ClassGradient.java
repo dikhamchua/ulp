@@ -1,9 +1,11 @@
 package com.ulp.classes;
 
 /**
- * Mau gradient cho thumbnail lop hoc. 5 mau co dinh duoc rotate
- * theo {@link #forIndex(int)} de mot danh sach lop co mau phan biet
- * ma khong phai random hoa moi lan render.
+ * Gradient presets for class thumbnail backgrounds.
+ *
+ * <p>Five fixed colours are cycled via {@link #forIndex(int)} so that a list
+ * of classes renders with visually distinct thumbnails without randomising the
+ * colour on every render.
  */
 public enum ClassGradient {
 
@@ -23,7 +25,13 @@ public enum ClassGradient {
         return css;
     }
 
-    /** Tra ve gradient theo chi muc 0-based, vong lai khi vuot length. */
+    /**
+     * Returns the gradient constant for a 0-based index, wrapping around when
+     * the index exceeds the number of available constants.
+     *
+     * @param index 0-based position (any integer; negative values are handled correctly)
+     * @return the corresponding {@link ClassGradient}, never {@code null}
+     */
     public static ClassGradient forIndex(int index) {
         ClassGradient[] all = values();
         int i = Math.floorMod(index, all.length);

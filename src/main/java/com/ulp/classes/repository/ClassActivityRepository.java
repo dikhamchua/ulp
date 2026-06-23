@@ -4,8 +4,11 @@ import com.ulp.classes.entity.ClassActivity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
- * Repository cho {@link ClassActivity}. Sprint 2 chi can luu — sprint
- * sau co the them query theo classId / type cho dashboard.
+ * Repository for {@link ClassActivity} entities.
+ *
+ * <p>Sprint 2 requires only basic persistence. Future sprints may add
+ * query methods filtered by {@code classId} or activity {@code type}
+ * to support the dashboard and reporting features.
  */
 public interface ClassActivityRepository extends JpaRepository<ClassActivity, Long> {
 }

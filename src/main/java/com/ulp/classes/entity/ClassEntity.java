@@ -16,11 +16,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Entity map bang {@code classes}. Sprint 2 chua co Course phu thuoc:
- * V7 da drop FK course_id va them cot code (5 ky tu unique).
+ * JPA entity mapping the {@code classes} table.
  *
- * <p>{@link SQLRestriction} dam bao moi truy van mac dinh chi lay ban ghi
- * chua bi soft-delete ({@code is_deleted = 0}).
+ * <p>As of Sprint 2 there is no Course dependency: migration V7 dropped the
+ * {@code course_id} foreign key and added the {@code code} column
+ * (5-character unique identifier).
+ *
+ * <p>{@link SQLRestriction} ensures that every default query filters out
+ * soft-deleted records ({@code is_deleted = 0}).
  */
 @Entity
 @Table(name = "classes")
@@ -70,7 +73,19 @@ public class ClassEntity {
     @Column(name = "is_deleted")
     private boolean deleted = false;
 
-    /** Constructor cho luong create. Status mac dinh UPCOMING. */
+    /**
+     * Creates a new class for the create flow.
+     * The status is set to {@code UPCOMING} by default.
+     * If {@code maxStudents} is {@code null}, it defaults to {@code 100}.
+     *
+     * @param name        display name of the class
+     * @param lecturerId  ID of the assigned lecturer
+     * @param createdBy   ID of the user who created this class
+     * @param description optional text description
+     * @param startDate   scheduled start date
+     * @param endDate     scheduled end date
+     * @param maxStudents maximum number of enrolled students; {@code null} defaults to 100
+     */
     public ClassEntity(String name, Long lecturerId, Long createdBy,
                        String description, LocalDate startDate, LocalDate endDate,
                        Integer maxStudents) {
@@ -86,7 +101,17 @@ public class ClassEntity {
 
     // ── Business helpers ───────────────────────────────────────────
 
-    /** Cap nhat cac truong giang vien co the chinh sua tu form. */
+    /**
+     * Updates the editable fields that a lecturer may change via the edit form.
+     * {@code maxStudents} is only applied when non-null, preserving the current
+     * value if the caller omits it.
+     *
+     * @param name        new display name
+     * @param description new description text
+     * @param startDate   new start date
+     * @param endDate     new end date
+     * @param maxStudents new student cap, or {@code null} to leave unchanged
+     */
     public void updateDetails(String name, String description,
                               LocalDate startDate, LocalDate endDate,
                               Integer maxStudents) {
@@ -99,7 +124,11 @@ public class ClassEntity {
         }
     }
 
-    /** Danh dau soft-delete. {@code @SQLRestriction} se loc ra khoi moi truy van sau. */
+    /**
+     * Marks this class as soft-deleted.
+     * After this call the {@link SQLRestriction} on the entity will exclude
+     * this record from all default queries.
+     */
     public void softDelete() {
         this.deleted = true;
     }

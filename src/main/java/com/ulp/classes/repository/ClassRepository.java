@@ -7,8 +7,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repository cho {@link ClassEntity}. Nho {@code @SQLRestriction("is_deleted = 0")}
- * tren entity, moi truy van mac dinh da loai bo ban ghi soft-delete.
+ * Spring Data JPA repository for {@link ClassEntity}.
+ *
+ * <p>Because the entity is annotated with {@code @SQLRestriction("is_deleted = 0")},
+ * every query issued through this repository automatically excludes soft-deleted
+ * records without any additional filter in the calling code.
  */
 public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
 

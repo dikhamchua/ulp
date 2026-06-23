@@ -16,11 +16,16 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Entity map bang {@code enrollments}. Lien ket nhieu-nhieu giua {@link User}
- * (sinh vien) va {@link ClassEntity} (lop hoc).
+ * JPA entity mapped to the {@code enrollments} table.
  *
- * <p>Sprint 2 chi can READ — render danh sach thanh vien trong lop. Cac thao
- * tac CREATE/REMOVE (Sprint 2.1) se de cho change rieng.
+ * <p>Represents the many-to-many association between a {@link User} (student)
+ * and a class (identified by {@code classId}). Each row records when a student
+ * joined a class, how they joined, and the current lifecycle status of that
+ * enrollment.
+ *
+ * <p>Sprint 2 requires READ access only — used to render the member list inside
+ * a class view. CREATE/REMOVE operations (Sprint 2.1) will be handled in a
+ * separate change.
  */
 @Entity
 @Table(name = "enrollments")

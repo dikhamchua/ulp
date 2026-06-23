@@ -1,12 +1,12 @@
 package com.ulp.classes.service;
 
 /**
- * Nem khi {@link ClassesService} retry sinh ma lop {@code N} lan
- * nhung van dung phai collision tren {@code uk_classes_code}.
+ * Thrown when {@link ClassesService} exhausts all retry attempts to generate
+ * a unique class code without resolving a collision on {@code uk_classes_code}.
  *
- * <p>Trong thuc te gan nhu khong xay ra (32^5 = 33.5M combo + timestamp
- * suffix); nhung neu xay ra, exception nay duoc {@code GlobalExceptionHandler}
- * map ve 500 va user nhan thong bao than thien.
+ * <p>In practice this should almost never occur (32^5 = ~33.5 million combinations
+ * plus a timestamp suffix), but if it does, {@code GlobalExceptionHandler} maps
+ * this exception to HTTP 500 and returns a user-friendly error message.
  */
 public class ClassCodeGenerationException extends RuntimeException {
 

@@ -13,14 +13,16 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Entity map bang {@code activity_classes}. Audit log cho moi mutation
- * tren {@link ClassEntity}: CREATED, UPDATED, DELETED, ...
+ * JPA entity mapped to the {@code activity_classes} table.
+ * Represents an immutable audit-log entry for every mutation performed on a
+ * {@link ClassEntity}: CREATED, UPDATED, STARTED, COMPLETED, CANCELLED, DELETED, etc.
  *
- * <p><b>Quan trong:</b> {@code classId} la plain {@code Long}, KHONG dung
- * {@code @ManyToOne} toi {@link ClassEntity}. Ly do: {@code ClassEntity}
- * co {@code @SQLRestriction("is_deleted = 0")} nen mot lop bi soft-delete
- * van can co audit row, ma JPA join se loc ban ghi nay ra. Bao toan
- * audit log tach roi vong doi lop.
+ * <p><b>Important:</b> {@code classId} is stored as a plain {@code Long} rather
+ * than a {@code @ManyToOne} association to {@link ClassEntity}. This is intentional:
+ * {@code ClassEntity} carries an {@code @SQLRestriction("is_deleted = 0")} filter,
+ * which means a JPA join would silently exclude audit rows whose target class has
+ * been soft-deleted. Keeping the foreign key as a bare {@code Long} ensures the
+ * audit log remains intact and independent of the class lifecycle.
  */
 @Entity
 @Table(name = "activity_classes")

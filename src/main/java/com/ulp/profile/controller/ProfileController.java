@@ -19,7 +19,8 @@ import java.io.IOException;
 import java.security.Principal;
 
 /**
- * Controller cho xem va cap nhat hồ sơ cá nhân (full name, bio, phone, avatar).
+ * Controller for viewing and updating the current user's personal profile,
+ * including full name, bio, phone number, and avatar.
  */
 @Controller
 public class ProfileController {
@@ -32,6 +33,16 @@ public class ProfileController {
         this.avatarService = avatarService;
     }
 
+    /**
+     * Displays the profile page for the currently authenticated user.
+     *
+     * <p>Populates the model with the {@link User} entity and a pre-filled
+     * {@code profileForm} backed by the user's existing data.</p>
+     *
+     * @param principal the currently authenticated principal
+     * @param model     the Spring MVC model
+     * @return logical view name {@code "profile"}
+     */
     @GetMapping("/profile")
     public String view(Principal principal, Model model) {
         User user = profileService.getCurrentUser(principal);
@@ -43,6 +54,21 @@ public class ProfileController {
         return "profile";
     }
 
+    /**
+     * Handles submission of the profile update form.
+     *
+     * <p>Validates the submitted {@code profileForm}. If validation fails, the
+     * profile view is re-rendered with error messages. On success, the user's
+     * full name, bio, and phone are persisted and the client is redirected back
+     * to the profile page with a {@code profileUpdated} flash attribute.</p>
+     *
+     * @param form      the validated profile update request
+     * @param result    the binding/validation result
+     * @param principal the currently authenticated principal
+     * @param model     the Spring MVC model (used on validation failure)
+     * @param ra        redirect attributes for flash messages
+     * @return {@code "profile"} view on error, or a redirect to {@code /profile} on success
+     */
     @PostMapping("/profile")
     public String update(@Valid @ModelAttribute("profileForm") ProfileDtos.ProfileUpdateRequest form,
                           BindingResult result, Principal principal, Model model,
@@ -57,6 +83,19 @@ public class ProfileController {
         return "redirect:/profile";
     }
 
+    /**
+     * Handles avatar upload for the currently authenticated user.
+     *
+     * <p>Delegates storage to {@link AvatarStorageService} and persists the
+     * returned URL via {@link com.ulp.profile.service.ProfileService}. On
+     * success, an {@code avatarUpdated} flash attribute is set. On failure, an
+     * {@code avatarError} flash attribute is set with a human-readable message.</p>
+     *
+     * @param file      the uploaded avatar image (multipart)
+     * @param principal the currently authenticated principal
+     * @param ra        redirect attributes for flash messages
+     * @return a redirect to {@code /profile}
+     */
     @PostMapping("/profile/avatar")
     public String uploadAvatar(@RequestParam("avatar") MultipartFile file,
                                 Principal principal, RedirectAttributes ra) {
@@ -68,7 +107,7 @@ public class ProfileController {
         } catch (IllegalArgumentException e) {
             ra.addFlashAttribute("avatarError", e.getMessage());
         } catch (IOException e) {
-            ra.addFlashAttribute("avatarError", "Không thể lưu file, vui lòng thử lại");
+            ra.addFlashAttribute("avatarError", "Could not save file, please try again");
         }
         return "redirect:/profile";
     }

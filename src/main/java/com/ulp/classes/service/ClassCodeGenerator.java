@@ -5,19 +5,20 @@ import org.springframework.stereotype.Component;
 import java.security.SecureRandom;
 
 /**
- * Sinh ma lop hoc 5 ky tu (Lecturer-facing). Format:
+ * Generates a 5-character class code for use by lecturers. Format:
  * <pre>
  *   [random]^4 + timestamp-derived[1]
- *   tu alphabet "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" (32 chars)
+ *   drawn from alphabet "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" (32 chars)
  * </pre>
  *
- * <p>Alphabet bo {@code I/O/0/1} de tranh nham lan khi doc/danh.
- * Vi tri thu 5 dung {@link Math#floorMod} de bao dam khong am du
- * {@code currentTimeMillis()} co the tra ve gia tri am o ranh gioi
- * (khong xay ra trong thuc te nhung an toan hon).
+ * <p>The alphabet deliberately omits {@code I}, {@code O}, {@code 0}, and {@code 1}
+ * to prevent visual ambiguity when reading or typing codes manually.
+ * The 5th character is derived via {@link Math#floorMod} to guarantee a non-negative
+ * index even if {@code currentTimeMillis()} wraps at a boundary
+ * (does not occur in practice, but is safer).
  *
- * <p>Logic xu ly collision nam o {@code ClassesService} — nho retry
- * len toi 3 lan voi cau truy van INSERT.
+ * <p>Collision handling lives in {@code ClassesService} — it retries
+ * up to 3 times with the INSERT query.
  */
 @Component
 public class ClassCodeGenerator {
@@ -28,7 +29,7 @@ public class ClassCodeGenerator {
 
     private final SecureRandom random = new SecureRandom();
 
-    /** Sinh mot ma lop ngau nhien moi. */
+    /** Generates a new random class code. */
     public String generate() {
         StringBuilder sb = new StringBuilder(CODE_LENGTH);
         for (int i = 0; i < RANDOM_PART_LENGTH; i++) {

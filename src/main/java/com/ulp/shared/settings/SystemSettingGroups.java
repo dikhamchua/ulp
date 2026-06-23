@@ -1,11 +1,11 @@
 package com.ulp.shared.settings;
 
 /**
- * Tên các nhóm setting trong bảng {@code system_settings.setting_group}.
+ * Constants for the {@code setting_group} column in the {@code system_settings} table.
  *
- * <p>Hằng số dùng chung để tránh duplicate magic string giữa
- * {@code EmailSettingsService}, {@code DbConfiguredMailSender} và các
- * service settings khác trong tương lai (General, OAuth, AI).
+ * <p>Centralises group-name literals to avoid duplicating magic strings across
+ * {@code EmailSettingsService}, {@code DbConfiguredMailSender}, and any future
+ * settings services (General, OAuth, AI).
  */
 public final class SystemSettingGroups {
 

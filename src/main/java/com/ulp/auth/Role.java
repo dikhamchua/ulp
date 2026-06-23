@@ -1,13 +1,13 @@
 package com.ulp.auth;
 
 /**
- * 4 vai tro he thong cua ULP — khop voi CHECK constraint cua cot users.role:
- * CHECK (role IN ('STUDENT','LECTURER','HEAD','ADMIN')).
+ * The four system roles of ULP, matching the CHECK constraint on the {@code users.role} column:
+ * {@code CHECK (role IN ('STUDENT','LECTURER','HEAD','ADMIN'))}.
  *
- * <p>Quan he ke thua nghiep vu: HEAD ke thua quyen cua LECTURER.
- * Spring Security authority dang {@code "ROLE_<name>"} duoc tao tu
- * {@link #authority()}; cac SpEL constant ({@link Roles}) dung trong
- * {@code @PreAuthorize} de tranh string literal lap lai trong codebase.
+ * <p>Business hierarchy: {@code HEAD} inherits all permissions of {@code LECTURER}.
+ * Spring Security authority strings of the form {@code "ROLE_<name>"} are produced by
+ * {@link #authority()}; SpEL constants in {@link Roles} are used inside
+ * {@code @PreAuthorize} expressions to avoid repeating string literals across the codebase.
  */
 public enum Role {
     STUDENT,

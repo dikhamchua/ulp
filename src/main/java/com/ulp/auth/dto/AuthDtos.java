@@ -4,7 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/** DTOs cho luong xac thuc — quen mat khau & dat lai mat khau. */
+/** DTOs for the authentication flow — forgot password and password reset. */
 public class AuthDtos {
 
     public record ForgotPasswordRequest(

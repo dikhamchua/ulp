@@ -6,14 +6,29 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 /**
- * Repository cho {@link Enrollment}. Sprint 2 chi can READ — render danh sach
- * thanh vien tren trang chi tiet lop.
+ * Repository for {@link Enrollment} entities.
+ *
+ * <p>Provides read-oriented queries needed by Sprint 2 to render the member
+ * list on the class detail page.
  */
 public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
 
-    /** Danh sach SV (status = ACTIVE) trong 1 lop, sort theo joined_at moi nhat. */
+    /**
+     * Returns all enrollments for a given class with the specified status,
+     * ordered by {@code joined_at} descending (most recent first).
+     *
+     * @param classId the ID of the class
+     * @param status  the enrollment status to filter by (e.g. {@code "ACTIVE"})
+     * @return list of matching {@link Enrollment} records
+     */
     List<Enrollment> findAllByClassIdAndStatusOrderByJoinedAtDesc(Long classId, String status);
 
-    /** Count nhanh SV active trong 1 lop. */
+    /**
+     * Counts the number of enrollments for a given class with the specified status.
+     *
+     * @param classId the ID of the class
+     * @param status  the enrollment status to filter by (e.g. {@code "ACTIVE"})
+     * @return the count of matching enrollments
+     */
     long countByClassIdAndStatus(Long classId, String status);
 }

@@ -16,8 +16,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.security.Principal;
 
 /**
- * Controller cho đổi mật khẩu khi đã đăng nhập.
- * Yeu cau xac nhan mat khau hien tai truoc khi cap nhat.
+ * Controller for the change-password feature available to authenticated users.
+ *
+ * <p>Requires the user to confirm their current password before a new password
+ * is accepted, preventing unauthorised password changes on unattended sessions.</p>
  */
 @Controller
 public class ChangePasswordController {
@@ -30,12 +32,39 @@ public class ChangePasswordController {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /**
+     * Displays the change-password form.
+     *
+     * @param model the Spring MVC model used to bind an empty {@link ProfileDtos.ChangePasswordRequest}
+     * @return the logical view name {@code "change-password"}
+     */
     @GetMapping("/change-password")
     public String form(Model model) {
         model.addAttribute("form", new ProfileDtos.ChangePasswordRequest("", "", ""));
         return "change-password";
     }
 
+    /**
+     * Processes the change-password form submission.
+     *
+     * <p>Validation steps performed in order:</p>
+     * <ol>
+     *   <li>Bean-validation errors on the form — redisplay the form if any.</li>
+     *   <li>Current password verification against the stored BCrypt hash.</li>
+     *   <li>New password / confirm-password match check.</li>
+     * </ol>
+     * On success the new password is BCrypt-encoded, persisted, and the user is
+     * redirected back to the form with a {@code passwordChanged} flash attribute.
+     *
+     * @param form      the submitted {@link ProfileDtos.ChangePasswordRequest} (validated)
+     * @param result    binding result carrying any constraint violations
+     * @param principal the currently authenticated user (provides the email look-up key)
+     * @param model     the Spring MVC model for error flags
+     * @param ra        redirect attributes used to pass the success flash message
+     * @return a redirect to {@code /change-password} on success, or the view name
+     *         {@code "change-password"} when validation fails
+     * @throws IllegalStateException if the authenticated principal cannot be found in the database
+     */
     @PostMapping("/change-password")
     public String change(@Valid @ModelAttribute("form") ProfileDtos.ChangePasswordRequest form,
                           BindingResult result, Principal principal, Model model,

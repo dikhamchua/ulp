@@ -1,12 +1,13 @@
 package com.ulp.shared.mail;
 
 /**
- * Ket qua cua mot lan gui email. Top-level record de cac layer phia tren
- * (admin/service) co the import ma khong phai phu thuoc vao implementation
- * cu the cua transport ({@link DbConfiguredMailSender}).
+ * Represents the result of a single email send attempt. Defined as a top-level
+ * record so that upper layers (admin/service) can import it without depending
+ * on the concrete transport implementation ({@link DbConfiguredMailSender}).
  *
- * @param ok           {@code true} khi gui thanh cong
- * @param errorMessage mota loi khi {@code ok=false}; {@code null} khi success
+ * @param ok           {@code true} when the email was sent successfully
+ * @param errorMessage description of the error when {@code ok} is {@code false};
+ *                     {@code null} on success
  */
 public record MailSendResult(boolean ok, String errorMessage) {
 

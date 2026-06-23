@@ -18,11 +18,14 @@ import org.hibernate.annotations.SQLRestriction;
 import java.time.LocalDateTime;
 
 /**
- * Entity map bang {@code users}. Sprint 1 mo rong: bio, phone, avatarUrl, googleId
- * va phuong thuc update cho cac truong nguoi dung co the chinh sua.
+ * JPA entity mapped to the {@code users} table.
  *
- * <p>{@link SQLRestriction} dam bao moi truy van mac dinh chi lay ban ghi
- * chua bi soft-delete (is_deleted = 0).
+ * <p>Sprint 1 extensions add {@code bio}, {@code phone}, {@code avatarUrl}, and
+ * {@code googleId} fields, along with an {@link #updateProfile} method for
+ * user-editable profile data.
+ *
+ * <p>{@link SQLRestriction} ensures that every default query filters out
+ * soft-deleted records ({@code is_deleted = 0}).
  */
 @Entity
 @Table(name = "users")
@@ -61,7 +64,7 @@ public class User {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
-    // ── Sprint 1 additions ─────────────────────────────────────────
+    // ── Sprint 1 additions ────────────────────────────────────────
 
     @Column(name = "bio")
     private String bio;
@@ -79,7 +82,13 @@ public class User {
 
     // ── Business helpers ───────────────────────────────────────────
 
-    /** Cap nhat cac truong nguoi dung co the tu chinh sua trong profile. */
+    /**
+     * Updates the profile fields that a user is allowed to edit directly.
+     *
+     * @param fullName the user's display name
+     * @param bio      optional short biography; blank strings are stored as {@code null}
+     * @param phone    optional phone number; blank strings are stored as {@code null}
+     */
     public void updateProfile(String fullName, String bio, String phone) {
         this.fullName = fullName;
         this.bio = blankToNull(bio);

@@ -12,26 +12,40 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 /**
- * Bat loi toan cuc cho cac controller.
+ * Global exception handler for all Spring MVC controllers.
  *
- * <p>Sprint 2 them 2 handler chuyen biet:
+ * <p>Sprint 2 introduced two specialized handlers:
  * <ul>
- *   <li>{@link EntityNotFoundException} → 404 (lop/entity khong ton tai
- *       hoac da soft-delete).</li>
- *   <li>{@link AccessDeniedException} → 403 (vi pham owner check tu
- *       service layer; Spring Security chi tu xu ly cac instance phat
- *       sinh trong filter chain hoac qua {@code @PreAuthorize}).</li>
+ *   <li>{@link EntityNotFoundException} → 404 (entity not found or
+ *       already soft-deleted).</li>
+ *   <li>{@link AccessDeniedException} → 403 (owner-check violation raised
+ *       from the service layer; Spring Security handles instances that
+ *       originate in the filter chain or via {@code @PreAuthorize}
+ *       automatically).</li>
  * </ul>
  *
- * <p>Handler chuyen biet phai dat TRUOC catch-all {@code Exception.class}
- * de Spring chon dung — Spring's exception resolver match theo thu tu
- * specificity, nhung de minh bach minh dat dung thu tu nay.
+ * <p>Specialized handlers must be declared BEFORE the catch-all
+ * {@code Exception.class} handler so that Spring picks the most specific
+ * match — Spring's exception resolver does order by specificity, but the
+ * explicit ordering here makes the intent clear.
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    /**
+     * Handles {@link EntityNotFoundException} and returns a 404 error view.
+     *
+     * <p>Triggered when a requested entity does not exist or has been soft-deleted.
+     * The exception message is forwarded to the view when present; otherwise a
+     * generic fallback message is used.
+     *
+     * @param ex      the exception carrying an optional detail message
+     * @param request the current HTTP request (used for logging the URI)
+     * @param model   the Spring MVC model to populate with the error message
+     * @return the logical view name {@code "error"}
+     */
     @ExceptionHandler(EntityNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public String handleNotFound(EntityNotFoundException ex, HttpServletRequest request, Model model) {
@@ -41,6 +55,18 @@ public class GlobalExceptionHandler {
         return "error";
     }
 
+    /**
+     * Handles {@link AccessDeniedException} and returns a 403 error view.
+     *
+     * <p>Catches ownership or permission violations that are thrown explicitly
+     * from the service layer. A fixed, user-friendly message is shown regardless
+     * of the underlying exception detail.
+     *
+     * @param ex      the access-denied exception
+     * @param request the current HTTP request (used for logging the URI)
+     * @param model   the Spring MVC model to populate with the error message
+     * @return the logical view name {@code "error"}
+     */
     @ExceptionHandler(AccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public String handleForbidden(AccessDeniedException ex, HttpServletRequest request, Model model) {
@@ -49,6 +75,17 @@ public class GlobalExceptionHandler {
         return "error";
     }
 
+    /**
+     * Catch-all handler for any unhandled {@link Exception} and returns a 500 error view.
+     *
+     * <p>Logs the full stack trace at ERROR level so the incident can be investigated,
+     * then shows a generic error message to the user to avoid leaking internal details.
+     *
+     * @param ex      the unexpected exception
+     * @param request the current HTTP request (used for logging the URI)
+     * @param model   the Spring MVC model to populate with the error message
+     * @return the logical view name {@code "error"}
+     */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public String handleUnexpected(Exception ex, HttpServletRequest request, Model model) {

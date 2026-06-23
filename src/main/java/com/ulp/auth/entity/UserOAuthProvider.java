@@ -14,9 +14,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Entity map bang {@code user_oauth_providers}.
- * Ghi nhan moi lien ket giua user va OAuth provider (Google).
- * Token columns khong duoc map — YAGNI this sprint.
+ * JPA entity mapping to the {@code user_oauth_providers} table.
+ *
+ * <p>Records the link between a {@link User} account and an external OAuth
+ * provider (e.g. Google). A unique constraint on {@code (provider,
+ * provider_user_id)} prevents duplicate bindings for the same external
+ * identity.
+ *
+ * <p>Access/refresh token columns are intentionally omitted — YAGNI this sprint.
  */
 @Entity
 @Table(name = "user_oauth_providers",
@@ -39,6 +44,13 @@ public class UserOAuthProvider {
     @Column(name = "provider_user_id", nullable = false, length = 100)
     private String providerUserId;
 
+    /**
+     * Creates a new OAuth provider binding for the given user.
+     *
+     * @param user           the local {@link User} account to link
+     * @param provider       the OAuth provider name (e.g. {@code "google"})
+     * @param providerUserId the unique user ID issued by the external provider
+     */
     public UserOAuthProvider(User user, String provider, String providerUserId) {
         this.user = user;
         this.provider = provider;

@@ -4,10 +4,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
-/** DTOs cho man hinh Admin Dashboard. */
+/** DTOs for the Admin Dashboard screen. */
 public class AdminDashboardDtos {
 
-    /** 4 con so chinh hien thi tren 4 stat card. */
+    /** The four key metrics displayed on the four stat cards. */
     public record DashboardStats(
             Long userCount,
             Long classCount,
@@ -15,9 +15,13 @@ public class AdminDashboardDtos {
             Long courseCount
     ) {}
 
-    /** 1 dong trong chart user-by-role (donut). */
+    /** A single row in the user-by-role donut chart. */
     public record UserRoleCount(String role, Long count) {
-        /** Mau gradient cho slice donut, theo role. */
+        /**
+         * Returns the gradient color for this role's donut slice.
+         *
+         * @return a hex color string corresponding to the role
+         */
         public String color() {
             return switch (role) {
                 case "STUDENT" -> "#42A5F5";
@@ -28,7 +32,11 @@ public class AdminDashboardDtos {
             };
         }
 
-        /** Label tieng Viet cho legend. */
+        /**
+         * Returns the display label for this role, suitable for use in the chart legend.
+         *
+         * @return a human-readable role name
+         */
         public String displayRole() {
             return switch (role) {
                 case "STUDENT" -> "Sinh viên";
@@ -40,7 +48,7 @@ public class AdminDashboardDtos {
         }
     }
 
-    /** 1 dong trong bang "5 lop moi nhat" / recent activity. */
+    /** A single row in the "5 most recent classes" / recent-activity table. */
     public record RecentClass(
             Long id,
             String name,
@@ -52,11 +60,21 @@ public class AdminDashboardDtos {
         private static final DateTimeFormatter DF =
                 DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", Locale.forLanguageTag("vi-VN"));
 
+        /**
+         * Returns {@code createdAt} formatted as {@code dd/MM/yyyy HH:mm},
+         * or {@code "—"} if the value is {@code null}.
+         *
+         * @return formatted creation date/time string
+         */
         public String displayCreatedAt() {
             return createdAt != null ? createdAt.format(DF) : "—";
         }
 
-        /** Label tieng Viet cho status lop. */
+        /**
+         * Returns the display label for the class status, suitable for UI rendering.
+         *
+         * @return a human-readable status string
+         */
         public String displayStatus() {
             return switch (status) {
                 case "UPCOMING" -> "Sắp khai giảng";

@@ -16,23 +16,23 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * Mail transport doc cau hinh SMTP tu bang {@code system_settings} tai send-time.
+ * Mail transport that reads SMTP configuration from the {@code system_settings} table at send-time.
  *
- * <p>Mo hinh: moi lan goi {@link #send} (hoac {@link #sendWithDetail}) se:
+ * <p>Each call to {@link #send} (or {@link #sendWithDetail}) follows this sequence:
  * <ol>
- *   <li>Load cac row group {@code SMTP} ra map.</li>
- *   <li>Short-circuit voi {@code false} (warn-log) khi {@code smtp.host} rong.</li>
- *   <li>Build mot {@link JavaMailSenderImpl} moi, set timeout, encryption.</li>
- *   <li>Build {@link MimeMessage}, set From/Reply-To, gui qua mail server.</li>
+ *   <li>Load all rows in the {@code SMTP} settings group into a map.</li>
+ *   <li>Short-circuit with {@code false} (warn-log) when {@code smtp.host} is empty.</li>
+ *   <li>Build a new {@link JavaMailSenderImpl} instance with timeouts and encryption settings.</li>
+ *   <li>Build a {@link MimeMessage}, set From/Reply-To headers, and dispatch via the mail server.</li>
  * </ol>
  *
- * <p>Per-call instantiation: chi phi nho hon mot SMTP RTT — chap nhan duoc
- * voi MVP volume. Khong cache nen khong co stale-config bug khi admin
- * sua setting o {@code /admin/settings/email}.
+ * <p>Per-call instantiation cost is well below a single SMTP round-trip — acceptable for
+ * MVP volume. Not caching the sender means there is no stale-config bug when an admin
+ * updates settings at {@code /admin/settings/email}.
  *
- * <p>Property keys cua JavaMail bat buoc lowercase: {@code mail.smtp.connectiontimeout}
- * va {@code mail.smtp.timeout}. CamelCase bi silently ignored => UI hang khi
- * bad host. Han hu timeout 10 giay.
+ * <p>JavaMail property keys must be lowercase: {@code mail.smtp.connectiontimeout}
+ * and {@code mail.smtp.timeout}. CamelCase variants are silently ignored, which causes
+ * the UI to hang on a bad host. All timeouts are capped at 10 seconds.
  */
 @Component
 public class DbConfiguredMailSender {
@@ -50,16 +50,27 @@ public class DbConfiguredMailSender {
     }
 
     /**
-     * Gui email best-effort. Tra ve {@code true} neu thanh cong,
-     * {@code false} neu SMTP chua cau hinh hoac co loi (chi log warn).
+     * Sends an email on a best-effort basis.
+     *
+     * @param to      recipient email address
+     * @param subject email subject line
+     * @param body    plain-text email body
+     * @return {@code true} if the message was accepted by the mail server;
+     *         {@code false} if SMTP is not configured or any error occurs (logged at WARN)
      */
     public boolean send(String to, String subject, String body) {
         return sendWithDetail(to, subject, body).ok();
     }
 
     /**
-     * Gui email va tra ve ket qua kem error message khi that bai —
-     * dung cho test-send endpoint can surface SMTP error ra UI toast.
+     * Sends an email and returns a result object that includes an error message on failure.
+     * Prefer this over {@link #send} when the caller needs to surface SMTP errors to the UI
+     * (e.g. the test-send endpoint).
+     *
+     * @param to      recipient email address
+     * @param subject email subject line
+     * @param body    plain-text email body
+     * @return {@link MailSendResult#ok()} on success, or a failure result with a reason string
      */
     public MailSendResult sendWithDetail(String to, String subject, String body) {
         Map<String, String> cfg = repository.loadGroupAsMap(GROUP);
@@ -120,7 +131,7 @@ public class DbConfiguredMailSender {
 
         String fromEmail = cfg.getOrDefault("smtp.from_email", "").trim();
         if (fromEmail.isEmpty()) {
-            // Khong co from_email — JavaMail se throw, dat tam mot gia tri an toan
+            // No from_email configured — fall back to smtp.username to avoid a JavaMail exception
             fromEmail = cfg.getOrDefault("smtp.username", "noreply@localhost");
         }
         String fromName = cfg.getOrDefault("smtp.from_name", "").trim();

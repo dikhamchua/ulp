@@ -27,19 +27,19 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 /**
- * Service nghiep vu CRUD lop hoc cho man hinh giang vien.
+ * Business service for class CRUD operations on the lecturer-facing screens.
  *
- * <p>Quy tac phan quyen (enforce o day, KHONG dua o controller):
+ * <p>Authorization rules (enforced here, NOT in the controller):
  * <ul>
- *   <li>LECTURER chi thay/sua/xoa lop cua minh ({@code lecturer_id == user.id}).</li>
- *   <li>HEAD va ADMIN thay het, sua/xoa moi lop.</li>
- *   <li>Vi pham phan quyen nem {@link AccessDeniedException} → 403.</li>
- *   <li>Lop khong ton tai / da soft-delete nem {@link EntityNotFoundException} → 404.</li>
+ *   <li>LECTURER can only view/edit/delete their own classes ({@code lecturer_id == user.id}).</li>
+ *   <li>HEAD and ADMIN can view all classes and edit/delete any class.</li>
+ *   <li>Authorization violations throw {@link AccessDeniedException} → HTTP 403.</li>
+ *   <li>Non-existent or soft-deleted classes throw {@link EntityNotFoundException} → HTTP 404.</li>
  * </ul>
  *
- * <p>Moi mutation (create/update/softDelete) deu ghi 1 row vao
- * {@link ClassActivity}. Vi service method la {@code @Transactional},
- * neu insert activity fail thi class mutation cung rollback.
+ * <p>Every mutation (create/update/softDelete) writes one row to
+ * {@link ClassActivity}. Because service methods are {@code @Transactional},
+ * a failure when inserting the activity record will also roll back the class mutation.
  */
 @Service
 public class ClassesService {
@@ -68,9 +68,12 @@ public class ClassesService {
     // ───────────────────── Public CRUD API ──────────────────────────
 
     /**
-     * Tra ve danh sach lop nguoi dung duoc thay.
-     * LECTURER → chi lop cua minh.
-     * HEAD/ADMIN → tat ca lop chua soft-delete.
+     * Returns the list of classes visible to the current user.
+     * LECTURER → only their own classes.
+     * HEAD/ADMIN → all classes that have not been soft-deleted.
+     *
+     * @param principal the authenticated user's security principal
+     * @return list of {@link ClassRow} DTOs ordered by creation date descending
      */
     @Transactional(readOnly = true)
     public List<ClassRow> listForUser(Principal principal) {
