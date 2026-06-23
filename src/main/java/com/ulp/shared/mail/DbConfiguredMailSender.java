@@ -1,7 +1,7 @@
 package com.ulp.shared.mail;
 
 import com.ulp.shared.settings.SystemSettingGroups;
-import com.ulp.shared.settings.repository.SystemSettingsRepository;
+import com.ulp.shared.settings.service.SystemSettingsService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
@@ -20,15 +20,17 @@ import java.util.Properties;
  *
  * <p>Each call to {@link #send} (or {@link #sendWithDetail}) follows this sequence:
  * <ol>
- *   <li>Load all rows in the {@code SMTP} settings group into a map.</li>
+ *   <li>Load all rows in the {@code SMTP} settings group through the cached
+ *       {@link SystemSettingsService} (typical hit cost: in-memory map lookup;
+ *       cold reads hit MySQL).</li>
  *   <li>Short-circuit with {@code false} (warn-log) when {@code smtp.host} is empty.</li>
  *   <li>Build a new {@link JavaMailSenderImpl} instance with timeouts and encryption settings.</li>
  *   <li>Build a {@link MimeMessage}, set From/Reply-To headers, and dispatch via the mail server.</li>
  * </ol>
  *
- * <p>Per-call instantiation cost is well below a single SMTP round-trip — acceptable for
- * MVP volume. Not caching the sender means there is no stale-config bug when an admin
- * updates settings at {@code /admin/settings/email}.
+ * <p>The configuration map is served from the {@code settingsGroup} Caffeine
+ * cache; {@code EmailSettingsService.save} evicts the {@code SMTP} entry on
+ * admin save so changes propagate immediately.
  *
  * <p>JavaMail property keys must be lowercase: {@code mail.smtp.connectiontimeout}
  * and {@code mail.smtp.timeout}. CamelCase variants are silently ignored, which causes
@@ -43,10 +45,10 @@ public class DbConfiguredMailSender {
     private static final int DEFAULT_PORT = 587;
     private static final int TIMEOUT_MS = 10_000;
 
-    private final SystemSettingsRepository repository;
+    private final SystemSettingsService settingsService;
 
-    public DbConfiguredMailSender(SystemSettingsRepository repository) {
-        this.repository = repository;
+    public DbConfiguredMailSender(SystemSettingsService settingsService) {
+        this.settingsService = settingsService;
     }
 
     /**
@@ -73,7 +75,7 @@ public class DbConfiguredMailSender {
      * @return {@link MailSendResult#ok()} on success, or a failure result with a reason string
      */
     public MailSendResult sendWithDetail(String to, String subject, String body) {
-        Map<String, String> cfg = repository.loadGroupAsMap(GROUP);
+        Map<String, String> cfg = settingsService.loadGroupAsMap(GROUP);
 
         String host = cfg.getOrDefault("smtp.host", "").trim();
         if (host.isEmpty()) {

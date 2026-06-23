@@ -71,7 +71,7 @@ public class CustomOidcUserService extends OidcUserService {
             throw new OAuth2AuthenticationException("oauth_unregistered");
         }
 
-        Optional<User> userOpt = userRepository.findByEmail(email);
+        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(email);
         if (userOpt.isEmpty()) {
             throw new OAuth2AuthenticationException("oauth_unregistered");
         }

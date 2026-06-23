@@ -3,8 +3,6 @@ package com.ulp.classes.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ulp.auth.Role;
-import com.ulp.auth.entity.User;
-import com.ulp.auth.repository.UserRepository;
 import com.ulp.classes.ClassGradient;
 import com.ulp.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.classes.dto.ClassesDtos.ClassRow;
@@ -17,14 +15,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.security.Principal;
+
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.IntStream;
 
 /**
  * Business service for class CRUD operations on the lecturer-facing screens.
@@ -36,6 +37,12 @@ import java.util.stream.IntStream;
  *   <li>Authorization violations throw {@link AccessDeniedException} → HTTP 403.</li>
  *   <li>Non-existent or soft-deleted classes throw {@link EntityNotFoundException} → HTTP 404.</li>
  * </ul>
+ *
+ * <p>Caller identity is supplied directly by controllers from
+ * {@code @AuthenticationPrincipal UlpUserDetails} as {@code (Long userId, Role role)}.
+ * The service does not look up the caller by email — Spring Security has already
+ * loaded the user during authentication, so a second SELECT per request would be
+ * wasted work.
  *
  * <p>Every mutation (create/update/softDelete) writes one row to
  * {@link ClassActivity}. Because service methods are {@code @Transactional},
@@ -50,47 +57,55 @@ public class ClassesService {
     private final ClassRepository classRepository;
     private final ClassActivityRepository activityRepository;
     private final ClassCodeGenerator codeGenerator;
-    private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
     public ClassesService(ClassRepository classRepository,
                           ClassActivityRepository activityRepository,
                           ClassCodeGenerator codeGenerator,
-                          UserRepository userRepository,
                           ObjectMapper objectMapper) {
         this.classRepository = classRepository;
         this.activityRepository = activityRepository;
         this.codeGenerator = codeGenerator;
-        this.userRepository = userRepository;
         this.objectMapper = objectMapper;
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────
 
     /**
-     * Returns the list of classes visible to the current user.
+     * Returns the page of classes visible to the current user.
      * LECTURER → only their own classes.
      * HEAD/ADMIN → all classes that have not been soft-deleted.
      *
-     * @param principal the authenticated user's security principal
-     * @return list of {@link ClassRow} DTOs ordered by creation date descending
+     * <p>The gradient assigned to each {@link ClassRow} is derived from the row's
+     * position within the CURRENT page (0-based), not the global ranking. Different
+     * pages can therefore repeat gradient colours — this is intentional and matches
+     * the audit's "good enough" tolerance for the cosmetic ordering of class
+     * thumbnails. Pages are otherwise sorted strictly per the supplied {@link Pageable}
+     * (typically {@code createdAt DESC}).
+     *
+     * @param userId   the authenticated user's database id
+     * @param role     the authenticated user's role
+     * @param pageable page request (page index, size, sort)
+     * @return a {@link Page} of {@link ClassRow} DTOs
      */
     @Transactional(readOnly = true)
-    public List<ClassRow> listForUser(Principal principal) {
-        User user = currentUser(principal);
-        List<ClassEntity> rows = user.getRole() == Role.LECTURER
-                ? classRepository.findAllByLecturerIdOrderByCreatedAtDesc(user.getId())
-                : classRepository.findAllByOrderByCreatedAtDesc();
-        return IntStream.range(0, rows.size())
-                .mapToObj(i -> toRow(rows.get(i), i))
-                .toList();
+    public Page<ClassRow> listForUser(Long userId, Role role, Pageable pageable) {
+        Page<ClassEntity> page = role == Role.LECTURER
+                ? classRepository.findAllByLecturerId(userId, pageable)
+                : classRepository.findAllBy(pageable);
+
+        List<ClassEntity> content = page.getContent();
+        List<ClassRow> rows = new ArrayList<>(content.size());
+        for (int i = 0; i < content.size(); i++) {
+            rows.add(toRow(content.get(i), i));
+        }
+        return new PageImpl<>(rows, pageable, page.getTotalElements());
     }
 
     /** Load lop de edit, da kiem tra quyen. */
     @Transactional(readOnly = true)
-    public ClassEntity getEditable(Long id, Principal principal) {
-        User user = currentUser(principal);
-        return loadEditable(id, user);
+    public ClassEntity getEditable(Long id, Long userId, Role role) {
+        return loadEditable(id, userId, role);
     }
 
     /**
@@ -100,9 +115,8 @@ public class ClassesService {
      * tac (vd. ai cung xem duoc bang tin) ma khong dung den edit path.
      */
     @Transactional(readOnly = true)
-    public ClassEntity getViewable(Long id, Principal principal) {
-        User user = currentUser(principal);
-        return loadEditable(id, user);
+    public ClassEntity getViewable(Long id, Long userId, Role role) {
+        return loadEditable(id, userId, role);
     }
 
     /**
@@ -110,13 +124,11 @@ public class ClassesService {
      * {@code uk_classes_code}; nem ngay neu unique-violation tren cot khac.
      */
     @Transactional
-    public ClassEntity create(ClassForm form, Principal principal) {
-        User user = currentUser(principal);
-
+    public ClassEntity create(ClassForm form, Long userId) {
         DataIntegrityViolationException lastCollision = null;
         for (int attempt = 1; attempt <= MAX_CODE_GEN_ATTEMPTS; attempt++) {
             ClassEntity entity = new ClassEntity(
-                    form.name(), user.getId(), user.getId(),
+                    form.name(), userId, userId,
                     form.description(), form.startDate(), form.endDate(),
                     form.maxStudents());
             entity.setCode(codeGenerator.generate());
@@ -127,7 +139,7 @@ public class ClassesService {
                         ClassActivity.TYPE_CREATED,
                         "Tạo lớp " + saved.getName(),
                         null,
-                        user.getId()
+                        userId
                 ));
                 return saved;
             } catch (DataIntegrityViolationException ex) {
@@ -145,9 +157,8 @@ public class ClassesService {
 
     /** Cap nhat lop. Phan quyen enforced. Ghi activity UPDATED voi diff. */
     @Transactional
-    public ClassEntity update(Long id, ClassForm form, Principal principal) {
-        User user = currentUser(principal);
-        ClassEntity entity = loadEditable(id, user);
+    public ClassEntity update(Long id, ClassForm form, Long userId, Role role) {
+        ClassEntity entity = loadEditable(id, userId, role);
 
         Map<String, Object> oldState = snapshot(entity);
         entity.updateDetails(form.name(), form.description(),
@@ -164,16 +175,15 @@ public class ClassesService {
                 ClassActivity.TYPE_UPDATED,
                 "Cập nhật lớp " + saved.getName(),
                 serialize(diff),
-                user.getId()
+                userId
         ));
         return saved;
     }
 
     /** Soft-delete lop. Phan quyen enforced. Ghi activity DELETED. */
     @Transactional
-    public void softDelete(Long id, Principal principal) {
-        User user = currentUser(principal);
-        ClassEntity entity = loadEditable(id, user);
+    public void softDelete(Long id, Long userId, Role role) {
+        ClassEntity entity = loadEditable(id, userId, role);
 
         entity.softDelete();
         classRepository.save(entity);
@@ -182,27 +192,22 @@ public class ClassesService {
                 ClassActivity.TYPE_DELETED,
                 "Xoá lớp " + entity.getName(),
                 null,
-                user.getId()
+                userId
         ));
     }
 
     // ──────────────────────── Internal ──────────────────────────────
 
-    /** Load + authz, dung trong noi bo (khi user da resolve). DRY voi {@link #getEditable}. */
-    private ClassEntity loadEditable(Long id, User user) {
+    /** Load + authz against the caller's id/role. DRY voi {@link #getEditable}. */
+    private ClassEntity loadEditable(Long id, Long userId, Role role) {
         ClassEntity entity = classRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
-        requireEditableBy(entity, user);
+        requireEditableBy(entity, userId, role);
         return entity;
     }
 
-    private User currentUser(Principal principal) {
-        return userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found in DB"));
-    }
-
-    private void requireEditableBy(ClassEntity entity, User user) {
-        if (user.getRole() == Role.LECTURER && !entity.getLecturerId().equals(user.getId())) {
+    private void requireEditableBy(ClassEntity entity, Long userId, Role role) {
+        if (role == Role.LECTURER && !entity.getLecturerId().equals(userId)) {
             throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
         }
     }

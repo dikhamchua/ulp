@@ -45,7 +45,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found for email: " + email));
 
         // UlpUserDetails maps roles to ROLE_<name> and exposes isEnabled()/isAccountNonLocked()

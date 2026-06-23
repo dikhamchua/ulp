@@ -1,10 +1,12 @@
 package com.ulp.profile.controller;
 
 import com.ulp.auth.entity.User;
+import com.ulp.auth.service.UlpUserDetails;
 import com.ulp.profile.dto.ProfileDtos;
 import com.ulp.profile.service.ProfileService;
 import com.ulp.shared.upload.AvatarStorageService;
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -16,7 +18,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
-import java.security.Principal;
 
 /**
  * Controller for viewing and updating the current user's personal profile,
@@ -37,15 +38,15 @@ public class ProfileController {
      * Displays the profile page for the currently authenticated user.
      *
      * <p>Populates the model with the {@link User} entity and a pre-filled
-     * {@code profileForm} backed by the user's existing data.</p>
+     * {@code profileForm} backed by the user's existing data.
      *
-     * @param principal the currently authenticated principal
+     * @param principal the authenticated principal (id sourced from Spring Security)
      * @param model     the Spring MVC model
      * @return logical view name {@code "profile"}
      */
     @GetMapping("/profile")
-    public String view(Principal principal, Model model) {
-        User user = profileService.getCurrentUser(principal);
+    public String view(@AuthenticationPrincipal UlpUserDetails principal, Model model) {
+        User user = profileService.getCurrentUser(principal.getId());
         model.addAttribute("user", user);
         model.addAttribute("profileForm", new ProfileDtos.ProfileUpdateRequest(
                 user.getFullName(),
@@ -60,20 +61,15 @@ public class ProfileController {
      * <p>Validates the submitted {@code profileForm}. If validation fails, the
      * profile view is re-rendered with error messages. On success, the user's
      * full name, bio, and phone are persisted and the client is redirected back
-     * to the profile page with a {@code profileUpdated} flash attribute.</p>
-     *
-     * @param form      the validated profile update request
-     * @param result    the binding/validation result
-     * @param principal the currently authenticated principal
-     * @param model     the Spring MVC model (used on validation failure)
-     * @param ra        redirect attributes for flash messages
-     * @return {@code "profile"} view on error, or a redirect to {@code /profile} on success
+     * to the profile page with a {@code profileUpdated} flash attribute.
      */
     @PostMapping("/profile")
     public String update(@Valid @ModelAttribute("profileForm") ProfileDtos.ProfileUpdateRequest form,
-                          BindingResult result, Principal principal, Model model,
+                          BindingResult result,
+                          @AuthenticationPrincipal UlpUserDetails principal,
+                          Model model,
                           RedirectAttributes ra) {
-        User user = profileService.getCurrentUser(principal);
+        User user = profileService.getCurrentUser(principal.getId());
         if (result.hasErrors()) {
             model.addAttribute("user", user);
             return "profile";
@@ -89,17 +85,13 @@ public class ProfileController {
      * <p>Delegates storage to {@link AvatarStorageService} and persists the
      * returned URL via {@link com.ulp.profile.service.ProfileService}. On
      * success, an {@code avatarUpdated} flash attribute is set. On failure, an
-     * {@code avatarError} flash attribute is set with a human-readable message.</p>
-     *
-     * @param file      the uploaded avatar image (multipart)
-     * @param principal the currently authenticated principal
-     * @param ra        redirect attributes for flash messages
-     * @return a redirect to {@code /profile}
+     * {@code avatarError} flash attribute is set with a human-readable message.
      */
     @PostMapping("/profile/avatar")
     public String uploadAvatar(@RequestParam("avatar") MultipartFile file,
-                                Principal principal, RedirectAttributes ra) {
-        User user = profileService.getCurrentUser(principal);
+                                @AuthenticationPrincipal UlpUserDetails principal,
+                                RedirectAttributes ra) {
+        User user = profileService.getCurrentUser(principal.getId());
         try {
             String url = avatarService.store(file);
             profileService.updateAvatar(user, url);

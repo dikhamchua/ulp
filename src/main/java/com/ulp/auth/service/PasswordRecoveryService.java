@@ -73,7 +73,7 @@ public class PasswordRecoveryService {
      */
     @Transactional
     public void requestReset(String email) {
-        var userOpt = userRepository.findByEmail(email);
+        var userOpt = userRepository.findByEmailIgnoreCase(email);
         if (userOpt.isEmpty()) {
             log.info("Forgot-password requested for unknown email: {}", email);
             return; // silent — neutral response to avoid user enumeration

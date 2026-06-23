@@ -2,7 +2,7 @@ package com.ulp.auth.oauth;
 
 import com.ulp.admin.settings.service.OauthSettingsService;
 import com.ulp.shared.settings.SystemSettingGroups;
-import com.ulp.shared.settings.repository.SystemSettingsRepository;
+import com.ulp.shared.settings.service.SystemSettingsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
@@ -36,11 +36,11 @@ import java.util.Map;
  * is intentional: configuration now lives in the database and is editable
  * through the admin UI rather than {@code application-local.properties}.
  *
- * <p>Performance: each call issues one short {@code findBySettingGroup}
- * query for the {@code OAUTH} group. For login pages this fires once per
- * request at most; for the OAuth2 redirect/callback flow it fires twice.
- * Add a cache layer if profiling ever shows it matters — for the current
- * project scale a single indexed query is fine.
+ * <p>Performance: each call reads the {@code OAUTH} group through the cached
+ * {@link SystemSettingsService}. Hot reads (login page render, OAuth callback)
+ * hit Caffeine in memory; only cold misses or post-eviction reads issue a SQL
+ * query. {@code OauthSettingsService.save} evicts the {@code OAUTH} entry on
+ * admin save so credential changes propagate immediately.
  */
 @Component
 public class DbClientRegistrationRepository implements ClientRegistrationRepository {
@@ -50,10 +50,10 @@ public class DbClientRegistrationRepository implements ClientRegistrationReposit
     private static final String GROUP = SystemSettingGroups.OAUTH;
     private static final String GOOGLE = "google";
 
-    private final SystemSettingsRepository settingsRepository;
+    private final SystemSettingsService settingsService;
 
-    public DbClientRegistrationRepository(SystemSettingsRepository settingsRepository) {
-        this.settingsRepository = settingsRepository;
+    public DbClientRegistrationRepository(SystemSettingsService settingsService) {
+        this.settingsService = settingsService;
     }
 
     /**
@@ -75,7 +75,7 @@ public class DbClientRegistrationRepository implements ClientRegistrationReposit
             return null;
         }
 
-        Map<String, String> cfg = settingsRepository.loadGroupAsMap(GROUP);
+        Map<String, String> cfg = settingsService.loadGroupAsMap(GROUP);
         String clientId = trim(cfg.get(OauthSettingsService.KEY_GOOGLE_CLIENT_ID));
         String clientSecret = trim(cfg.get(OauthSettingsService.KEY_GOOGLE_CLIENT_SECRET));
         if (clientId.isEmpty() || clientSecret.isEmpty()) {
