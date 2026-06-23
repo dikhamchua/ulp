@@ -17,6 +17,7 @@ import com.ulp.auth.service.UlpUserDetails;
 import com.ulp.shared.util.StringUtils;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * MVC controller for the {@code /admin/users} screen.
@@ -115,15 +117,57 @@ public class AdminUsersController {
 
     // ── Edit form ─────────────────────────────────────────────────
 
+    /** Page size used by the "Lịch sử cập nhật" tab (fixed per Decision 4 in design.md). */
+    private static final int HISTORY_PAGE_SIZE = 20;
+
+    /** Whitelist of valid {@code tab} query-parameter values; anything else falls back to {@code info}. */
+    private static final Set<String> VALID_TABS = Set.of("info", "activity", "history");
+
     @GetMapping("/{id}/edit")
-    public String editForm(@PathVariable Long id, Model model) {
+    public String editForm(@PathVariable Long id,
+                           @RequestParam(name = "tab", required = false, defaultValue = "info") String tab,
+                           @RequestParam(name = "page", required = false, defaultValue = "0") int page,
+                           Model model) {
         User u = usersService.getEditable(id);
         if (!model.containsAttribute("form")) {
             model.addAttribute("form", EditUserForm.fromUser(u));
         }
         populateFormModel(model, "edit", id);
         model.addAttribute("targetUser", u);
+
+        // Normalize the tab query parameter. Invalid values silently fall back
+        // to "info" (per spec — no 400 / error page).
+        String activeTab = VALID_TABS.contains(tab) ? tab : "info";
+        model.addAttribute("activeDetailTab", activeTab);
+
+        // Status label drives the header pill (ACTIVE | INACTIVE | LOCKED | DELETED).
+        // Ordering matters: deleted > locked > inactive > active. Mirrors UserRow.statusLabel().
+        model.addAttribute("statusLabel", deriveStatusLabel(u));
+
+        // "Tạo lúc" timestamp — the User entity does not map created_at, so
+        // the service reads it via native SQL.
+        model.addAttribute("targetCreatedAt", usersService.getCreatedAt(id));
+
+        // Only query the audit history when the history tab is the one being
+        // rendered. The other two tabs cost a single template render.
+        if ("history".equals(activeTab)) {
+            int safePage = Math.max(0, page);
+            model.addAttribute("activitiesPage",
+                    usersService.listActivities(id, PageRequest.of(safePage, HISTORY_PAGE_SIZE)));
+        }
         return "admin/users-form";
+    }
+
+    /**
+     * Derives the four-state status label used by the detail header pill.
+     * Ordering: DELETED takes precedence over LOCKED, which takes precedence
+     * over INACTIVE; otherwise ACTIVE.
+     */
+    private static String deriveStatusLabel(User u) {
+        if (u.isDeleted()) return "DELETED";
+        if (u.isLocked())  return "LOCKED";
+        if (!u.isActive()) return "INACTIVE";
+        return "ACTIVE";
     }
 
     @PostMapping("/{id}")
@@ -135,7 +179,14 @@ public class AdminUsersController {
                          RedirectAttributes ra) {
         if (result.hasErrors()) {
             populateFormModel(model, "edit", id);
-            model.addAttribute("targetUser", usersService.getEditable(id));
+            User reloaded = usersService.getEditable(id);
+            model.addAttribute("targetUser", reloaded);
+            // Validation errors always re-render the info tab — that's where
+            // the form lives. Keep the detail model attributes in sync so the
+            // template can render the toolbar + header without NPE.
+            model.addAttribute("activeDetailTab", "info");
+            model.addAttribute("statusLabel", deriveStatusLabel(reloaded));
+            model.addAttribute("targetCreatedAt", usersService.getCreatedAt(id));
             return "admin/users-form";
         }
         try {
@@ -148,7 +199,11 @@ public class AdminUsersController {
         } catch (EmailAlreadyUsedException ex) {
             result.rejectValue("email", "email.duplicate", "Email đã được sử dụng");
             populateFormModel(model, "edit", id);
-            model.addAttribute("targetUser", usersService.getEditable(id));
+            User reloaded = usersService.getEditable(id);
+            model.addAttribute("targetUser", reloaded);
+            model.addAttribute("activeDetailTab", "info");
+            model.addAttribute("statusLabel", deriveStatusLabel(reloaded));
+            model.addAttribute("targetCreatedAt", usersService.getCreatedAt(id));
             return "admin/users-form";
         }
     }
