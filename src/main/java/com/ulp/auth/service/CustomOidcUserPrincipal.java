@@ -35,8 +35,11 @@ public class CustomOidcUserPrincipal implements OidcUser {
     }
 
     /**
-     * Email cua user (= username trong ULP). Lo accessor nay de template dung
-     * chung {@code principal.username} cho ca form-login lan OAuth.
+     * Returns the user's email address, which serves as the username in ULP.
+     * <p>Exposes a uniform {@code principal.username} accessor so Thymeleaf
+     * templates work identically for both form-login and OAuth2/OIDC sessions.</p>
+     *
+     * @return the user's email address
      */
     public String getUsername() {
         return username;
@@ -49,5 +52,18 @@ public class CustomOidcUserPrincipal implements OidcUser {
     @Override public OidcIdToken getIdToken() { return delegate.getIdToken(); }
     @Override public Map<String, Object> getAttributes() { return delegate.getAttributes(); }
     @Override public Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }
-    @Override public String getName() { return delegate.getName(); }
+
+    /**
+     * Returns the user's email address rather than the Google subject id.
+     *
+     * <p>{@code Authentication.getName()} is the cross-cutting identifier used
+     * by Spring Security audit code, the home controller, etc. The default
+     * OIDC implementation returns the {@code sub} claim (a numeric Google
+     * subject), which is opaque to the rest of the application. The form-login
+     * principal ({@code UlpUserDetails}) returns the email here, so we mirror
+     * that for OIDC to keep callers like {@code HomeController.home()} simple.
+     *
+     * @return the user's email address
+     */
+    @Override public String getName() { return username; }
 }

@@ -10,24 +10,26 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * DTOs cho man hinh /admin/settings/email.
+ * DTOs for the {@code /admin/settings/email} screen.
  *
- * <p>{@link EmailSettingsForm} la form binding cho GET/POST. Field
- * {@code password} la {@link String} khong co constraint — empty hoac
- * placeholder {@link #MASKED} co nghia "giu nguyen mat khau cu".
+ * <p>{@link EmailSettingsForm} is the form-binding object used for both the
+ * GET (re-render) and POST (save) requests. The {@code password} field is a
+ * plain {@link String} with no validation constraint — an empty value or the
+ * sentinel {@link #MASKED} means "keep the existing password unchanged".
  *
- * <p>{@link TestResult} la JSON response cua POST /test.
+ * <p>{@link TestResult} is the JSON response body returned by
+ * {@code POST /admin/settings/email/test}.
  */
 public class EmailSettingsDtos {
 
     /**
-     * Placeholder hien thi thay cho gia tri that cua secret settings.
-     * Shared constant — service/test deu reference de tranh duplicate
-     * literal {@code "********"}.
+     * Placeholder displayed in place of the actual value for secret settings.
+     * Shared constant — both the service and test code reference this to avoid
+     * duplicating the literal {@code "********"}.
      */
     public static final String MASKED = "********";
 
-    /** Form binding cho /admin/settings/email (GET re-render + POST save). */
+    /** Form-binding record for {@code /admin/settings/email} (GET re-render and POST save). */
     public record EmailSettingsForm(
             @NotBlank(message = "Host là bắt buộc")
             @Size(max = 255)
@@ -46,7 +48,7 @@ public class EmailSettingsDtos {
             @Size(max = 255)
             String username,
 
-            /** Khong validate — empty hoac MASKED nghia la "giu nguyen". */
+            /** Not validated — an empty value or {@link #MASKED} means "keep the existing password". */
             String password,
 
             @NotBlank(message = "From Name là bắt buộc")
@@ -57,16 +59,16 @@ public class EmailSettingsDtos {
             @Email(message = "From Email không hợp lệ")
             String fromEmail,
 
-            /** Optional — chap nhan empty; neu co thi phai la email hop le. */
+            /** Optional — accepts empty; if provided, must be a valid email address. */
             @Email(message = "Reply-To không hợp lệ")
             String replyTo
     ) {
     }
 
     /**
-     * Ket qua POST /admin/settings/email/test — serialize ra JSON.
-     * {@code @JsonInclude(NON_NULL)} de spec scenario "ok=true" tra ve
-     * {@code {"ok":true}} chu khong phai {@code {"ok":true,"error":null}}.
+     * Result of {@code POST /admin/settings/email/test} — serialized as JSON.
+     * {@code @JsonInclude(NON_NULL)} ensures that a success response serializes
+     * to {@code {"ok":true}} rather than {@code {"ok":true,"error":null}}.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record TestResult(boolean ok, String error) {

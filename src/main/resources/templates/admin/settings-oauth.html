@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Cài đặt OAuth', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+
+  <main class="col">
+    <nav class="settings-breadcrumb" aria-label="Breadcrumb">
+      <a th:href="@{/admin/settings}">Cài đặt hệ thống</a>
+      <span class="sep" aria-hidden="true">/</span>
+      <span aria-current="page">OAuth Providers</span>
+    </nav>
+
+    <h1 class="detail-title">Cấu hình đăng nhập OAuth</h1>
+    <p class="detail-sub">Cấu hình các nhà cung cấp đăng nhập một chạm. Thay đổi
+      có hiệu lực ngay, không cần khởi động lại ứng dụng.</p>
+
+    <!-- Flash → toast on page load (admin.js xử lý). -->
+    <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
+         th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
+
+    <!-- Empty state khi chưa cấu hình bất kỳ provider nào -->
+    <div th:if="${form != null and #strings.isEmpty(form.googleClientId)}"
+         class="alert alert-info" role="status">
+      Chưa có provider OAuth nào được cấu hình. Đăng nhập một chạm hiện tắt — người dùng
+      vẫn đăng nhập được bằng email + mật khẩu.
+    </div>
+
+    <!-- ===== Form ===== -->
+    <section class="settings-form-panel">
+      <form th:action="@{/admin/settings/oauth}" method="post"
+            th:object="${form}" class="settings-form" novalidate>
+
+        <fieldset class="settings-fieldset">
+          <legend>Google</legend>
+
+          <p class="field-hint" style="margin-bottom:14px">
+            Tạo OAuth Client ID tại
+            <a href="https://console.cloud.google.com/apis/credentials"
+               target="_blank" rel="noopener noreferrer">Google Cloud Console</a>.
+            Đặt <em>Authorized redirect URI</em> là:
+            <code th:text="@{/login/oauth2/code/google}">/login/oauth2/code/google</code>
+          </p>
+
+          <div class="form-row">
+            <label for="googleClientId">Client ID</label>
+            <input type="text" id="googleClientId" th:field="*{googleClientId}"
+                   placeholder="123...apps.googleusercontent.com"
+                   autocomplete="off" maxlength="255"
+                   th:attr="aria-invalid=${#fields.hasErrors('googleClientId')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('googleClientId')} ? 'googleClientId-error' : ''">
+            <span id="googleClientId-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('googleClientId')}" th:errors="*{googleClientId}">Lỗi Client ID</span>
+          </div>
+
+          <div class="form-row">
+            <label for="googleClientSecret">Client Secret</label>
+            <!-- type="text" so Thymeleaf-Spring's password tag processor
+                 doesn't strip the value attribute. The page is admin-only,
+                 so showing the stored secret in clear is acceptable for our
+                 MVP. -->
+            <input type="text" id="googleClientSecret" name="googleClientSecret"
+                   th:value="*{googleClientSecret}"
+                   autocomplete="off" maxlength="255"
+                   placeholder="GOCSPX-..."
+                   th:attr="aria-invalid=${#fields.hasErrors('googleClientSecret')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('googleClientSecret')} ? 'googleClientSecret-error' : 'googleClientSecret-hint'">
+            <p id="googleClientSecret-hint" class="field-hint">Để trống nếu
+              muốn giữ nguyên giá trị hiện tại.</p>
+            <span id="googleClientSecret-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('googleClientSecret')}" th:errors="*{googleClientSecret}">Lỗi Client Secret</span>
+          </div>
+
+          <div class="form-row">
+            <label for="googleScope">Scope</label>
+            <input type="text" id="googleScope" th:field="*{googleScope}"
+                   placeholder="openid,profile,email" autocomplete="off"
+                   maxlength="255"
+                   aria-describedby="googleScope-hint"
+                   th:attr="aria-invalid=${#fields.hasErrors('googleScope')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('googleScope')} ? 'googleScope-error' : 'googleScope-hint'">
+            <p id="googleScope-hint" class="field-hint">Danh sách scope ngăn cách bằng dấu phẩy.
+              Mặc định: <code>openid,profile,email</code>.</p>
+            <span id="googleScope-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('googleScope')}" th:errors="*{googleScope}">Lỗi Scope</span>
+          </div>
+        </fieldset>
+
+        <div class="settings-form-actions">
+          <a th:href="@{/admin/settings}" class="btn btn-ghost">Hủy</a>
+          <button type="submit" class="btn btn-primary">Lưu cài đặt</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>

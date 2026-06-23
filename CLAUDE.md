@@ -315,7 +315,10 @@ Xem migration để lấy email + password mẫu.
 - Service nhận DTO trả DTO; entity không leak ra controller
 - Lombok OK cho getter/setter/builder; tránh `@Data` trên entity (equals/hashCode)
 - Exception toàn cục qua `GlobalExceptionHandler`
-- Comment tiếng Việt được, javadoc trên public class/method
+- **Comment phải viết bằng tiếng Anh** (inline comment, block comment, javadoc).
+  Không dùng tiếng Việt trong comment code Java. Javadoc bắt buộc trên public
+  class/method. Lý do: tránh lẫn lộn encoding, đồng nhất với log message và
+  identifier (đã tiếng Anh), thân thiện hơn cho tooling/IDE quốc tế.
 
 ### Thymeleaf
 
@@ -325,6 +328,22 @@ Xem migration để lấy email + password mẫu.
 - Cấu trúc layout: `<head th:replace="~{fragments/head :: head}">` + page body
 - Spring Security tag: `xmlns:sec="http://www.thymeleaf.org/extras/spring-security"`
 - Không hardcode URL — dùng `@{/path}`
+
+### Notifications & feedback
+
+- **MỌI thông báo cho người dùng (success / error / warning / info) đều
+  phải dùng toast `window.UlpToast`** (định nghĩa trong `static/js/app.js`,
+  wrap iziToast). Không dùng `<div class="alert">` inline, không dùng
+  `alert()` native, không tự viết banner.
+- Pattern flash → toast: controller gọi
+  `redirectAttributes.addFlashAttribute("flashSuccess"|"flashError", ...)`,
+  template render `<div id="flash-data" data-flash-success=... data-flash-error=...>`,
+  page-script drain `#flash-data` và gọi `UlpToast.success(...)` /
+  `UlpToast.error(...)` (xem `admin.js`, `class-detail.js`, `login.html`).
+- Lỗi validation form (BindingResult): hiển thị inline cạnh field — KHÔNG
+  đẩy ra toast (toast cho thông báo top-level, không phải lỗi field).
+- iziToast script + CSS đã load trong `fragments/head.html`. Trang nào
+  không dùng fragment đó (ví dụ `login.html`) phải tự include CDN.
 
 ### CSS/JS
 
@@ -375,19 +394,26 @@ Lane phổ biến cho ULP:
 - ❌ Hardcode secret vào `application.properties` hoặc Java code
 - ❌ Thêm bundler / SPA framework — project là SSR thuần
 - ❌ Đặt SMTP credentials vào `application-local.properties` — đã chuyển sang `system_settings` table, edit qua `/admin/settings/email`
-- ❌ Bỏ `@ConditionalOnProperty` cho integration optional (Google OAuth) — chỉ MailService được đặc cách (xem decision 0008)
+- ❌ Bỏ `@ConditionalOnProperty` cho integration optional — chỉ MailService
+  được đặc cách (xem decision 0008) và Google OAuth được đặc cách (xem
+  decision 0009, do credentials đã chuyển sang DB-backed registration)
 - ❌ Bypass Spring Security bằng cách permit URL không cần thiết
 - ❌ Auto-create file markdown summary/notes nếu user không yêu cầu
 - ❌ Dùng `@Data` trên JPA entity (gây vòng lặp equals/hashCode)
 - ❌ Trả entity trực tiếp từ controller — phải qua DTO
+- ❌ Dùng inline `<div class="alert">` hoặc `alert()` native để báo thành
+  công / thất bại cho user — luôn luôn dùng `UlpToast` (xem mục 9 ›
+  Notifications & feedback). Field-level validation error vẫn render inline.
 
 ---
 
 ## 12. Ngôn ngữ phản hồi
 
 **Trả lời người dùng bằng tiếng Việt có dấu đầy đủ** (theo global user
-preference). Code, tên file, log message có thể giữ tiếng Anh. Comment trong
-code tiếng Việt OK (project đã dùng nhiều tiếng Việt trong comment).
+preference). Code, tên file, log message **và comment trong code** phải giữ
+tiếng Anh (xem mục 9 — Coding conventions). Chỉ phần văn bản hiển thị cho
+end-user (Thymeleaf template, flash message, error message UI) mới dùng
+tiếng Việt.
 
 ---
 

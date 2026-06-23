@@ -21,13 +21,13 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * Man hinh quan tri Email Settings (SMTP) — chi ADMIN truy cap.
+ * Admin controller for the Email Settings (SMTP) screen — accessible by ADMIN role only.
  *
- * <p>URLs:
+ * <p>Exposed URLs:
  * <ul>
- *   <li>{@code GET  /admin/settings/email}      — render form</li>
- *   <li>{@code POST /admin/settings/email}      — save form (full page reload)</li>
- *   <li>{@code POST /admin/settings/email/test} — gui test email (AJAX JSON)</li>
+ *   <li>{@code GET  /admin/settings/email}      — render the SMTP configuration form</li>
+ *   <li>{@code POST /admin/settings/email}      — save the form (full page reload)</li>
+ *   <li>{@code POST /admin/settings/email/test} — send a test email (AJAX, returns JSON)</li>
  * </ul>
  */
 @Controller
@@ -41,6 +41,17 @@ public class EmailSettingsController {
         this.service = service;
     }
 
+    /**
+     * Renders the Email Settings form, pre-populated with the current SMTP configuration.
+     *
+     * <p>If the model already contains a {@code form} attribute (e.g. after a failed save
+     * redirect with flash attributes), the existing value is kept so validation errors are
+     * preserved.
+     *
+     * @param principal the currently authenticated admin user
+     * @param model     the Spring MVC model used to pass data to the view
+     * @return the logical view name {@code admin/settings-email}
+     */
     @GetMapping
     public String view(@AuthenticationPrincipal UlpUserDetails principal, Model model) {
         if (!model.containsAttribute("form")) {
@@ -52,20 +63,37 @@ public class EmailSettingsController {
         return "admin/settings-email";
     }
 
+    /**
+     * Handles submission of the Email Settings form and persists the SMTP configuration.
+     *
+     * <p>If validation fails, the form is re-rendered with error messages.
+     * On success, the settings are saved and the user is redirected back with a success flash.
+     *
+     * @param form               the submitted and validated SMTP settings form
+     * @param result             binding result containing any validation errors
+     * @param principal          the currently authenticated admin user; may be {@code null}
+     *                           when the admin authenticated via Google OAuth2 (type mismatch
+     *                           between {@code CustomOidcUserPrincipal} and
+     *                           {@link UlpUserDetails} causes {@code @AuthenticationPrincipal}
+     *                           to inject {@code null}) — see note below
+     * @param model              the Spring MVC model
+     * @param redirectAttributes flash attributes used to pass success/error messages across the redirect
+     * @return a redirect to {@code /admin/settings/email} on success, or the view name on validation failure
+     */
     @PostMapping
     public String save(@Valid @ModelAttribute("form") EmailSettingsForm form,
                        BindingResult result,
                        @AuthenticationPrincipal UlpUserDetails principal,
                        Model model,
                        RedirectAttributes redirectAttributes) {
-        // Principal có thể null khi admin login qua OAuth (CustomOidcUserPrincipal
-        // khác type với UlpUserDetails — @AuthenticationPrincipal inject null khi
-        // type mismatch). MVP yêu cầu user.id để stamp updated_by, nên từ chối
-        // thay vì ném NPE. Khi RBAC OAuth admin được hỗ trợ, mở rộng principal
-        // resolver ở Security layer.
+        // Principal can be null when the admin logs in via OAuth2 (CustomOidcUserPrincipal
+        // is a different type from UlpUserDetails — @AuthenticationPrincipal injects null
+        // on a type mismatch). The MVP requires user.id to stamp updated_by, so we reject
+        // the request rather than throwing an NPE. When OAuth admin support is properly
+        // implemented, extend the principal resolver at the Security layer.
         if (principal == null) {
             redirectAttributes.addFlashAttribute("flashError",
-                    "Phiên đăng nhập không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email/mật khẩu.");
+                    "Your session type does not support this operation. Please log in again with email and password.");
             return "redirect:/admin/settings/email";
         }
         if (result.hasErrors()) {
@@ -74,10 +102,19 @@ public class EmailSettingsController {
             return "admin/settings-email";
         }
         service.save(form, principal.getId());
-        redirectAttributes.addFlashAttribute("flashSuccess", "Đã lưu cài đặt email.");
+        redirectAttributes.addFlashAttribute("flashSuccess", "Email settings saved.");
         return "redirect:/admin/settings/email";
     }
 
+    /**
+     * Sends a test email to the specified recipient using the currently saved SMTP settings.
+     *
+     * <p>This endpoint is intended for AJAX calls and returns a JSON {@link TestResult}
+     * indicating whether the test delivery succeeded or failed.
+     *
+     * @param testRecipient the email address to send the test message to
+     * @return a {@link TestResult} with the outcome of the test send
+     */
     @PostMapping(value = "/test", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public TestResult sendTest(@RequestParam("testRecipient") String testRecipient) {

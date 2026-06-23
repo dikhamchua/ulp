@@ -21,16 +21,18 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Service xu ly Email Settings cho admin: load cau hinh hien tai, save cau
- * hinh moi, va gui test email de verify SMTP transport.
+ * Service for managing SMTP email settings in the admin panel: loading the
+ * current configuration, persisting changes, and sending a test email to
+ * verify the SMTP transport.
  *
- * <p>Masking: cac key trong {@link #SECRET_KEYS} (hien tai chi co
- * {@code smtp.password}) duoc thay the bang {@link #MASKED} truoc khi
- * tra ve view. Khi save, neu form gui ve gia tri rong HOAC chinh xac la
- * {@code MASKED} thi service skip viec ghi de row {@code smtp.password}.
+ * <p>Masking: keys listed in {@link #SECRET_KEYS} (currently only
+ * {@code smtp.password}) are replaced with {@link #MASKED} before being
+ * returned to the view. On save, if the form submits a blank value or the
+ * exact sentinel {@code MASKED}, the service skips writing the
+ * {@code smtp.password} row entirely.
  *
- * <p>{@link #save} la {@code @Transactional} — toan bo upsert chay trong
- * 1 transaction, neu fail thi rollback all-or-nothing.
+ * <p>{@link #save} is {@code @Transactional} — all upserts run within a
+ * single transaction and are rolled back atomically on failure.
  */
 @Service
 public class EmailSettingsService {
@@ -55,8 +57,13 @@ public class EmailSettingsService {
     }
 
     /**
-     * Load Email Settings tu DB. Password luon duoc mask thanh {@code "********"}
-     * truoc khi tra ve form, ke ca khi value rong (de UI thong nhat).
+     * Loads the current email settings from the database.
+     *
+     * <p>The SMTP password is always replaced with {@link #MASKED} before the
+     * form object is returned, even if the stored value is empty, so the UI
+     * renders consistently without exposing the real credential.
+     *
+     * @return an {@link EmailSettingsForm} populated with the current settings
      */
     @Transactional(readOnly = true)
     public EmailSettingsForm load() {
@@ -66,7 +73,7 @@ public class EmailSettingsService {
                 parsePortOrNull(cfg.get("smtp.port")),
                 cfg.getOrDefault("smtp.encryption", "tls"),
                 cfg.getOrDefault("smtp.username", ""),
-                MASKED, // password luon mask
+                MASKED, // password is always masked
                 cfg.getOrDefault("smtp.from_name", ""),
                 cfg.getOrDefault("smtp.from_email", ""),
                 cfg.getOrDefault("smtp.reply_to", "")
@@ -74,12 +81,18 @@ public class EmailSettingsService {
     }
 
     /**
-     * Save Email Settings. Atomicity dam bao boi {@code @Transactional}:
-     * neu upsert mot row fail thi rollback tat ca cac row da write.
+     * Persists updated email settings to the database.
      *
-     * <p>Password handling: neu {@code form.password()} la null/blank hoac
-     * bang {@link #MASKED} thi skip row {@code smtp.password} hoan toan
-     * (khong update gia tri, khong update {@code updated_by}).
+     * <p>Atomicity is guaranteed by {@code @Transactional}: if any upsert
+     * fails, all writes in this call are rolled back.
+     *
+     * <p>Password handling: if {@code form.password()} is {@code null},
+     * blank, or equal to {@link #MASKED}, the {@code smtp.password} row is
+     * skipped entirely — the stored value and {@code updated_by} are left
+     * unchanged.
+     *
+     * @param form          the submitted settings form
+     * @param currentUserId ID of the admin user performing the save
      */
     @Transactional
     public void save(EmailSettingsForm form, Long currentUserId) {
@@ -92,7 +105,7 @@ public class EmailSettingsService {
         incoming.put("smtp.from_email", form.fromEmail().trim());
         incoming.put("smtp.reply_to", form.replyTo() == null ? "" : form.replyTo().trim());
 
-        // Password: chi update khi nguoi dung nhap gia tri moi (khong rong va khong la MASKED)
+        // Password: only update when the user submits a new value (non-blank and not the masked sentinel)
         if (form.password() != null && !form.password().isBlank()
                 && !MASKED.equals(form.password())) {
             incoming.put("smtp.password", form.password());
@@ -102,12 +115,18 @@ public class EmailSettingsService {
     }
 
     /**
-     * Gui email test toi {@code to}. Tra ve {@link TestResult} co {@code ok}
-     * va {@code error} message (khi fail) de UI render toast.
+     * Sends a test email to the given address to verify the SMTP configuration.
      *
-     * <p>Khong dung {@code @Transactional} vi method chi delegate sang
-     * mail transport (network call). Repository duoc invoke ben trong
-     * {@code DbConfiguredMailSender} co transaction tu Spring Data JPA.
+     * <p>Returns a {@link TestResult} containing an {@code ok} flag and, on
+     * failure, an error message suitable for rendering as a UI toast.
+     *
+     * <p>This method is intentionally not {@code @Transactional} because it
+     * only delegates to the mail transport layer (a network call). Any
+     * repository access inside {@code DbConfiguredMailSender} runs under its
+     * own Spring Data JPA transaction.
+     *
+     * @param to the recipient email address
+     * @return a {@link TestResult} indicating success or failure
      */
     public TestResult sendTest(String to) {
         if (to == null || to.isBlank()) {
@@ -131,8 +150,8 @@ public class EmailSettingsService {
     // ─────────────────────────────────────────────────────────────────
 
     private void upsertAll(Map<String, String> incoming, Long currentUserId) {
-        // Load tat ca row hien co cua group SMTP — chi cap nhat row da ton tai
-        // (V1/V9 seed da insert het row can thiet). Neu row missing, insert moi.
+        // Load all existing rows for the SMTP group — only update rows that already exist
+        // (seeded by V1/V9 migrations). Insert a new row if one is unexpectedly missing.
         Map<String, SystemSetting> existing = new HashMap<>();
         for (SystemSetting s : repository.findBySettingGroup(GROUP)) {
             existing.put(s.getSettingKey(), s);

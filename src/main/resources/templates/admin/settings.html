@@ -50,7 +50,7 @@
         </div>
       </div>
 
-      <div class="settings-card settings-card-disabled" aria-disabled="true">
+      <a class="settings-card" th:href="@{/admin/settings/oauth}">
         <div class="settings-card-icon">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -59,9 +59,14 @@
         </div>
         <div class="settings-card-body">
           <h3>OAuth Providers</h3>
-          <p>Google, Microsoft đăng nhập một chạm. (Sắp ra mắt.)</p>
+          <p>Cấu hình đăng nhập một chạm bằng Google. Áp dụng ngay, không cần restart.</p>
         </div>
-      </div>
+        <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+             stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </a>
     </section>
   </main>
 </div>
