@@ -1,5 +1,6 @@
 package com.ulp.classes.service;
 
+import com.ulp.auth.Role;
 import com.ulp.auth.entity.User;
 import com.ulp.classes.dto.MemberDtos.MemberRow;
 import com.ulp.classes.entity.ClassEntity;
@@ -8,8 +9,8 @@ import com.ulp.classes.repository.EnrollmentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.Principal;
 import java.util.List;
+import java.util.stream.IntStream;
 
 /**
  * Read-only service for managing the member (student) list within a single class.
@@ -42,30 +43,24 @@ public class ClassMembersService {
     /**
      * Returns the list of ACTIVE members for the given class, after verifying access rights.
      *
-     * @param classId   the ID of the class whose members are being retrieved
-     * @param principal the currently authenticated user
+     * @param classId the ID of the class whose members are being retrieved
+     * @param userId  the authenticated caller's database id
+     * @param role    the authenticated caller's role
      * @return a {@link ClassMembersView} containing class info, member rows, and total count
      * @throws jakarta.persistence.EntityNotFoundException              if the class does not exist
      * @throws org.springframework.security.access.AccessDeniedException if the caller lacks access
      */
     @Transactional(readOnly = true)
-    public ClassMembersView listForClass(Long classId, Principal principal) {
-        ClassEntity clazz = classesService.getViewable(classId, principal);
+    public ClassMembersView listForClass(Long classId, Long userId, Role role) {
+        ClassEntity clazz = classesService.getViewable(classId, userId, role);
         List<Enrollment> enrollments = enrollmentRepository
                 .findAllByClassIdAndStatusOrderByJoinedAtDesc(classId, Enrollment.STATUS_ACTIVE);
 
-        List<MemberRow> rows = enrollments.stream()
-                .map(e -> toRow(e, indexOf(enrollments, e)))
+        List<MemberRow> rows = IntStream.range(0, enrollments.size())
+                .mapToObj(i -> toRow(enrollments.get(i), i))
                 .toList();
 
         return new ClassMembersView(clazz, rows, rows.size());
-    }
-
-    private static int indexOf(List<Enrollment> list, Enrollment target) {
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i) == target) return i;
-        }
-        return 0;
     }
 
     private static MemberRow toRow(Enrollment e, int index) {

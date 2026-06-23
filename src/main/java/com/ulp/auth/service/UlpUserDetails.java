@@ -1,5 +1,6 @@
 package com.ulp.auth.service;
 
+import com.ulp.auth.Role;
 import com.ulp.auth.entity.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -19,6 +20,7 @@ import java.util.List;
 public class UlpUserDetails implements UserDetails {
 
     private final Long id;
+    private final Role role;
     private final String username;
     private final String password;
     private final String fullName;
@@ -33,6 +35,7 @@ public class UlpUserDetails implements UserDetails {
      */
     public UlpUserDetails(User user) {
         this.id = user.getId();
+        this.role = user.getRole();
         this.username = user.getEmail();
         this.password = user.getPasswordHash();
         this.fullName = user.getFullName();
@@ -44,12 +47,28 @@ public class UlpUserDetails implements UserDetails {
     /**
      * Returns the ID of the currently authenticated user.
      *
-     * <p>Intended for audit purposes (e.g. {@code updated_by}) in admin-facing services.
+     * <p>Intended for audit purposes (e.g. {@code updated_by}) in admin-facing services,
+     * and for service-layer authz checks that previously required re-resolving the
+     * caller's identity via {@code findByEmailIgnoreCase}.
      *
      * @return the user's primary key
      */
     public Long getId() {
         return id;
+    }
+
+    /**
+     * Returns the role of the currently authenticated user.
+     *
+     * <p>Exposed so controllers can pass the role to service methods without
+     * an additional DB lookup. Spring Security has already resolved the user
+     * during authentication, and this is the authoritative role at the
+     * moment of authentication.
+     *
+     * @return the user's {@link Role} enum value
+     */
+    public Role getRole() {
+        return role;
     }
 
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */

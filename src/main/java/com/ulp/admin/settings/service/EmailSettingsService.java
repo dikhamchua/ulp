@@ -3,6 +3,7 @@ package com.ulp.admin.settings.service;
 import com.ulp.admin.settings.dto.EmailSettingsDtos;
 import com.ulp.admin.settings.dto.EmailSettingsDtos.EmailSettingsForm;
 import com.ulp.admin.settings.dto.EmailSettingsDtos.TestResult;
+import com.ulp.shared.config.CacheConfig;
 import com.ulp.shared.mail.MailSendResult;
 import com.ulp.shared.mail.MailService;
 import com.ulp.shared.settings.SystemSettingGroups;
@@ -12,6 +13,7 @@ import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,10 +93,14 @@ public class EmailSettingsService {
      * skipped entirely — the stored value and {@code updated_by} are left
      * unchanged.
      *
+     * <p>Cache invalidation: evicts the {@code SMTP} entry from the
+     * {@code settingsGroup} cache so the next read picks up the new values.
+     *
      * @param form          the submitted settings form
      * @param currentUserId ID of the admin user performing the save
      */
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_SETTINGS_GROUP, key = "'SMTP'")
     public void save(EmailSettingsForm form, Long currentUserId) {
         Map<String, String> incoming = new LinkedHashMap<>();
         incoming.put("smtp.host", form.host().trim());

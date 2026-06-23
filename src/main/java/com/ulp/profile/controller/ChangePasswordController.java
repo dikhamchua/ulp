@@ -2,8 +2,10 @@ package com.ulp.profile.controller;
 
 import com.ulp.auth.entity.User;
 import com.ulp.auth.repository.UserRepository;
+import com.ulp.auth.service.UlpUserDetails;
 import com.ulp.profile.dto.ProfileDtos;
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -12,8 +14,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import java.security.Principal;
 
 /**
  * Controller for the change-password feature available to authenticated users.
@@ -58,7 +58,7 @@ public class ChangePasswordController {
      *
      * @param form      the submitted {@link ProfileDtos.ChangePasswordRequest} (validated)
      * @param result    binding result carrying any constraint violations
-     * @param principal the currently authenticated user (provides the email look-up key)
+     * @param principal the authenticated principal — id sourced from Spring Security
      * @param model     the Spring MVC model for error flags
      * @param ra        redirect attributes used to pass the success flash message
      * @return a redirect to {@code /change-password} on success, or the view name
@@ -67,13 +67,15 @@ public class ChangePasswordController {
      */
     @PostMapping("/change-password")
     public String change(@Valid @ModelAttribute("form") ProfileDtos.ChangePasswordRequest form,
-                          BindingResult result, Principal principal, Model model,
+                          BindingResult result,
+                          @AuthenticationPrincipal UlpUserDetails principal,
+                          Model model,
                           RedirectAttributes ra) {
         if (result.hasErrors()) {
             return "change-password";
         }
 
-        User user = userRepository.findByEmail(principal.getName())
+        User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
 
         // Verify current password

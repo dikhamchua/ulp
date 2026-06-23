@@ -56,9 +56,9 @@ class Sprint2ClassesIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmail("lecturer@ulp.edu.vn").orElseThrow();
-        head = userRepository.findByEmail("head@ulp.edu.vn").orElseThrow();
-        admin = userRepository.findByEmail("admin@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        head = userRepository.findByEmailIgnoreCase("head@ulp.edu.vn").orElseThrow();
+        admin = userRepository.findByEmailIgnoreCase("admin@ulp.edu.vn").orElseThrow();
         // We don't have a 2nd LECTURER seeded — simulate "other" via head id only when needed.
         otherLecturer = head;
     }

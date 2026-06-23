@@ -5,8 +5,6 @@ import com.ulp.auth.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.Principal;
-
 /**
  * Service for reading and updating the current user's profile information.
  */
@@ -20,14 +18,19 @@ public class ProfileService {
     }
 
     /**
-     * Retrieves the currently authenticated user by resolving their email from the given {@link Principal}.
+     * Retrieves the currently authenticated user by their database id.
      *
-     * @param principal the security principal whose {@code name} is the user's email address
+     * <p>Controllers obtain the id from {@code @AuthenticationPrincipal UlpUserDetails}
+     * — Spring Security has already loaded the user during authentication, so this
+     * method takes the id directly instead of re-resolving by email.
+     *
+     * @param userId the authenticated user's database id
      * @return the {@link User} entity associated with the authenticated principal
-     * @throws IllegalStateException if no user with the principal's email is found in the database
+     * @throws IllegalStateException if no user with the given id is found in the database
      */
-    public User getCurrentUser(Principal principal) {
-        return userRepository.findByEmail(principal.getName())
+    @Transactional(readOnly = true)
+    public User getCurrentUser(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found in DB"));
     }
 

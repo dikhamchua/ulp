@@ -1,7 +1,7 @@
 package com.ulp.shared.mail;
 
 import com.ulp.shared.settings.SystemSettingGroups;
-import com.ulp.shared.settings.repository.SystemSettingsRepository;
+import com.ulp.shared.settings.service.SystemSettingsService;
 import jakarta.mail.Address;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
@@ -30,14 +30,14 @@ import static org.mockito.Mockito.when;
 class DbConfiguredMailSenderTest {
 
     @Mock
-    private SystemSettingsRepository repository;
+    private SystemSettingsService settingsService;
 
     @InjectMocks
     private DbConfiguredMailSender sender;
 
     @Test
     void send_with_empty_host_returns_false_without_throwing() {
-        when(repository.loadGroupAsMap(SystemSettingGroups.SMTP)).thenReturn(Map.of(
+        when(settingsService.loadGroupAsMap(SystemSettingGroups.SMTP)).thenReturn(Map.of(
                 "smtp.host", "",
                 "smtp.from_email", "from@example.com"
         ));
@@ -47,7 +47,7 @@ class DbConfiguredMailSenderTest {
 
     @Test
     void sendWithDetail_with_empty_host_returns_specific_error() {
-        when(repository.loadGroupAsMap(SystemSettingGroups.SMTP)).thenReturn(Map.of(
+        when(settingsService.loadGroupAsMap(SystemSettingGroups.SMTP)).thenReturn(Map.of(
                 "smtp.host", ""
         ));
         MailSendResult result = sender.sendWithDetail("to@example.com", "s", "b");
@@ -125,8 +125,8 @@ class DbConfiguredMailSenderTest {
         // Bypass send() de tranh ket noi mang. Goi build private qua reflection.
         Class<?> clazz = DbConfiguredMailSender.class;
 
-        Field repoField = clazz.getDeclaredField("repository");
-        repoField.setAccessible(true);
+        Field svcField = clazz.getDeclaredField("settingsService");
+        svcField.setAccessible(true);
 
         // buildSender (private) — re-implement minimal version that uses cfg directly
         JavaMailSenderImpl impl = new JavaMailSenderImpl();

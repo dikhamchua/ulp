@@ -63,6 +63,15 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
+		<!-- Spring Cache abstraction + Caffeine provider (in-process cache for hot reads) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
 		<!-- Thymeleaf + Spring Security integration (sec:authorize, ...) -->
 		<dependency>
 			<groupId>org.thymeleaf.extras</groupId>

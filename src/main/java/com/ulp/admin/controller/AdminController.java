@@ -66,7 +66,7 @@ public class AdminController {
         return "admin/settings";
     }
 
-    @GetMapping({"/users", "/departments", "/classes"})
+    @GetMapping({"/departments", "/classes"})
     public String placeholder(HttpServletRequest request, Model model) {
         String path = request.getRequestURI();
         String tab = path.substring(path.lastIndexOf('/') + 1);
@@ -82,7 +82,6 @@ public class AdminController {
 
     private static String labelFor(String tab) {
         return switch (tab) {
-            case "users" -> "Tài khoản";
             case "departments" -> "Bộ môn";
             case "classes" -> "Lớp học";
             default -> tab;
