@@ -195,7 +195,7 @@ public class AdminUsersController {
             if (!warnings.isEmpty()) {
                 ra.addFlashAttribute("flashWarning", String.join(" ", warnings));
             }
-            return "redirect:/admin/users";
+            return "redirect:/admin/users/" + id + "/edit?tab=info";
         } catch (EmailAlreadyUsedException ex) {
             result.rejectValue("email", "email.duplicate", "Email đã được sử dụng");
             populateFormModel(model, "edit", id);

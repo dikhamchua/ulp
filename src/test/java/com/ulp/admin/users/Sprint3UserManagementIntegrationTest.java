@@ -247,7 +247,7 @@ class Sprint3UserManagementIntegrationTest {
                         .param("bio", "")
                         .param("emailVerified", "true"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/admin/users"));
+                .andExpect(redirectedUrl("/admin/users/" + lecturer.getId() + "/edit?tab=info"));
 
         User reloaded = userRepository.findByIdIncludingDeleted(lecturer.getId()).orElseThrow();
         assertThat(reloaded.getFullName()).isEqualTo("Lecturer Edited");
