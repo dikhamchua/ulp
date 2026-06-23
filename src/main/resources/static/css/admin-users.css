@@ -414,8 +414,11 @@
   align-items: center;
 }
 
+/* Spacer collapses to zero so all three buttons cluster left (gap: 12px
+   inherited from .detail-toolbar). Per the vibe annotation: Save and Delete
+   should match Back's outlined style and sit next to it. */
 .detail-toolbar .toolbar-spacer {
-  flex: 1;
+  display: none;
 }
 
 .detail-toolbar .toolbar-back {
@@ -436,23 +439,31 @@
   background: #f3f4f6;
 }
 
+/* Save + Delete share Back's outlined shape (padding, border-radius, weight,
+   font-size, white background) so the toolbar reads as a single button row.
+   Color is preserved via colored text + border so primary / danger semantics
+   stay distinguishable at a glance. */
 .detail-toolbar .toolbar-save,
 .detail-toolbar .toolbar-delete {
-  padding: 8px 18px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
   border-radius: 8px;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 14px;
+  line-height: 1.4;
   cursor: pointer;
-  border: 1px solid transparent;
+  background: #fff;
+  border: 1px solid;
 }
 
 .detail-toolbar .toolbar-save {
-  background: #2563eb;
-  color: #fff;
+  border-color: #2563eb;
+  color: #2563eb;
 }
 
 .detail-toolbar .toolbar-save:hover:not([disabled]) {
-  background: #1d4ed8;
+  background: #eff6ff;
 }
 
 .detail-toolbar button[disabled] {
@@ -461,12 +472,12 @@
 }
 
 .detail-toolbar .toolbar-delete {
-  background: #dc2626;
-  color: #fff;
+  border-color: #dc2626;
+  color: #dc2626;
 }
 
 .detail-toolbar .toolbar-delete:hover {
-  background: #b91c1c;
+  background: #fef2f2;
 }
 
 /* ── Header info block ──────────────────────────────────────────── */
