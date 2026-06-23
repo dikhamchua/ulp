@@ -2,6 +2,7 @@ package com.ulp.admin.users.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ulp.admin.users.dto.ActivityRow;
 import com.ulp.admin.users.dto.AdminUsersDtos.CreateUserForm;
 import com.ulp.admin.users.dto.AdminUsersDtos.EditUserForm;
 import com.ulp.admin.users.dto.AdminUsersDtos.UserFilter;
@@ -15,7 +16,9 @@ import com.ulp.auth.repository.UserRepository;
 import com.ulp.classes.entity.ClassEntity;
 import com.ulp.classes.repository.ClassRepository;
 import com.ulp.shared.util.StringUtils;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -26,6 +29,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -72,6 +76,9 @@ public class AdminUsersService {
     private final AdminUsersGuard guard;
     private final ObjectMapper objectMapper;
     private final ClassRepository classRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public AdminUsersService(UserRepository userRepository,
                              UserActivityRepository activityRepository,
@@ -130,6 +137,50 @@ public class AdminUsersService {
     public User getEditable(Long id) {
         return userRepository.findByIdIncludingDeleted(id)
                 .orElseThrow(() -> new EntityNotFoundException("Người dùng không tồn tại"));
+    }
+
+    /**
+     * Paginated audit history for a single user, consumed by the user-detail
+     * page's "Lịch sử cập nhật" tab. Delegates to
+     * {@link UserActivityRepository#findActivitiesForTargetUser} which already
+     * joins against the actor's email to avoid N+1 lookups across the page.
+     *
+     * @param targetUserId the user the audit rows are about
+     * @param pageable     paging directives (sort is ignored — the repository
+     *                     query hard-codes {@code ORDER BY createdAt DESC})
+     * @return one page of audit rows, newest first
+     */
+    @Transactional(readOnly = true)
+    public Page<ActivityRow> listActivities(Long targetUserId, Pageable pageable) {
+        return activityRepository.findActivitiesForTargetUser(targetUserId, pageable);
+    }
+
+    /**
+     * Returns the {@code users.created_at} timestamp for the given user.
+     *
+     * <p>The {@link User} entity does not map {@code created_at}; this helper
+     * reads it directly via native SQL so the detail-page header can display
+     * "Tạo lúc" without modifying out-of-scope entity code. Returns
+     * {@code null} when the row does not exist or the column is null.
+     *
+     * @param userId target user id
+     * @return creation timestamp or {@code null}
+     */
+    @Transactional(readOnly = true)
+    public LocalDateTime getCreatedAt(Long userId) {
+        Object raw;
+        try {
+            raw = entityManager
+                    .createNativeQuery("SELECT created_at FROM users WHERE id = ?1")
+                    .setParameter(1, userId)
+                    .getSingleResult();
+        } catch (jakarta.persistence.NoResultException ex) {
+            return null;
+        }
+        if (raw == null) return null;
+        if (raw instanceof LocalDateTime ldt) return ldt;
+        if (raw instanceof java.sql.Timestamp ts) return ts.toLocalDateTime();
+        return null;
     }
 
     /**

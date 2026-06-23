@@ -127,6 +127,21 @@
     var action = btn.getAttribute('data-action');
     var userId = btn.getAttribute('data-user-id');
 
+    // Detail-page toolbar Xóa button — userId is not on the button itself;
+    // read it from the toolbar's data attribute so the same modal flow as
+    // the list-page row menu can be reused without new markup.
+    if (action === 'delete-user') {
+      var toolbar = btn.closest('.detail-toolbar');
+      var detailUserId = toolbar ? toolbar.getAttribute('data-user-id') : null;
+      if (!detailUserId) return;
+      openConfirmModal(
+        'Xoá tài khoản này? Có thể khôi phục từ bộ lọc Đã xoá.',
+        'form-delete-' + detailUserId,
+        true
+      );
+      return;
+    }
+
     if (confirmActions[action]) {
       var cfg = confirmActions[action];
       openConfirmModal(cfg.confirm, cfg.form + userId, cfg.danger);

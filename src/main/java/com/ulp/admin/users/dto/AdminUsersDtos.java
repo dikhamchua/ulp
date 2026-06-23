@@ -195,4 +195,13 @@ public final class AdminUsersDtos {
             @NotBlank(message = "Mật khẩu mới không được để trống")
             String newPassword
     ) {}
+
+    // ── Audit history projection ──────────────────────────────────
+    // ActivityRow lives as a top-level record in the same package (see
+    // ActivityRow.java). It was originally written as a nested record here
+    // per tasks.md 1.1, but Hibernate 6's JPQL `SELECT new ...` cannot
+    // resolve nested-class names without a Hibernate-specific @Imported
+    // hint that Spring Boot's default entity scan does not pick up. The
+    // top-level record sidesteps the issue cleanly; same package + same
+    // class name, no JPQL FQN gymnastics. See task report for details.
 }
