@@ -53,3 +53,156 @@ main { flex: 1; display: flex; align-items: stretch; }
   .illus { display: none; }
   header { padding: 14px 20px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Forgot Password — Shub-style layout (split form + illustration)
+   Layout cloned from shub.edu.vn/reset-password/form, theme via main.css.
+   Reuses .btn / .btn-primary / .input-wrap / .field from main.css; only
+   page-scoped overrides live here.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Override default centered for forgot-password page only — use split layout */
+.page-forgot main { display: block; flex: 1; }
+
+/* Fixed slim header on forgot page */
+.page-forgot header {
+  position: fixed; top: 0; left: 0; right: 0;
+  padding: 0; height: 80px; border-bottom: none;
+  z-index: 100; background: var(--bg);
+  display: block;
+}
+.page-forgot header .header-inner {
+  width: 100%;
+  max-width: 1280px; margin: 0 auto;
+  padding: 0 24px; height: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.page-forgot header .logo { font-size: 22px; }
+.page-forgot header .logo svg { width: 36px; height: 36px; }
+
+/* "Đăng nhập" outlined button in header */
+.btn-outlined {
+  min-width: 120px; height: 40px;
+  padding: 5px 15px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--primary);
+  font-family: var(--font);
+  font-size: 14px; font-weight: 600; line-height: 21px;
+  text-transform: none;
+  transition: background-color .25s cubic-bezier(.4,0,.2,1),
+              border-color .25s cubic-bezier(.4,0,.2,1);
+}
+.btn-outlined:hover {
+  background-color: rgba(30, 136, 229, 0.04);
+  border-color: var(--primary);
+}
+
+/* Main 2-col layout */
+.forgot-shell {
+  max-width: 1280px;
+  margin: 128px auto 0;
+  padding: 0 32px;
+}
+.forgot-grid {
+  display: flex; flex-wrap: wrap;
+  margin: -48px 0 0 -48px;
+  width: calc(100% + 48px);
+}
+.forgot-col {
+  padding: 48px 0 0 48px;
+  box-sizing: border-box;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.forgot-col-form  { flex: 0 0 41.6667%; max-width: 41.6667%; }
+.forgot-col-illus { flex: 0 0 58.3333%; max-width: 58.3333%; }
+
+/* "Quay lại đăng nhập" tile */
+.forgot-back-link {
+  display: inline-flex; align-items: center;
+  color: var(--primary);
+  font-family: var(--font);
+  font-size: 14px; font-weight: 600; line-height: 21px;
+  cursor: pointer;
+  text-decoration: none;
+  background: none; border: none; padding: 0;
+  align-self: flex-start;
+}
+.forgot-back-link svg {
+  width: 24px; height: 24px;
+  margin-right: 8px;
+  fill: var(--primary);
+  flex-shrink: 0;
+}
+.forgot-back-link:hover { opacity: .85; }
+
+/* Form */
+.forgot-form {
+  display: block;
+  max-width: 360px;
+  width: 100%;
+}
+.forgot-form__title {
+  margin: 8px 0;
+  font-family: var(--font);
+  font-size: 21px; font-weight: 600;
+  line-height: 28px;
+  color: var(--heading);
+}
+.forgot-form__hint {
+  margin: 0 0 8px;
+  font-size: 14px; color: var(--muted); line-height: 21px;
+}
+
+/* Page-scoped overrides on shared .field / .input-wrap from main.css
+   to keep the MUI-style 53px input and tight vertical rhythm. */
+.page-forgot .field { margin: 8px 0; }
+.page-forgot .input-wrap { height: 53px; }
+.page-forgot .input-wrap input {
+  padding: 16.5px 14px;
+  font-size: 14px;
+}
+.page-forgot .input-wrap.is-invalid { border-color: var(--danger); }
+
+.forgot-error {
+  margin: 6px 4px 0;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+/* Illustration */
+.forgot-illustration {
+  display: block;
+  width: 100%;
+  max-width: 689px;
+  height: 630px;
+  max-height: 630px;
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Responsive */
+@media (max-width: 899px) {
+  .page-forgot header .header-inner { padding: 0 16px; }
+  .forgot-col-form,
+  .forgot-col-illus {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  .forgot-illustration {
+    margin: 0 auto;
+    height: auto;
+    max-height: 480px;
+  }
+}
+@media (max-width: 600px) {
+  .forgot-shell { padding: 0 16px; margin-top: 96px; }
+  .forgot-grid {
+    margin: -32px 0 0 -32px;
+    width: calc(100% + 32px);
+  }
+  .forgot-col { padding: 32px 0 0 32px; }
+  .forgot-illustration { max-height: 360px; }
+}

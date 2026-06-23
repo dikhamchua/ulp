@@ -56,13 +56,14 @@ public class PasswordRecoveryController {
      *
      * <p>If validation passes, delegates to {@link PasswordRecoveryService#requestReset(String)}
      * to send a reset link. The handler then redirects back to the same page with a
-     * {@code sent=true} flash attribute so the view can display a confirmation message.
-     * The redirect-after-POST pattern prevents duplicate form submissions on browser refresh.</p>
+     * {@code flashSuccess} flash attribute that the view drains into a {@code UlpToast}
+     * success notification (per project convention — see CLAUDE.md mục 9 &amp; 11). The
+     * redirect-after-POST pattern prevents duplicate form submissions on browser refresh.</p>
      *
      * @param req    the validated forgot-password request containing the user's e-mail address
      * @param result the binding result holding any validation errors
      * @param model  the Spring MVC model (used when returning the form on validation failure)
-     * @param ra     redirect attributes used to pass the {@code sent} flash flag
+     * @param ra     redirect attributes used to pass the {@code flashSuccess} message to the toast
      * @return the view name on validation failure, or a redirect to {@code /forgot-password} on success
      */
     @PostMapping("/forgot-password")
@@ -72,7 +73,8 @@ public class PasswordRecoveryController {
             return "auth/forgot-password";
         }
         service.requestReset(req.email());
-        ra.addFlashAttribute("sent", true);
+        ra.addFlashAttribute("flashSuccess",
+                "Nếu email tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư (kể cả thư rác).");
         return "redirect:/forgot-password";
     }
 
