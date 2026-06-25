@@ -128,3 +128,74 @@ img { display: block; max-width: 100%; }
 .text-success { color: var(--success); }
 .text-sm { font-size: 13px; }
 .text-xs { font-size: 12px; }
+
+/* ── Confirm modal (window.UlpModal.confirm) ───────────────────────── */
+/* Global modal styles backing the shared UlpModal.confirm helper in app.js.
+   Lives in main.css so every page (Members tab, my-classes, admin, ...)
+   can use the helper without importing a per-feature stylesheet. */
+.ulp-modal {
+  border: none;
+  padding: 0;
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  max-width: 420px;
+  width: 90%;
+  background: var(--bg);
+  color: var(--fg);
+  /* Native <dialog>[open] from showModal() defaults to top-layer with
+     `margin: auto` to center on both axes. Some user-agent stylesheets
+     (or our own overrides) collapse this — re-assert auto on all sides. */
+  margin: auto;
+}
+.ulp-modal::backdrop {
+  background: rgba(32, 34, 39, .42);
+}
+.ulp-modal-form {
+  padding: 24px 26px;
+  margin: 0;
+}
+.ulp-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--heading);
+  margin: 0 0 10px 0;
+}
+.ulp-modal-body {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0 0 22px 0;
+}
+.ulp-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.ulp-modal .btn-ghost,
+.ulp-modal .btn-danger {
+  padding: 8px 18px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: .15s;
+  border: 1px solid var(--border);
+}
+.ulp-modal .btn-ghost {
+  background: var(--bg);
+  color: var(--muted);
+}
+.ulp-modal .btn-ghost:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.ulp-modal .btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.ulp-modal .btn-danger:hover {
+  background: #B71C1C;
+  border-color: #B71C1C;
+}

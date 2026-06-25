@@ -139,12 +139,24 @@ public class SecurityConfig {
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
+                        .requestMatchers("/my/**", "/j/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
                         .loginProcessingUrl("/login")
-                        .defaultSuccessUrl("/", true)
+                        // alwaysUse=false so Spring Security installs the
+                        // SavedRequestAwareAuthenticationSuccessHandler.
+                        // Deep-link flows (e.g. anonymous GET /j/{invite-token}
+                        // for class enrollment) rely on HttpSessionRequestCache
+                        // to capture the original URI and resume it after a
+                        // successful login. With alwaysUse=true Spring would
+                        // bypass the saved request and force every login to
+                        // land on "/", breaking the link-join scenario.
+                        // Fallback "/" remains safe: when a user opens /login
+                        // directly there is no saved request and they are sent
+                        // to the home page as before.
+                        .defaultSuccessUrl("/", false)
                         .failureUrl("/login?error")
                         .permitAll()
                 )
@@ -157,7 +169,12 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .userInfoEndpoint(ui -> ui.oidcUserService(customOidcUserService))
                         .failureHandler(oauthFailureHandler())
-                        .defaultSuccessUrl("/", true)
+                        // Mirror the form-login behaviour above so Google sign-in
+                        // honours the saved request too. Without this an anonymous
+                        // user who follows /j/{token} and chooses "Sign in with
+                        // Google" would land on "/" instead of completing the
+                        // class join.
+                        .defaultSuccessUrl("/", false)
                 )
                 // Eagerly materialize CSRF token before the view starts rendering.
                 // Without this, the deferred CSRF lookup happens deep inside Thymeleaf's

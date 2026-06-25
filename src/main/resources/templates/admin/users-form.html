@@ -3,6 +3,7 @@
 <head th:replace="~{fragments/head :: head(${mode == 'create' ? 'Admin | Tạo tài khoản' : 'Admin | Chỉnh sửa tài khoản'}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
 </head>
@@ -220,7 +221,7 @@
 
       <div th:if="${not activitiesPage.empty}">
         <div class="users-table-scroll">
-          <table class="activity-table">
+          <table class="detail-table">
             <thead>
               <tr>
                 <th>Loại</th>
@@ -232,7 +233,7 @@
             <tbody>
               <tr th:each="row : ${activitiesPage.content}">
                 <td>
-                  <span class="activity-type-badge" th:text="${row.type()}">TYPE</span>
+                  <span class="detail-type-badge" th:text="${row.type()}">TYPE</span>
                 </td>
                 <td th:text="${row.message() != null ? row.message() : '—'}">message</td>
                 <td th:text="${row.actorEmail() != null ? row.actorEmail() : '—'}">actor</td>
@@ -244,7 +245,7 @@
 
         <!-- Pagination — mirrors the pattern from templates/admin/users.html
              but preserves the tab=history parameter across page links. -->
-        <nav th:if="${activitiesPage.totalPages > 1}" class="users-pagination" aria-label="Phân trang">
+        <nav th:if="${activitiesPage.totalPages > 1}" class="detail-pagination" aria-label="Phân trang">
           <a class="page-link"
              th:if="${!activitiesPage.first}"
              th:href="@{'/admin/users/' + ${targetUser.id} + '/edit'(tab='history', page=${activitiesPage.number - 1})}">‹ Trước</a>

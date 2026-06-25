@@ -115,4 +115,27 @@ public class ClassesDtos {
             return endDate.isAfter(startDate);
         }
     }
+
+    /**
+     * View-model for the active {@code CODE} invite token rendered
+     * on the Members tab "Mời sinh viên" panel.
+     *
+     * @param code     the 6-char invite code value
+     * @param id       primary key of the {@code class_invite_codes} row
+     * @param useCount how many successful joins this token has served
+     */
+    public record InviteCodeView(String code, Long id, Integer useCount) {}
+
+    /**
+     * View-model for the active {@code LINK} invite token rendered
+     * on the Members tab "Mời sinh viên" panel.
+     *
+     * @param token    the 32-char base64url token (the URL path
+     *                 segment under {@code /j/})
+     * @param fullUrl  the complete invite URL the lecturer copies
+     *                 (e.g. {@code https://app.example/j/<token>})
+     * @param id       primary key of the {@code class_invite_codes} row
+     * @param useCount how many successful joins this LINK has served
+     */
+    public record InviteLinkView(String token, String fullUrl, Long id, Integer useCount) {}
 }

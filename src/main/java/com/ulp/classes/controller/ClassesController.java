@@ -1,17 +1,23 @@
 package com.ulp.classes.controller;
 
+import com.ulp.auth.Role;
 import com.ulp.auth.Roles;
 import com.ulp.auth.service.UlpUserDetails;
 import com.ulp.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.classes.dto.ClassesDtos.ClassRow;
+import com.ulp.classes.dto.ClassesDtos.InviteCodeView;
+import com.ulp.classes.dto.ClassesDtos.InviteLinkView;
 import com.ulp.classes.entity.ClassEntity;
+import com.ulp.classes.entity.ClassInviteCode;
 import com.ulp.classes.service.ClassMembersService;
 import com.ulp.classes.service.ClassesService;
+import com.ulp.classes.service.InviteCodeService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -22,6 +28,8 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
@@ -53,11 +61,14 @@ public class ClassesController {
 
     private final ClassesService classesService;
     private final ClassMembersService classMembersService;
+    private final InviteCodeService inviteCodeService;
 
     public ClassesController(ClassesService classesService,
-                             ClassMembersService classMembersService) {
+                             ClassMembersService classMembersService,
+                             InviteCodeService inviteCodeService) {
         this.classesService = classesService;
         this.classMembersService = classMembersService;
+        this.inviteCodeService = inviteCodeService;
     }
 
     /**
@@ -196,7 +207,7 @@ public class ClassesController {
                               @AuthenticationPrincipal UlpUserDetails user,
                               Model model) {
         ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
-        populateDetailModel(model, clazz, "board");
+        populateDetailModel(model, clazz, "board", user.getId(), user.getRole());
         return "classes/detail-board";
     }
 
@@ -209,10 +220,32 @@ public class ClassesController {
                                 Model model) {
         ClassMembersService.ClassMembersView view =
                 classMembersService.listForClass(id, user.getId(), user.getRole());
-        populateDetailModel(model, view.clazz(), "members");
+        populateDetailModel(model, view.clazz(), "members", user.getId(), user.getRole());
         model.addAttribute("members", view.members());
         model.addAttribute("memberTotal", view.total());
         return "classes/detail-members";
+    }
+
+    /**
+     * Rotates the active invite token of the requested type for the
+     * given class. Returns a 302 redirect to the Settings tab (where
+     * the invite panel now lives) with a flash success toast. Service-
+     * level authorization rejects non-owning Lecturers with a 403; an
+     * invalid {@code type} parameter returns 400 via
+     * {@link ResponseStatusException}.
+     */
+    @PostMapping("/classes/{id}/invite/regenerate")
+    public String regenerateInvite(@PathVariable Long id,
+                                   @RequestParam("type") String type,
+                                   @AuthenticationPrincipal UlpUserDetails user,
+                                   RedirectAttributes ra) {
+        if (!ClassInviteCode.TYPE_CODE.equals(type) && !ClassInviteCode.TYPE_LINK.equals(type)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Loại mã không hợp lệ");
+        }
+        inviteCodeService.regenerateActive(id, type, user.getId(), user.getRole());
+        ra.addFlashAttribute("flashSuccess", "Đã tạo mã mời mới");
+        return "redirect:/lecturer/classes/" + id + "/settings";
     }
 
     /**
@@ -231,7 +264,7 @@ public class ClassesController {
         ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
         String path = request.getRequestURI();
         String tab = path.substring(path.lastIndexOf('/') + 1);
-        populateDetailModel(model, clazz, tab);
+        populateDetailModel(model, clazz, tab, user.getId(), user.getRole());
         model.addAttribute("placeholderTab", tab);
         model.addAttribute("placeholderLabel", labelFor(tab));
         return "classes/detail-placeholder";
@@ -240,26 +273,62 @@ public class ClassesController {
     /**
      * Renders the class settings tab, reusing the edit-class form.
      * Only the class owner (or HEAD/ADMIN) may access this endpoint.
+     *
+     * <p>The settings page hosts two sub-tabs that switch via the
+     * {@code ?tab=info|invite} query parameter. Unknown values fall back
+     * to {@code info} so that arbitrary URLs render the form rather than
+     * raising a 4xx error.
      */
     @GetMapping("/classes/{id}/settings")
     public String detailSettings(@PathVariable Long id,
+                                 @RequestParam(defaultValue = "info") String tab,
                                  @AuthenticationPrincipal UlpUserDetails user,
                                  Model model) {
         ClassEntity entity = classesService.getEditable(id, user.getId(), user.getRole());
         if (!model.containsAttribute("form")) {
             model.addAttribute("form", ClassForm.fromEntity(entity));
         }
-        populateDetailModel(model, entity, "settings");
+        populateDetailModel(model, entity, "settings", user.getId(), user.getRole());
+
+        // Whitelist sub-tab to {info, invite}; anything else falls back to "info".
+        String activeDetailTab = "invite".equals(tab) ? "invite" : "info";
+        model.addAttribute("activeDetailTab", activeDetailTab);
+
         model.addAttribute("mode", "edit");
         model.addAttribute("formAction", "/lecturer/classes/" + id);
         model.addAttribute("classId", id);
         return "classes/detail-settings";
     }
 
-    /** Populates common model attributes required by the class-detail layout (sidebar). */
-    private void populateDetailModel(Model model, ClassEntity clazz, String activeTab) {
+    /**
+     * Populates common model attributes required by the class-detail layout.
+     *
+     * <p>Beyond the basic {@code clazz} and {@code activeTab} pair consumed by
+     * the sidebar fragment, this helper also injects the active invite tokens
+     * ({@code activeCode}, {@code activeLink}) and the {@code canRegenerate}
+     * flag so that EVERY detail tab — including the sidebar share-box and the
+     * Settings tab invite panel — can render real invite data sourced from
+     * {@code class_invite_codes} rather than the immutable {@code classes.code}.
+     */
+    private void populateDetailModel(Model model, ClassEntity clazz, String activeTab,
+                                     Long userId, Role role) {
         model.addAttribute("clazz", clazz);
         model.addAttribute("activeTab", activeTab);
+
+        InviteCodeView activeCode = inviteCodeService.findActiveCode(clazz.getId())
+                .map(ic -> new InviteCodeView(ic.getCode(), ic.getId(), ic.getUseCount()))
+                .orElse(null);
+        InviteLinkView activeLink = inviteCodeService.findActiveLink(clazz.getId())
+                .map(ic -> new InviteLinkView(ic.getCode(),
+                        inviteCodeService.buildLinkUrl(ic),
+                        ic.getId(),
+                        ic.getUseCount()))
+                .orElse(null);
+        boolean canRegenerate = classesService.isEditableBy(clazz, userId, role);
+
+        model.addAttribute("activeCode", activeCode);
+        model.addAttribute("activeLink", activeLink);
+        model.addAttribute("canRegenerate", canRegenerate);
     }
 
     private static String labelFor(String tab) {

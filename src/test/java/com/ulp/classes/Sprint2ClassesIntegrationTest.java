@@ -4,7 +4,9 @@ import com.ulp.auth.entity.User;
 import com.ulp.auth.repository.UserRepository;
 import com.ulp.classes.entity.ClassActivity;
 import com.ulp.classes.entity.ClassEntity;
+import com.ulp.classes.entity.ClassInviteCode;
 import com.ulp.classes.repository.ClassActivityRepository;
+import com.ulp.classes.repository.ClassInviteCodeRepository;
 import com.ulp.classes.repository.ClassRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -47,6 +49,7 @@ class Sprint2ClassesIntegrationTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private ClassActivityRepository activityRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private ClassInviteCodeRepository inviteRepository;
     @PersistenceContext private EntityManager em;
 
     private User lecturer;
@@ -157,6 +160,14 @@ class Sprint2ClassesIntegrationTest {
         assertThat(saved.getCode()).hasSize(5);
         assertThat(saved.getCode()).matches("[A-HJ-NP-Z2-9]+");
         assertThat(saved.getStatus()).isEqualTo("UPCOMING");
+
+        // Sprint 2.3: ClassesService.create now provisions one active
+        // CODE row and one active LINK row atomically.
+        List<ClassInviteCode> tokens = inviteRepository.findAllByClassIdOrderByIdAsc(saved.getId());
+        assertThat(tokens).hasSize(2);
+        assertThat(tokens).allMatch(ClassInviteCode::isActive);
+        assertThat(tokens).extracting(ClassInviteCode::getType)
+                .containsExactlyInAnyOrder(ClassInviteCode.TYPE_CODE, ClassInviteCode.TYPE_LINK);
     }
 
     @Test
@@ -457,9 +468,12 @@ class Sprint2ClassesIntegrationTest {
     @WithUserDetails("lecturer@ulp.edu.vn")
     void detail_settings_renders_form_prefilled() throws Exception {
         ClassEntity c = saveClass("DetailSet", lecturer.getId(), "DTSS1");
+        // Sprint 2.4 detail-page redesign: page title = class name (not the
+        // literal "Cài đặt lớp học"). The page sub-heading "Thông tin lớp"
+        // identifies the info card. The class name is reused in the title.
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/settings"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Cài đặt lớp học")))
+                .andExpect(content().string(containsString("Thông tin lớp")))
                 .andExpect(content().string(containsString("DetailSet")));
     }
 

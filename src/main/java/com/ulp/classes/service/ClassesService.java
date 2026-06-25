@@ -1,14 +1,11 @@
 package com.ulp.classes.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ulp.auth.Role;
 import com.ulp.classes.ClassGradient;
 import com.ulp.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.classes.entity.ClassActivity;
 import com.ulp.classes.entity.ClassEntity;
-import com.ulp.classes.repository.ClassActivityRepository;
 import com.ulp.classes.repository.ClassRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -45,8 +42,9 @@ import java.util.Map;
  * wasted work.
  *
  * <p>Every mutation (create/update/softDelete) writes one row to
- * {@link ClassActivity}. Because service methods are {@code @Transactional},
- * a failure when inserting the activity record will also roll back the class mutation.
+ * {@link ClassActivity} via {@link ClassActivityWriter}. Because service methods
+ * are {@code @Transactional}, a failure when inserting the activity record will
+ * also roll back the class mutation.
  */
 @Service
 public class ClassesService {
@@ -55,18 +53,18 @@ public class ClassesService {
     private static final int MAX_CODE_GEN_ATTEMPTS = 3;
 
     private final ClassRepository classRepository;
-    private final ClassActivityRepository activityRepository;
+    private final ClassActivityWriter activityWriter;
     private final ClassCodeGenerator codeGenerator;
-    private final ObjectMapper objectMapper;
+    private final InviteCodeService inviteCodeService;
 
     public ClassesService(ClassRepository classRepository,
-                          ClassActivityRepository activityRepository,
+                          ClassActivityWriter activityWriter,
                           ClassCodeGenerator codeGenerator,
-                          ObjectMapper objectMapper) {
+                          InviteCodeService inviteCodeService) {
         this.classRepository = classRepository;
-        this.activityRepository = activityRepository;
+        this.activityWriter = activityWriter;
         this.codeGenerator = codeGenerator;
-        this.objectMapper = objectMapper;
+        this.inviteCodeService = inviteCodeService;
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────
@@ -102,17 +100,19 @@ public class ClassesService {
         return new PageImpl<>(rows, pageable, page.getTotalElements());
     }
 
-    /** Load lop de edit, da kiem tra quyen. */
+    /** Loads a class for editing after enforcing authorization. */
     @Transactional(readOnly = true)
     public ClassEntity getEditable(Long id, Long userId, Role role) {
         return loadEditable(id, userId, role);
     }
 
     /**
-     * Load lop de XEM CHI TIET (members, board, ...). Cung kiem tra
-     * quyen nhu {@link #getEditable}: LECTURER chi xem duoc lop minh,
-     * HEAD/ADMIN xem het. Tach ra de Sprint sau co the noi long quy
-     * tac (vd. ai cung xem duoc bang tin) ma khong dung den edit path.
+     * Loads a class for the detail view (members, board, ...). Applies the
+     * same authorization as {@link #getEditable}: LECTURER may only access
+     * their own classes; HEAD and ADMIN may access any class. The viewable
+     * and editable code paths are kept separate so a future sprint can
+     * relax the read-side rule (for example, allowing students enrolled in
+     * a class to read the board) without touching the edit-side rule.
      */
     @Transactional(readOnly = true)
     public ClassEntity getViewable(Long id, Long userId, Role role) {
@@ -120,8 +120,10 @@ public class ClassesService {
     }
 
     /**
-     * Tao lop moi. Sinh code, retry toi da 3 lan khi collision tren
-     * {@code uk_classes_code}; nem ngay neu unique-violation tren cot khac.
+     * Creates a new class. Generates the {@code classes.code} value, retrying up to
+     * {@value #MAX_CODE_GEN_ATTEMPTS} times when the unique index
+     * {@code uk_classes_code} reports a collision. Other unique-violation causes
+     * (e.g., on a different column) are rethrown immediately.
      */
     @Transactional
     public ClassEntity create(ClassForm form, Long userId) {
@@ -134,13 +136,18 @@ public class ClassesService {
             entity.setCode(codeGenerator.generate());
             try {
                 ClassEntity saved = classRepository.saveAndFlush(entity);
-                activityRepository.save(new ClassActivity(
+                activityWriter.write(
                         saved.getId(),
                         ClassActivity.TYPE_CREATED,
                         "Tạo lớp " + saved.getName(),
-                        null,
                         userId
-                ));
+                );
+                // Atomically provision the default CODE + LINK invite
+                // tokens for the new class. Token-provisioning failure
+                // (DB error, repeated collision) propagates out of
+                // this @Transactional method, rolling the class
+                // creation back together with the audit row.
+                inviteCodeService.provisionDefaults(saved.getId(), userId);
                 return saved;
             } catch (DataIntegrityViolationException ex) {
                 if (!isCodeCollision(ex)) {
@@ -155,7 +162,7 @@ public class ClassesService {
                 lastCollision);
     }
 
-    /** Cap nhat lop. Phan quyen enforced. Ghi activity UPDATED voi diff. */
+    /** Updates an existing class. Authorization is enforced; writes an UPDATED activity row with a before/after diff. */
     @Transactional
     public ClassEntity update(Long id, ClassForm form, Long userId, Role role) {
         ClassEntity entity = loadEditable(id, userId, role);
@@ -170,35 +177,45 @@ public class ClassesService {
         diff.put("old", oldState);
         diff.put("new", newState);
 
-        activityRepository.save(new ClassActivity(
+        activityWriter.write(
                 saved.getId(),
                 ClassActivity.TYPE_UPDATED,
                 "Cập nhật lớp " + saved.getName(),
-                serialize(diff),
+                diff,
                 userId
-        ));
+        );
         return saved;
     }
 
-    /** Soft-delete lop. Phan quyen enforced. Ghi activity DELETED. */
+    /** Soft-deletes a class. Authorization is enforced; writes a DELETED activity row. */
     @Transactional
     public void softDelete(Long id, Long userId, Role role) {
         ClassEntity entity = loadEditable(id, userId, role);
 
         entity.softDelete();
         classRepository.save(entity);
-        activityRepository.save(new ClassActivity(
+        activityWriter.write(
                 entity.getId(),
                 ClassActivity.TYPE_DELETED,
                 "Xoá lớp " + entity.getName(),
-                null,
                 userId
-        ));
+        );
     }
 
     // ──────────────────────── Internal ──────────────────────────────
 
-    /** Load + authz against the caller's id/role. DRY voi {@link #getEditable}. */
+    /**
+     * Returns whether the caller is authorised to edit the given class.
+     * HEAD and ADMIN may edit any class; LECTURER may only edit classes they own.
+     */
+    public boolean isEditableBy(ClassEntity clazz, Long userId, Role role) {
+        if (role == null) return false;
+        return role == Role.ADMIN
+                || role == Role.HEAD
+                || (role == Role.LECTURER && clazz.getLecturerId().equals(userId));
+    }
+
+    /** Loads the class and enforces the editable-by authorisation rule. */
     private ClassEntity loadEditable(Long id, Long userId, Role role) {
         ClassEntity entity = classRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
@@ -207,7 +224,7 @@ public class ClassesService {
     }
 
     private void requireEditableBy(ClassEntity entity, Long userId, Role role) {
-        if (role == Role.LECTURER && !entity.getLecturerId().equals(userId)) {
+        if (!isEditableBy(entity, userId, role)) {
             throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
         }
     }
@@ -243,14 +260,5 @@ public class ClassesService {
         m.put("endDate", e.getEndDate() != null ? e.getEndDate().toString() : null);
         m.put("maxStudents", e.getMaxStudents());
         return m;
-    }
-
-    private String serialize(Map<String, Object> payload) {
-        try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException ex) {
-            log.warn("Failed to serialize activity metadata", ex);
-            return null;
-        }
     }
 }

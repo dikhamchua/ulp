@@ -18,6 +18,12 @@ import java.util.stream.IntStream;
  *
  * <p>Authorization is delegated to {@link ClassesService#getViewable} to verify
  * the caller has access to the class before returning its members.
+ *
+ * <p>Sprint 2.4 refactor: the active CODE / LINK / canRegenerate fields previously
+ * exposed on {@link ClassMembersView} were removed when the invite panel moved out
+ * of the Members tab. Invite data is now injected into every detail tab by the
+ * controller via {@code InviteCodeService} directly, so this service no longer
+ * depends on {@code InviteCodeService} or {@code app.base-url}.
  */
 @Service
 public class ClassMembersService {
@@ -89,6 +95,14 @@ public class ClassMembersService {
         return (first + last).toUpperCase();
     }
 
-    /** View model aggregating class info, member rows, and total member count. */
-    public record ClassMembersView(ClassEntity clazz, List<MemberRow> members, int total) {}
+    /**
+     * View model aggregating class info and member rows for the Members tab.
+     *
+     * @param clazz   the target class entity
+     * @param members active member rows
+     * @param total   active-member count
+     */
+    public record ClassMembersView(ClassEntity clazz,
+                                   List<MemberRow> members,
+                                   int total) {}
 }

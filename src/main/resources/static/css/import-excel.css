@@ -1,0 +1,153 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Import Students from Excel — modal styles (ULP-3.4)
+   Scoped to #importExcelModal so the rules cannot bleed into other dialogs.
+   Generic button visuals reuse `.add-student-btn` from class-detail.css;
+   this file only ships layout-specific rules (modal frame, drop zone, table,
+   badges, summary grid).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#importExcelModal {
+  /* Center the dialog: native <dialog> uses absolute positioning relative to
+     the initial containing block, which varies between browsers; fixed +
+     translate centers reliably across Chromium, Firefox, and Safari. */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  width: min(960px, 92vw);
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .18);
+  background: #fff;
+  color: #1f2937;
+}
+
+#importExcelModal::backdrop { background: rgba(15, 23, 42, .45); }
+
+#importExcelModal .iex-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px; border-bottom: 1px solid #e5e7eb;
+}
+#importExcelModal .iex-header h2 { margin: 0; font-size: 18px; font-weight: 700; }
+
+#importExcelModal .iex-close {
+  background: transparent; border: 0; font-size: 22px; line-height: 1;
+  cursor: pointer; color: #6b7280; padding: 4px 8px; border-radius: 6px;
+}
+#importExcelModal .iex-close:hover { background: #f3f4f6; color: #111827; }
+
+#importExcelModal .iex-body {
+  padding: 22px 24px; overflow-y: auto; max-height: calc(90vh - 140px);
+}
+
+#importExcelModal .iex-footer {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 10px; padding: 14px 24px; border-top: 1px solid #e5e7eb;
+  background: #f9fafb; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
+}
+
+/* Drop zone (step 1) */
+#importExcelModal .iex-drop {
+  border: 2px dashed #cbd5e1; border-radius: 12px; padding: 36px 18px;
+  text-align: center; background: #f8fafc; cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+#importExcelModal .iex-drop.is-dragover { background: #eff6ff; border-color: #3b82f6; }
+#importExcelModal .iex-drop p { margin: 6px 0; color: #475569; }
+#importExcelModal .iex-drop .iex-filename {
+  font-weight: 600; color: #1e3a8a; min-height: 1em;
+}
+
+/* Stats row (step 2) and summary grid (step 3) share the .iex-stat card. */
+#importExcelModal .iex-stats {
+  display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap;
+}
+#importExcelModal .iex-stat {
+  flex: 1 1 0; min-width: 120px; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px;
+}
+#importExcelModal .iex-stat .iex-stat-label { display: block; font-size: 12px; color: #64748b; }
+#importExcelModal .iex-stat .iex-stat-value { font-size: 22px; font-weight: 700; color: #0f172a; }
+#importExcelModal .iex-stat.iex-stat-ok    { background: #ecfdf5; border-color: #a7f3d0; }
+#importExcelModal .iex-stat.iex-stat-warn  { background: #fffbeb; border-color: #fde68a; }
+#importExcelModal .iex-stat.iex-stat-error { background: #fef2f2; border-color: #fecaca; }
+
+/* Filter pills (step 2) */
+#importExcelModal .iex-filters {
+  display: inline-flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
+}
+#importExcelModal .iex-filters button {
+  background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 999px;
+  padding: 4px 12px; font-size: 13px; cursor: pointer; color: #334155;
+}
+#importExcelModal .iex-filters button.is-active {
+  background: #1d4ed8; border-color: #1d4ed8; color: #fff;
+}
+
+/* Preview table */
+#importExcelModal .iex-table-wrap {
+  border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;
+}
+#importExcelModal table.iex-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#importExcelModal table.iex-table th,
+#importExcelModal table.iex-table td {
+  padding: 8px 10px; border-bottom: 1px solid #f1f5f9;
+  text-align: left; vertical-align: middle;
+}
+#importExcelModal table.iex-table thead th {
+  background: #f8fafc; font-size: 12px; text-transform: uppercase;
+  letter-spacing: .02em; color: #475569;
+}
+#importExcelModal table.iex-table tr:last-child td { border-bottom: 0; }
+#importExcelModal .iex-row-error td { background: #fef2f2; }
+#importExcelModal .iex-row-warn  td { background: #fffbeb; }
+#importExcelModal .iex-row-ok    td { background: transparent; }
+
+/* Status pills inside the preview table */
+#importExcelModal .iex-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+}
+#importExcelModal .iex-badge-ok    { background: #dcfce7; color: #166534; }
+#importExcelModal .iex-badge-warn  { background: #fef3c7; color: #92400e; }
+#importExcelModal .iex-badge-error { background: #fee2e2; color: #991b1b; }
+
+#importExcelModal .iex-empty {
+  text-align: center; padding: 24px; color: #64748b; font-style: italic;
+}
+
+#importExcelModal .iex-skip {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin: 12px 0; color: #b91c1c; font-size: 13px;
+}
+
+/* Summary (step 3) */
+#importExcelModal .iex-summary {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px; margin: 16px 0;
+}
+#importExcelModal .iex-summary .iex-stat { text-align: center; }
+
+#importExcelModal .iex-success-banner {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff; border-radius: 10px; padding: 18px;
+  margin-bottom: 14px; font-weight: 600; text-align: center;
+}
+
+/* Secondary button (Huỷ, Tải file mẫu, Chọn file khác). The primary CTAs
+   reuse `.add-student-btn` from class-detail.css. */
+#importExcelModal .iex-btn {
+  border: 1px solid #d1d5db; background: #fff; color: #1f2937;
+  padding: 7px 14px; border-radius: 8px; font-size: 14px; cursor: pointer;
+}
+#importExcelModal .iex-btn:hover { background: #f3f4f6; }
+#importExcelModal .iex-btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* The trigger row at the top of the Members tab. */
+.import-actions { display: inline-flex; gap: 8px; margin-left: 8px; }
+.import-actions .add-student-btn,
+.import-actions .iex-trigger { cursor: pointer; }

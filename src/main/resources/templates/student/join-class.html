@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Tham gia lớp', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-classes.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError},data-flash-info=${flashInfo}"
+      style="display:none;"></span>
+
+<main class="join-class-shell">
+  <div class="join-class-card">
+    <h1>Tham gia lớp</h1>
+    <p class="join-hint">Nhập mã mời 6 ký tự do giảng viên cung cấp.</p>
+
+    <form th:action="@{/my/classes/join}"
+          th:object="${form}"
+          method="post"
+          class="join-form"
+          novalidate>
+      <label for="code">Mã mời</label>
+      <input id="code"
+             type="text"
+             th:field="*{code}"
+             maxlength="6"
+             autocomplete="off"
+             autofocus
+             class="code-input"
+             placeholder="VD: AB23CD">
+      <div class="field-error" th:if="${#fields.hasErrors('code')}" th:errors="*{code}">Lỗi</div>
+
+      <div class="actions">
+        <a th:href="@{/my/classes}" class="btn-ghost">Huỷ</a>
+        <button type="submit" class="btn-primary">Tham gia</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/student-classes.js}"></script>
+</body>
+</html>
