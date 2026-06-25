@@ -78,6 +78,13 @@
 			<artifactId>thymeleaf-extras-springsecurity6</artifactId>
 		</dependency>
 
+		<!-- Apache POI: Excel parsing for student import (ULP-3.4) -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>5.2.5</version>
+		</dependency>
+
 		<!-- MySQL driver (runtime) -->
 		<dependency>
 			<groupId>com.mysql</groupId>
