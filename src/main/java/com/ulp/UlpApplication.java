@@ -12,7 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * enabled via {@link SpringBootApplication}.
  *
  * <p>{@link EnableScheduling} is enabled so that scheduled tasks (e.g. the
- * import-session cleanup job in {@code com.ulp.classes.imports.ImportSessionStore})
+ * import-session cleanup job in {@code com.ulp.features.classes.imports.ImportSessionStore})
  * are picked up by Spring's task scheduler.
  */
 @SpringBootApplication
