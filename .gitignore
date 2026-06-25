@@ -47,3 +47,16 @@ harness.db-wal
 harness.db-shm
 scripts/bin/harness-cli
 scripts/bin/harness-cli.exe
+.gitnexus
+
+# Agent skill files (per-developer)
+.claude/
+
+# E2E test fixtures (regenerable via scripts/build_e2e_sample.py)
+tmp/
+
+# Application runtime logs
+app*.log
+rev*.log
+rev*.err.log
+*.log
