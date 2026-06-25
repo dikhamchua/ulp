@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Lớp của tôi', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-classes.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError},data-flash-info=${flashInfo}"
+      style="display:none;"></span>
+
+<main class="my-classes-shell">
+  <div class="my-classes-header">
+    <h1>Lớp của tôi</h1>
+    <a th:href="@{/my/classes/join}" class="btn-primary">
+      <svg class="ico ico-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Tham gia lớp mới
+    </a>
+  </div>
+
+  <!-- Empty state -->
+  <div class="my-classes-empty" th:if="${#lists.isEmpty(rows)}">
+    <p>Bạn chưa tham gia lớp nào.</p>
+    <a th:href="@{/my/classes/join}" class="btn-primary">Tham gia lớp ngay</a>
+  </div>
+
+  <!-- Class cards -->
+  <ul class="my-classes-list" th:unless="${#lists.isEmpty(rows)}">
+    <li th:each="row : ${rows}" class="my-class-card">
+      <div class="thumb" th:style="'background:' + ${row.avatarGradient()}"
+           th:text="${row.thumbLabel()}">??</div>
+      <div class="info">
+        <h3 class="name" th:text="${row.className()}">Class name</h3>
+        <p class="meta">
+          <span class="cls-code" th:text="${row.classCode()}">CODE5</span>
+          <span class="dot">•</span>
+          <span th:text="${row.lecturerName()}">Lecturer</span>
+        </p>
+        <p class="meta meta-sub">Tham gia: <span th:text="${#temporals.format(row.joinedAt(), 'dd/MM/yyyy HH:mm')}">--</span></p>
+      </div>
+      <div class="actions">
+        <form th:action="@{/my/classes/{id}/leave(id=${row.classId()})}"
+              method="post"
+              class="leave-form">
+          <button class="btn-danger leave-btn"
+                  type="submit"
+                  th:attr="data-class-name=${row.className()}">
+            Rời lớp
+          </button>
+        </form>
+      </div>
+    </li>
+  </ul>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/student-classes.js}"></script>
+</body>
+</html>

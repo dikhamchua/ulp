@@ -19,16 +19,37 @@
 
       <div class="share-box">
         <div class="share-label">Chia sẻ lớp học</div>
-        <div class="share-link">
-          <p th:text="@{'/join/' + ${clazz.code}}">join link</p>
-          <button class="copy-code" type="button" aria-label="Sao chép"
-                  th:attr="data-code=${clazz.code}">
+
+        <div class="share-row" th:if="${activeCode != null}">
+          <span class="share-row-label">Mã mời</span>
+          <code class="share-row-value" th:text="${activeCode.code()}">CODE</code>
+          <button class="share-copy-btn" type="button"
+                  th:attr="data-copy=${activeCode.code()}"
+                  data-copy-label="mã mời"
+                  aria-label="Sao chép mã mời"
+                  title="Sao chép mã mời">
             <svg class="ico ico-sm" viewBox="0 0 24 24">
               <rect x="9" y="9" width="13" height="13" rx="2"/>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
           </button>
         </div>
+
+        <div class="share-row" th:if="${activeLink != null}">
+          <span class="share-row-label">Liên kết</span>
+          <button class="share-copy-btn share-copy-link" type="button"
+                  th:attr="data-copy=${activeLink.fullUrl()}"
+                  data-copy-label="liên kết mời"
+                  aria-label="Sao chép liên kết mời"
+                  title="Sao chép liên kết mời">
+            <svg class="ico ico-sm" viewBox="0 0 24 24">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Sao chép link
+          </button>
+        </div>
+
         <div class="desc-row">
           <svg class="ico ico-sm" viewBox="0 0 24 24">
             <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>

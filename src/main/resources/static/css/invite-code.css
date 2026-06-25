@@ -1,0 +1,153 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Invite code panel (Members tab)
+   Renders "Mời sinh viên" block with CODE + LINK sub-cards.
+   Layout: outer panel header + two stacked invite-card boxes.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.invite-panel {
+  /* Local CSS vars for the warning-style "Tạo mã mới" button.
+     Scoped here (not global) so the warning variant stays discoverable
+     and does not pollute the global token palette. */
+  --warn-text: #b45309;
+  --warn-bg: #fffbeb;
+  --warn-border: #fcd34d;
+  --warn-bg-hover: #fef3c7;
+  --warn-border-hover: #f59e0b;
+
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+/* ── Header ────────────────────────────────────────────────────────── */
+.invite-panel-head {
+  margin-bottom: 16px;
+}
+
+.invite-panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--heading);
+}
+
+.invite-panel-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 4px 0 0 0;
+}
+
+/* ── Sub-card (CODE / LINK) ────────────────────────────────────────── */
+.invite-card {
+  padding: 16px 18px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  margin-bottom: 12px;
+}
+
+.invite-card:last-child {
+  margin-bottom: 0;
+}
+
+.invite-card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.invite-card-label .ico {
+  color: var(--muted);
+}
+
+.invite-card-help {
+  font-size: 12px;
+  color: var(--muted-2);
+  margin: 8px 0 0 0;
+}
+
+/* ── Value + actions row ───────────────────────────────────────────── */
+.invite-value-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.invite-value {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 14px;
+  color: var(--fg);
+  user-select: all;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.invite-value.invite-code {
+  letter-spacing: 2px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.invite-value.invite-link {
+  font-size: 12px;
+  min-width: 360px;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.invite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.invite-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.invite-btn.copy-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+
+.invite-btn.copy-btn:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.invite-btn.regen-btn {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  color: var(--warn-text);
+}
+
+.invite-btn.regen-btn:hover {
+  background: var(--warn-bg-hover);
+  border-color: var(--warn-border-hover);
+}
+
+.invite-regen-form {
+  display: inline-flex;
+  margin: 0;
+}

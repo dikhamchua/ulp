@@ -1,5 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ULP — Admin Users page (list + form + modals)
+   ----------------------------------------------------------------------------
+   This file contains rules SPECIFIC to the `/admin/users` list page and to
+   the legacy 720px-cap form. The detail-page chrome (sticky toolbar, header
+   info, tab pills, section cards, form grid, status pills, role badges,
+   audit table, pagination) lives in `detail-page.css` and is shared across
+   every admin detail page.
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Toolbar ─────────────────────────────────────────────────────── */
@@ -120,46 +126,9 @@
   text-align: right;
 }
 
-/* ── Role badges ─────────────────────────────────────────────────── */
-.role-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.role-badge.role-admin    { background: #fee2e2; color: #991b1b; }
-.role-badge.role-head     { background: #fef3c7; color: #92400e; }
-.role-badge.role-lecturer { background: #dbeafe; color: #1e40af; }
-.role-badge.role-student  { background: #d1fae5; color: #065f46; }
-
-/* ── Status pills ────────────────────────────────────────────────── */
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Color + glyph prefix so the state is distinguishable without colour
-   (deuteranopia / monochrome printing). */
-.status-pill.status-active::before   { content: "● "; }
-.status-pill.status-inactive::before { content: "○ "; }
-.status-pill.status-locked::before   { content: "🔒 "; }
-.status-pill.status-deleted::before  { content: "✗ "; }
-
-.status-pill.status-active   { background: #d1fae5; color: #065f46; }
-.status-pill.status-inactive { background: #e5e7eb; color: #4b5563; }
-.status-pill.status-locked   { background: #fee2e2; color: #991b1b; }
-.status-pill.status-deleted  { background: #f3f4f6; color: #6b7280; }
-
-/* Deleted rows: full-row fade so they read as "archived" at a glance. */
+/* Deleted rows: full-row fade so they read as "archived" at a glance.
+   Status pill styling (the `.status-pill.status-*` rules) lives in
+   detail-page.css since pills are shared with the detail page. */
 .users-table tbody tr[data-deleted="true"] {
   opacity: 0.55;
 }
@@ -172,34 +141,10 @@
   font-size: 14px;
 }
 
-/* ── Pagination ──────────────────────────────────────────────────── */
-.users-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 16px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
-  font-size: 14px;
-}
-
-.page-link {
-  color: #2563eb;
-  text-decoration: none;
-  font-weight: 500;
-  padding: 4px 10px;
-}
-
-.page-link:hover {
-  text-decoration: underline;
-}
-
-.page-current {
-  color: #4b5563;
-}
-
-/* ── Form ────────────────────────────────────────────────────────── */
+/* ── Form (legacy 720px-cap form for non-detail admin pages) ──────
+   TODO: candidate for extraction in a later design-system pass once
+   we identify a second caller. The detail page uses the new grid in
+   detail-page.css and does NOT rely on these rules. */
 .users-form-panel {
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -309,7 +254,9 @@
   background: #1d4ed8;
 }
 
-/* ── Modal overlay ───────────────────────────────────────────────── */
+/* ── Modal overlay (used by list-page action modals: lock / reset / confirm
+   — and reused by the detail page's confirm modal). Kept here because the
+   list page is the primary caller; the detail page just piggybacks. */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -389,266 +336,10 @@
   background: #fef2f2;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   User detail page (rewrite: sticky toolbar, header info, tab pills,
-   section cards, audit history). Scoped under .detail-page to avoid
-   competing with the legacy .users-form-panel rules above.
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* The page-wide container shed of the legacy 720px cap. */
-.detail-page {
-  width: 100%;
-}
-
-/* ── Sticky toolbar ─────────────────────────────────────────────── */
-.detail-toolbar {
-  position: sticky;
-  top: 65px; /* matches the shared .header height in app-shell.css */
-  z-index: 10;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 12px 0;
-  margin-bottom: 16px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-/* Spacer collapses to zero so all three buttons cluster left (gap: 12px
-   inherited from .detail-toolbar). Per the vibe annotation: Save and Delete
-   should match Back's outlined style and sit next to it. */
-.detail-toolbar .toolbar-spacer {
-  display: none;
-}
-
-.detail-toolbar .toolbar-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  color: #374151;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.detail-toolbar .toolbar-back:hover {
-  background: #f3f4f6;
-}
-
-/* Save + Delete share Back's outlined shape (padding, border-radius, weight,
-   font-size, white background) so the toolbar reads as a single button row.
-   Color is preserved via colored text + border so primary / danger semantics
-   stay distinguishable at a glance. */
-.detail-toolbar .toolbar-save,
-.detail-toolbar .toolbar-delete {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-weight: 500;
-  font-size: 14px;
-  line-height: 1.4;
-  cursor: pointer;
-  background: #fff;
-  border: 1px solid;
-}
-
-.detail-toolbar .toolbar-save {
-  border-color: #2563eb;
-  color: #2563eb;
-}
-
-.detail-toolbar .toolbar-save:hover:not([disabled]) {
-  background: #eff6ff;
-}
-
-.detail-toolbar button[disabled] {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.detail-toolbar .toolbar-delete {
-  border-color: #dc2626;
-  color: #dc2626;
-}
-
-.detail-toolbar .toolbar-delete:hover {
-  background: #fef2f2;
-}
-
-/* ── Header info block ──────────────────────────────────────────── */
-.detail-page-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #111827;
-  margin: 16px 0 8px;
-}
-
-.detail-page-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  color: #6b7280;
-  font-size: 13px;
-  margin-bottom: 24px;
-}
-
-.detail-page-meta em {
-  font-style: normal;
-  color: #374151;
-  font-weight: 500;
-}
-
-.detail-page-meta .meta-badges {
-  display: inline-flex;
-  gap: 8px;
-}
-
-/* ── Tab pill strip ─────────────────────────────────────────────── */
-.detail-tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 24px;
-}
-
-.detail-tab {
-  padding: 10px 16px;
-  color: #6b7280;
-  text-decoration: none;
-  font-weight: 500;
-  border-bottom: 2px solid transparent;
-  font-size: 14px;
-}
-
-.detail-tab.active {
-  color: #1e3a8a;
-  border-bottom-color: #1e3a8a;
-}
-
-.detail-tab:hover {
-  color: #111827;
-}
-
-/* ── Section cards ──────────────────────────────────────────────── */
-.detail-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 16px;
-}
-
-.detail-card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e3a8a;
-  margin: 0 0 16px;
-}
-
-.detail-empty {
-  color: #6b7280;
-  font-size: 14px;
-  margin: 0;
-}
-
-/* ── Responsive 3-column grid ───────────────────────────────────── */
-.detail-form-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-@media (max-width: 1199px) {
-  .detail-form-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 767px) {
-  .detail-form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.detail-form-grid .span-2 {
-  grid-column: span 2;
-}
-
-.detail-form-grid .span-3 {
-  grid-column: 1 / -1;
-}
-
-/* Each .form-row inside the new grid no longer needs a bottom margin —
-   the grid `gap` does the spacing. */
-.detail-form-grid .form-row {
-  margin-bottom: 0;
-}
-
-/* ─── admin.css `.form-row` global override neutralisation ─────
-   admin.css sets .form-row { display:grid; grid-template-columns:
-   200px 1fr; ... } and inputs to max-width:420px. Reset those
-   inside the new detail-page grid so each row is a vertical stack
-   filling its grid cell.                                          */
-.detail-page .detail-form-grid .form-row {
-  display: block;
-  grid-template-columns: none;
-  max-width: none;
-}
-
-.detail-page .detail-form-grid .form-row label {
-  display: block;
-  padding-top: 0;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.detail-page .detail-form-grid .form-row input[type=text],
-.detail-page .detail-form-grid .form-row input[type=email],
-.detail-page .detail-form-grid .form-row input[type=password],
-.detail-page .detail-form-grid .form-row input[type=number],
-.detail-page .detail-form-grid .form-row select,
-.detail-page .detail-form-grid .form-row textarea {
-  max-width: none;
-  width: 100%;
-}
-
-/* field-error and field-hint inside the new grid should NOT be pinned to
-   grid-column: 2 (which was the right-column input position in the legacy
-   2-col form-row). Reset them so they flow below the input. */
-.detail-page .detail-form-grid .form-row .field-error,
-.detail-page .detail-form-grid .form-row .field-hint,
-.detail-page .detail-form-grid .form-row .field-help {
-  grid-column: auto;
-}
-
-/* Mark the .form-row that holds a checkbox so the outer detail-form-grid
-   can align it to the bottom of its row. CSS `:has()` selector — supported
-   in modern Chromium/Firefox/Safari (the target browsers for this admin
-   panel). */
-.detail-form-grid .form-row:has(> .form-checkbox-label) {
-  align-self: end;
-  padding-bottom: 0;
-}
-
-.detail-form-grid .form-checkbox-label {
-  display: flex;
-  align-items: flex-end;
-  height: 100%;
-  gap: 8px;
-  padding-top: 0;
-  padding-bottom: 6px;
-  cursor: pointer;
-}
-
-/* Form spacing tweaks (post-redesign annotation fixes) ───────────
+/* ── Detail-page form spacing tweaks (user-form specific) ─────────
    These overrides live inside `.detail-page` scope so the legacy
-   `.users-form` rules at the top of this file (used by other admin
-   forms) stay untouched. */
+   `.users-form` rules above (used by other admin forms) stay
+   untouched. Generic detail-page rules live in detail-page.css. */
 .detail-page .users-form label {
   margin-bottom: 4px;
 }
@@ -659,36 +350,4 @@
 .detail-page .users-form select,
 .detail-page .users-form textarea {
   padding: 8px 12px;
-}
-
-/* ── Activity history table ─────────────────────────────────────── */
-.activity-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.activity-table th,
-.activity-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f3f4f6;
-  text-align: left;
-  vertical-align: middle;
-}
-
-.activity-table thead th {
-  background: #f9fafb;
-  color: #374151;
-  font-weight: 600;
-}
-
-.activity-type-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  background: #eef2ff;
-  color: #3730a3;
-  letter-spacing: 0.02em;
 }

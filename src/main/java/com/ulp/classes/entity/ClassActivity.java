@@ -36,6 +36,10 @@ public class ClassActivity {
     public static final String TYPE_COMPLETED = "COMPLETED";
     public static final String TYPE_CANCELLED = "CANCELLED";
     public static final String TYPE_DELETED = "DELETED";
+    /** A student joined the class via invite CODE or LINK. */
+    public static final String TYPE_MEMBER_JOINED = "MEMBER_JOINED";
+    /** A student left the class via {@code /my/classes/{id}/leave}. */
+    public static final String TYPE_MEMBER_LEFT = "MEMBER_LEFT";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

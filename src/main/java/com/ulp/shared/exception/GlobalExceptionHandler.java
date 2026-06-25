@@ -5,11 +5,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Global exception handler for all Spring MVC controllers.
@@ -73,6 +75,22 @@ public class GlobalExceptionHandler {
         log.info("403 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
         model.addAttribute("message", "Bạn không có quyền thực hiện thao tác này.");
         return "error";
+    }
+
+    /**
+     * Honors {@link ResponseStatusException} thrown from controllers
+     * (e.g. {@code BAD_REQUEST}, {@code NOT_FOUND}, {@code CONFLICT}).
+     * Without this handler the catch-all below converts every
+     * controller-thrown status exception into a 500, masking the
+     * intended HTTP code.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<String> handleResponseStatus(ResponseStatusException ex,
+                                                       HttpServletRequest request) {
+        log.info("{} tai [{}]: {}", ex.getStatusCode().value(),
+                request.getRequestURI(), ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(ex.getReason() != null ? ex.getReason() : "");
     }
 
     /**

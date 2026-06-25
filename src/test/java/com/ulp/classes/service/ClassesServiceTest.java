@@ -1,12 +1,10 @@
 package com.ulp.classes.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ulp.auth.Role;
 import com.ulp.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.classes.entity.ClassActivity;
 import com.ulp.classes.entity.ClassEntity;
-import com.ulp.classes.repository.ClassActivityRepository;
 import com.ulp.classes.repository.ClassRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,16 +50,19 @@ class ClassesServiceTest {
     private static final Long ADMIN_ID = 1L;
 
     private ClassRepository classRepository;
-    private ClassActivityRepository activityRepository;
+    private ClassActivityWriter activityWriter;
     private ClassCodeGenerator codeGenerator;
+    private InviteCodeService inviteCodeService;
     private ClassesService service;
 
     @BeforeEach
     void setUp() {
         classRepository = mock(ClassRepository.class);
-        activityRepository = mock(ClassActivityRepository.class);
+        activityWriter = mock(ClassActivityWriter.class);
         codeGenerator = mock(ClassCodeGenerator.class);
-        service = new ClassesService(classRepository, activityRepository, codeGenerator, new ObjectMapper());
+        inviteCodeService = mock(InviteCodeService.class);
+        service = new ClassesService(classRepository, activityWriter, codeGenerator,
+                inviteCodeService);
     }
 
     // ───────────────── List by role ─────────────────
@@ -137,11 +139,12 @@ class ClassesServiceTest {
         assertThat(saved.getLecturerId()).isEqualTo(LECTURER_ID);
         assertThat(saved.getStatus()).isEqualTo("UPCOMING");
 
-        ArgumentCaptor<ClassActivity> ac = ArgumentCaptor.forClass(ClassActivity.class);
-        verify(activityRepository).save(ac.capture());
-        assertThat(ac.getValue().getType()).isEqualTo(ClassActivity.TYPE_CREATED);
-        assertThat(ac.getValue().getCreatedBy()).isEqualTo(LECTURER_ID);
-        assertThat(ac.getValue().getClassId()).isEqualTo(100L);
+        verify(activityWriter).write(eq(100L), eq(ClassActivity.TYPE_CREATED),
+                eq("Tạo lớp Java"), eq(LECTURER_ID));
+
+        // Verify the default CODE + LINK tokens are provisioned
+        // atomically as part of the create flow.
+        verify(inviteCodeService, times(1)).provisionDefaults(100L, LECTURER_ID);
     }
 
     @Test
@@ -164,7 +167,8 @@ class ClassesServiceTest {
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
         verify(classRepository, times(2)).saveAndFlush(any(ClassEntity.class));
-        verify(activityRepository).save(any(ClassActivity.class));
+        verify(activityWriter).write(eq(101L), eq(ClassActivity.TYPE_CREATED),
+                any(), eq(LECTURER_ID));
     }
 
     @Test
@@ -182,7 +186,9 @@ class ClassesServiceTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
 
         verify(classRepository, times(1)).saveAndFlush(any(ClassEntity.class));
-        verify(activityRepository, never()).save(any(ClassActivity.class));
+        verify(activityWriter, never()).write(any(), any(), any(), any());
+        verify(activityWriter, never()).write(any(), any(), any(), any(), any());
+        verify(inviteCodeService, never()).provisionDefaults(any(), any());
     }
 
     @Test
@@ -200,7 +206,9 @@ class ClassesServiceTest {
                 .isInstanceOf(ClassCodeGenerationException.class);
 
         verify(classRepository, times(3)).saveAndFlush(any(ClassEntity.class));
-        verify(activityRepository, never()).save(any(ClassActivity.class));
+        verify(activityWriter, never()).write(any(), any(), any(), any());
+        verify(activityWriter, never()).write(any(), any(), any(), any(), any());
+        verify(inviteCodeService, never()).provisionDefaults(any(), any());
     }
 
     // ───────────────── Authz: owner check ─────────────────
@@ -216,10 +224,20 @@ class ClassesServiceTest {
 
         assertThat(entity.getName()).isEqualTo("New name");
 
-        ArgumentCaptor<ClassActivity> ac = ArgumentCaptor.forClass(ClassActivity.class);
-        verify(activityRepository).save(ac.capture());
-        assertThat(ac.getValue().getType()).isEqualTo(ClassActivity.TYPE_UPDATED);
-        assertThat(ac.getValue().getMetadata()).contains("Old name").contains("New name");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> metadataCap =
+                ArgumentCaptor.forClass(Map.class);
+        verify(activityWriter).write(eq(9L), eq(ClassActivity.TYPE_UPDATED),
+                eq("Cập nhật lớp New name"), metadataCap.capture(), eq(LECTURER_ID));
+
+        Map<String, Object> diff = metadataCap.getValue();
+        assertThat(diff).containsKey("old").containsKey("new");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> oldState = (Map<String, Object>) diff.get("old");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> newState = (Map<String, Object>) diff.get("new");
+        assertThat(oldState).containsEntry("name", "Old name");
+        assertThat(newState).containsEntry("name", "New name");
     }
 
     @Test
@@ -233,7 +251,8 @@ class ClassesServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
 
         verify(classRepository, never()).save(any(ClassEntity.class));
-        verify(activityRepository, never()).save(any(ClassActivity.class));
+        verify(activityWriter, never()).write(any(), any(), any(), any());
+        verify(activityWriter, never()).write(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -246,7 +265,8 @@ class ClassesServiceTest {
         service.update(9L, form, HEAD_ID, Role.HEAD);
 
         assertThat(entity.getName()).isEqualTo("Y");
-        verify(activityRepository).save(any(ClassActivity.class));
+        verify(activityWriter).write(eq(9L), eq(ClassActivity.TYPE_UPDATED),
+                any(), any(Map.class), eq(HEAD_ID));
     }
 
     @Test
@@ -282,9 +302,8 @@ class ClassesServiceTest {
 
         assertThat(entity.isDeleted()).isTrue();
 
-        ArgumentCaptor<ClassActivity> ac = ArgumentCaptor.forClass(ClassActivity.class);
-        verify(activityRepository).save(ac.capture());
-        assertThat(ac.getValue().getType()).isEqualTo(ClassActivity.TYPE_DELETED);
+        verify(activityWriter).write(eq(9L), eq(ClassActivity.TYPE_DELETED),
+                eq("Xoá lớp X"), eq(LECTURER_ID));
     }
 
     @Test
@@ -296,7 +315,8 @@ class ClassesServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
 
         verify(classRepository, never()).save(any(ClassEntity.class));
-        verify(activityRepository, never()).save(any(ClassActivity.class));
+        verify(activityWriter, never()).write(any(), any(), any(), any());
+        verify(activityWriter, never()).write(any(), any(), any(), any(), any());
     }
 
     @Test

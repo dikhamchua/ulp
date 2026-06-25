@@ -247,26 +247,11 @@
 }
 .btn-danger:hover { background: #B71C1C; }
 
-/* ── Confirm modal (window.UlpModal.confirm) ───────────────────────── */
-.ulp-modal {
-  border: none; padding: 0; border-radius: 14px;
-  box-shadow: var(--shadow);
-  max-width: 420px; width: 90%;
-  background: var(--bg);
-}
-.ulp-modal::backdrop { background: rgba(32, 34, 39, .42); }
-.ulp-modal-form { padding: 24px 26px; }
-.ulp-modal-title {
-  font-size: 17px; font-weight: 700;
-  color: var(--heading); margin-bottom: 10px;
-}
-.ulp-modal-body {
-  font-size: 14px; color: var(--muted);
-  line-height: 1.55; margin-bottom: 22px;
-}
-.ulp-modal-actions {
-  display: flex; gap: 10px; justify-content: flex-end;
-}
+/* NOTE: .ulp-modal styles moved to main.css (global) — they back the
+   shared window.UlpModal.confirm helper used by every page, not just
+   the lecturer class list. Keeping them here previously meant the
+   modal rendered un-styled (top-left of the viewport) on pages that
+   did not load classes.css (e.g. /lecturer/classes/{id}/members). */
 
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 720px) {

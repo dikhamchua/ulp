@@ -1,0 +1,237 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Student classes UI (My classes list + Join form)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.my-classes-shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.my-classes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.my-classes-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.my-classes-empty {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.my-classes-empty p {
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+
+.my-classes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.my-class-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.my-class-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.my-class-card .thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.my-class-card .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-class-card .name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.my-class-card .meta {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.my-class-card .meta .cls-code {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  background: #f3f4f6;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #374151;
+}
+
+.my-class-card .meta .dot {
+  margin: 0 6px;
+  color: #d1d5db;
+}
+
+.my-class-card .meta-sub {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.my-class-card .actions {
+  flex-shrink: 0;
+}
+
+.leave-form {
+  margin: 0;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover { background: #1e40af; }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-ghost:hover { background: #f9fafb; }
+
+.btn-danger {
+  background: #fff;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+/* ── Join form ──────────────────────────────────────────────────────── */
+
+.join-class-shell {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.join-class-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 32px 28px;
+}
+
+.join-class-card h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.join-hint {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0 0 20px 0;
+}
+
+.join-form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.code-input {
+  width: 100%;
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  text-align: center;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.code-input:focus {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.join-form .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}

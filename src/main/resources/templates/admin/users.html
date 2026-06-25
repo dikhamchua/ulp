@@ -3,6 +3,7 @@
 <head th:replace="~{fragments/head :: head('Admin | Tài khoản', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
 </head>
@@ -252,7 +253,7 @@
       </div>
 
       <!-- Pagination -->
-      <nav th:if="${page.totalPages > 1}" class="users-pagination" aria-label="Phân trang">
+      <nav th:if="${page.totalPages > 1}" class="detail-pagination" aria-label="Phân trang">
         <a class="page-link"
            th:if="${!page.first}"
            th:href="@{/admin/users(q=${filter.q()},role=${filter.role()},status=${filter.status()},sort=${filter.sort()},page=${page.number - 1},size=${page.size})}">‹ Trước</a>
