@@ -21,13 +21,13 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * Admin controller for the Email Settings (SMTP) screen â€” accessible by ADMIN role only.
+ * Admin controller for the Email Settings (SMTP) screen — accessible by ADMIN role only.
  *
  * <p>Exposed URLs:
  * <ul>
- *   <li>{@code GET  /admin/settings/email}      â€” render the SMTP configuration form</li>
- *   <li>{@code POST /admin/settings/email}      â€” save the form (full page reload)</li>
- *   <li>{@code POST /admin/settings/email/test} â€” send a test email (AJAX, returns JSON)</li>
+ *   <li>{@code GET  /admin/settings/email}      — render the SMTP configuration form</li>
+ *   <li>{@code POST /admin/settings/email}      — save the form (full page reload)</li>
+ *   <li>{@code POST /admin/settings/email/test} — send a test email (AJAX, returns JSON)</li>
  * </ul>
  */
 @Controller
@@ -75,7 +75,7 @@ public class EmailSettingsController {
      *                           when the admin authenticated via Google OAuth2 (type mismatch
      *                           between {@code CustomOidcUserPrincipal} and
      *                           {@link UlpUserDetails} causes {@code @AuthenticationPrincipal}
-     *                           to inject {@code null}) â€” see note below
+     *                           to inject {@code null}) — see note below
      * @param model              the Spring MVC model
      * @param redirectAttributes flash attributes used to pass success/error messages across the redirect
      * @return a redirect to {@code /admin/settings/email} on success, or the view name on validation failure
@@ -87,7 +87,7 @@ public class EmailSettingsController {
                        Model model,
                        RedirectAttributes redirectAttributes) {
         // Principal can be null when the admin logs in via OAuth2 (CustomOidcUserPrincipal
-        // is a different type from UlpUserDetails â€” @AuthenticationPrincipal injects null
+        // is a different type from UlpUserDetails — @AuthenticationPrincipal injects null
         // on a type mismatch). The MVP requires user.id to stamp updated_by, so we reject
         // the request rather than throwing an NPE. When OAuth admin support is properly
         // implemented, extend the principal resolver at the Security layer.

@@ -73,7 +73,7 @@ public class ImportRow {
      * for rows that did not resolve to an account.
      *
      * <p>Marked {@link JsonIgnore} so the user object is never serialized as
-     * part of the preview/confirm response â€” the controller exposes only the
+     * part of the preview/confirm response — the controller exposes only the
      * scalar identity fields via its row payload mapper.
      */
     @JsonIgnore

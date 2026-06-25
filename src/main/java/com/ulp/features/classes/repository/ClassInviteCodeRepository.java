@@ -30,7 +30,7 @@ public interface ClassInviteCodeRepository extends JpaRepository<ClassInviteCode
     Optional<ClassInviteCode> findByClassIdAndTypeAndActiveTrue(Long classId, String type);
 
     /**
-     * Returns all rows (active + disabled) for a given class â€” used
+     * Returns all rows (active + disabled) for a given class — used
      * by the backfill runner and tests to audit history.
      */
     List<ClassInviteCode> findAllByClassIdOrderByIdAsc(Long classId);
@@ -57,7 +57,7 @@ public interface ClassInviteCodeRepository extends JpaRepository<ClassInviteCode
      * concurrent transactions block until commit. Tokens are case-
      * sensitive; callers MUST upper-case CODE input first.
      *
-     * <p>Use ONLY inside an active transaction â€” outside of one
+     * <p>Use ONLY inside an active transaction — outside of one
      * Spring throws {@code TransactionRequiredException}.
      *
      * @param code the token value

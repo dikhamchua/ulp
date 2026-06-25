@@ -64,7 +64,7 @@ class ClassRepositoryPaginationTest {
         assertThat(page0.getContent()).hasSize(20);
         assertThat(page0.getTotalElements()).isEqualTo(before + 25);
         // 25 - 20 = 5 remaining on page 1 (plus any pre-existing leaked rows
-        // that would also tag onto this lecturer's count â€” assert >= 5).
+        // that would also tag onto this lecturer's count — assert >= 5).
         assertThat(page1.getContent().size()).isGreaterThanOrEqualTo(5);
 
         // Every result must belong to this lecturer (never the noise row).

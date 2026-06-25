@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Verifies the Sprint 2.3 query methods added to
- * {@link EnrollmentRepository} â€” finding by (user, class), listing
+ * {@link EnrollmentRepository} — finding by (user, class), listing
  * a user's ACTIVE enrollments, and counting ACTIVE rows per class.
  */
 @DataJpaTest

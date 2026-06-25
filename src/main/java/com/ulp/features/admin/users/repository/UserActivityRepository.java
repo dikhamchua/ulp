@@ -32,7 +32,7 @@ public interface UserActivityRepository extends JpaRepository<UserActivity, Long
      * rows for soft-deleted target users remain visible (see entity javadoc).
      *
      * @param targetUserId the user the audit rows are about
-     * @param pageable     paging directives â€” {@code Sort} is ignored because
+     * @param pageable     paging directives — {@code Sort} is ignored because
      *                     the query hard-codes {@code ORDER BY a.createdAt DESC}
      * @return one page of {@link ActivityRow}, newest first
      */

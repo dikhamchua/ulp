@@ -19,15 +19,15 @@ import java.util.Map;
  *
  * <p>Write-through invalidation is performed by:
  * <ul>
- *   <li>{@link com.ulp.features.admin.settings.service.EmailSettingsService#save} â€”
+ *   <li>{@link com.ulp.features.admin.settings.service.EmailSettingsService#save} —
  *       evicts the {@code SMTP} entry.</li>
- *   <li>{@link com.ulp.features.admin.settings.service.OauthSettingsService#save} â€”
+ *   <li>{@link com.ulp.features.admin.settings.service.OauthSettingsService#save} —
  *       evicts the {@code OAUTH} entry.</li>
  * </ul>
  *
  * <p>Cache contract: each setting group is cached under its own group-name key,
  * so groups never interfere with each other. The 5-minute TTL in
- * {@link CacheConfig} is a safety net only â€” admin saves trigger immediate
+ * {@link CacheConfig} is a safety net only — admin saves trigger immediate
  * eviction so the next read always observes the latest values.
  *
  * <p>Note on Spring Cache proxies: the {@code @Cacheable} annotation only takes

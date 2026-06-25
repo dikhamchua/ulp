@@ -30,7 +30,7 @@ import java.util.Base64;
  * logged separately at {@code DEBUG} so developers can enable it locally when
  * testing the workflow. The token is <strong>never</strong> emitted at
  * {@code INFO} or {@code WARN} level because those levels are typically collected
- * by log aggregators (Graylog, Loki, CloudWatch) â€” a leaked token equals account
+ * by log aggregators (Graylog, Loki, CloudWatch) — a leaked token equals account
  * takeover.
  */
 @Service
@@ -66,7 +66,7 @@ public class PasswordRecoveryService {
      * <p>If the email is not found the method returns silently, giving no
      * indication to the caller that the address is absent (enumeration-safe).
      * When SMTP is unavailable or the send fails, the reset link is logged at
-     * {@code DEBUG} level only â€” see class-level Javadoc for the security
+     * {@code DEBUG} level only — see class-level Javadoc for the security
      * rationale.
      *
      * @param email the email address of the account whose password should be reset
@@ -76,7 +76,7 @@ public class PasswordRecoveryService {
         var userOpt = userRepository.findByEmailIgnoreCase(email);
         if (userOpt.isEmpty()) {
             log.info("Forgot-password requested for unknown email: {}", email);
-            return; // silent â€” neutral response to avoid user enumeration
+            return; // silent — neutral response to avoid user enumeration
         }
 
         User user = userOpt.get();
@@ -92,7 +92,7 @@ public class PasswordRecoveryService {
                 + "Click the link below to set a new password (expires in " + TOKEN_TTL_HOURS + " hour(s)):\n"
                 + link + "\n\n"
                 + "If you did not request this, you can safely ignore this email.\n\n"
-                + "â€” ULP Team";
+                + "— ULP Team";
 
         boolean sent = mailService.send(user.getEmail(),
                 "ULP Password Reset", body);
@@ -113,7 +113,7 @@ public class PasswordRecoveryService {
      * <p>Returns the associated {@link User} when the token exists, has not been
      * used, and has not expired. Returns {@code null} in all failure cases.
      *
-     * <p>The caller does not need to distinguish the reason for failure â€” the UX
+     * <p>The caller does not need to distinguish the reason for failure — the UX
      * only needs to know "valid or not" to render either the new-password form or
      * a generic error page. This is also enumeration-safe: the response does not
      * reveal whether a token was already used versus never existed.

@@ -8,7 +8,7 @@ import com.ulp.security.Role;
  * <p>{@link User} hides its no-arg constructor behind
  * {@code @NoArgsConstructor(access = PROTECTED)} to prevent ad-hoc external
  * instantiation. The admin Create flow needs to build a fresh user with all
- * mandatory fields populated â€” this factory provides exactly that surface and
+ * mandatory fields populated — this factory provides exactly that surface and
  * lives in the entity's own package so it can call the protected constructor.
  */
 public final class UserFactory {

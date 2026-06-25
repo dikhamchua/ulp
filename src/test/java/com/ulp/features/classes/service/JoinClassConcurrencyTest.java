@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * wins and the token's {@code use_count} settles at {@code 1}.
  *
  * <p>The test repeats the race 10 times to make a deterministic
- * pass â€” a broken lock would manifest as both threads winning at
+ * pass — a broken lock would manifest as both threads winning at
  * least once across the iterations.
  */
 @SpringBootTest

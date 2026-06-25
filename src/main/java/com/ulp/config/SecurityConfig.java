@@ -29,8 +29,8 @@ import java.io.IOException;
  * Security configuration for the ULP application.
  *
  * <ul>
- *   <li>Form login â€” always active.</li>
- *   <li>Google OAuth2 â€” always wired into the filter chain. Activation is
+ *   <li>Form login — always active.</li>
+ *   <li>Google OAuth2 — always wired into the filter chain. Activation is
  *       driven at runtime by {@code DbClientRegistrationRepository}, which
  *       returns {@code null} when no client id has been saved in
  *       {@code system_settings}. Spring Security then responds with HTTP 404
@@ -38,11 +38,11 @@ import java.io.IOException;
  *       hidden in the UI via {@code @oauthSettingsService.isGoogleEnabled()}.</li>
  *   <li>Public endpoints: static assets, login, forgot/reset-password, and uploaded files.</li>
  *   <li>Passwords hashed with BCrypt.</li>
- *   <li>CSRF protection is enabled by default â€” Thymeleaf forms inject the token automatically.</li>
+ *   <li>CSRF protection is enabled by default — Thymeleaf forms inject the token automatically.</li>
  * </ul>
  *
  * <p>Because a custom {@link ClientRegistrationRepository} bean is provided,
- * Spring Boot's {@code OAuth2ClientAutoConfiguration} backs off â€” we therefore
+ * Spring Boot's {@code OAuth2ClientAutoConfiguration} backs off — we therefore
  * also expose {@link OAuth2AuthorizedClientService} and
  * {@link OAuth2AuthorizedClientRepository} beans here as required by the
  * official Spring Security override pattern.
@@ -178,7 +178,7 @@ public class SecurityConfig {
                 )
                 // Eagerly materialize CSRF token before the view starts rendering.
                 // Without this, the deferred CSRF lookup happens deep inside Thymeleaf's
-                // form rendering, after the response buffer has already been flushed â€”
+                // form rendering, after the response buffer has already been flushed —
                 // which makes HttpServletRequest.getSession(true) throw
                 // "Cannot create a session after the response has been committed".
                 .addFilterAfter(new CsrfTokenEagerFilter(), CsrfFilter.class);

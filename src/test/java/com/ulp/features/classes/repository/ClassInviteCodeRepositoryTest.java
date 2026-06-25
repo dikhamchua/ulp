@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Repository integration test for {@link ClassInviteCodeRepository}
- * running against the real MySQL schema (V1â€“V12 applied via
+ * running against the real MySQL schema (V1–V12 applied via
  * Flyway). Each test runs inside a rolled-back transaction.
  */
 @DataJpaTest

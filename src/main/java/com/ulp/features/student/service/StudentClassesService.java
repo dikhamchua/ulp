@@ -79,7 +79,7 @@ public class StudentClassesService {
         for (Enrollment e : enrollments) {
             ClassEntity c = classById.get(e.getClassId());
             if (c == null) continue; // class soft-deleted â†’ hide row
-            String lecName = lecturerNames.getOrDefault(c.getLecturerId(), "â€”");
+            String lecName = lecturerNames.getOrDefault(c.getLecturerId(), "—");
             String gradient = gradientFor(idx++);
             rows.add(new EnrolledClassRow(
                     c.getId(),

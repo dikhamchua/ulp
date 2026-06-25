@@ -28,7 +28,7 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      *
      * <p>The {@code @SQLRestriction("is_deleted = 0")} on {@link ClassEntity}
      * already filters out soft-deleted rows, so this method surfaces ONLY the
-     * live ownership relationships â€” used by the admin role-demote warning
+     * live ownership relationships — used by the admin role-demote warning
      * to list the classes that would be left without a teaching lecturer.
      */
     List<ClassEntity> findAllByLecturerId(Long lecturerId);

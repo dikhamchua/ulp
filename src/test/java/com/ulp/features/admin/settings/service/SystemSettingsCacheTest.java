@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * </ul>
  *
  * <p>Uses Hibernate {@code Statistics.getPrepareStatementCount()} to count
- * actual SQL prepares â€” a more robust signal than counting query strings,
+ * actual SQL prepares — a more robust signal than counting query strings,
  * since Hibernate may not log every statement at INFO level.
  */
 @SpringBootTest
@@ -91,7 +91,7 @@ class SystemSettingsCacheTest {
 
         assertThat(first).isNotNull();
         assertThat(second).isEqualTo(first);
-        // Second call must not fire any further SQL â€” exact prepare-count delta is 0.
+        // Second call must not fire any further SQL — exact prepare-count delta is 0.
         assertThat(afterSecond - afterFirst)
                 .as("second cache hit must issue zero SQL prepares")
                 .isZero();
@@ -108,7 +108,7 @@ class SystemSettingsCacheTest {
 
         // OAUTH was a cold read, so the prepare count must strictly increase.
         assertThat(afterOauth - afterSmtp)
-                .as("OAUTH is a separate cache key â€” first read must hit DB")
+                .as("OAUTH is a separate cache key — first read must hit DB")
                 .isGreaterThanOrEqualTo(1);
 
         // Repeating each call now serves both from cache.
@@ -132,7 +132,7 @@ class SystemSettingsCacheTest {
         assertThat(cache.get(SystemSettingGroups.SMTP)).isNotNull();
         assertThat(cache.get(SystemSettingGroups.OAUTH)).isNotNull();
 
-        // Save SMTP â€” eviction should drop only the SMTP entry.
+        // Save SMTP — eviction should drop only the SMTP entry.
         EmailSettingsForm form = new EmailSettingsForm(
                 "smtp.example.com", 587, "tls", "u@example.com",
                 "", "ULP", "u@example.com", "");
@@ -164,7 +164,7 @@ class SystemSettingsCacheTest {
         assertThat(cache.get(SystemSettingGroups.SMTP)).isNotNull();
         assertThat(cache.get(SystemSettingGroups.OAUTH)).isNotNull();
 
-        // Save OAUTH â€” eviction should drop only the OAUTH entry.
+        // Save OAUTH — eviction should drop only the OAUTH entry.
         OauthSettingsForm form = new OauthSettingsForm(
                 "client-id-test", "", "openid,profile,email");
         oauthSettingsService.save(form, adminId);

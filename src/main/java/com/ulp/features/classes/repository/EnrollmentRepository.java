@@ -64,7 +64,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
      * {@code GET /my/classes}.
      *
      * <p>Note: callers must filter the resulting class list
-     * against {@code classes.is_deleted = 0} themselves â€” this
+     * against {@code classes.is_deleted = 0} themselves — this
      * repository does not join {@code classes}.
      */
     @Query("SELECT e FROM Enrollment e JOIN FETCH e.user " +

@@ -38,7 +38,7 @@ public interface SystemSettingsRepository extends JpaRepository<SystemSetting, L
     /**
      * Loads all rows in the given group and returns them as a flat {@code Map<key, value>}.
      *
-     * <p>This is a default interface method â€” no separate implementation class is needed.
+     * <p>This is a default interface method — no separate implementation class is needed.
      * {@code null} setting values are normalised to an empty string so callers can safely
      * call {@link String} methods on every map value without null checks.
      *

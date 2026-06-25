@@ -68,7 +68,7 @@ public class InviteCodeBackfillRunner implements ApplicationListener<Application
             int provisioned = transactionTemplate.execute(status -> backfill());
             log.info("InviteCodeBackfillRunner provisioned tokens for {} class(es)", provisioned);
         } catch (Exception ex) {
-            // Do not block startup on backfill failure â€” log loudly.
+            // Do not block startup on backfill failure — log loudly.
             log.error("InviteCodeBackfillRunner failed", ex);
         }
     }

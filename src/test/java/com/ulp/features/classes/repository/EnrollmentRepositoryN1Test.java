@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * loads the associated {@code user} in the SAME SQL statement (JOIN FETCH) instead
  * of triggering one additional SELECT per row (the classic N+1 problem).
  *
- * <p>Test relies on Hibernate {@link Statistics#getPrepareStatementCount()} â€”
+ * <p>Test relies on Hibernate {@link Statistics#getPrepareStatementCount()} —
  * after seeding N enrollments and clearing the persistence context + statistics,
  * the count of prepared statements for the find + property access must be 1.
  *
@@ -102,7 +102,7 @@ class EnrollmentRepositoryN1Test {
 
         assertThat(rows).hasSize(1);
         Enrollment e = rows.get(0);
-        // These must not throw â€” JOIN FETCH guarantees user is initialized.
+        // These must not throw — JOIN FETCH guarantees user is initialized.
         assertThat(e.getUser().getId()).isEqualTo(studentId);
         assertThat(e.getUser().getFullName()).isNotBlank();
     }

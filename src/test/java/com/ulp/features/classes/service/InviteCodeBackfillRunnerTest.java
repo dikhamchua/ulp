@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration test for {@link InviteCodeBackfillRunner}. Seeds
  * classes in three shapes (no tokens, only CODE active, both
  * active) and asserts the runner brings them all into the
- * "one active per type" invariant â€” and that a second run is a
+ * "one active per type" invariant — and that a second run is a
  * no-op.
  */
 @SpringBootTest

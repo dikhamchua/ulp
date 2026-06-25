@@ -59,7 +59,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * <p>Native SQL because the {@code @SQLRestriction} on the entity already
      * filters {@code is_deleted = 0} at the JPQL layer, but bypassing
      * Hibernate's restriction here lets the query stay explicit and
-     * self-documenting â€” the WHERE clause shows every predicate the
+     * self-documenting — the WHERE clause shows every predicate the
      * last-admin guard relies on.
      *
      * @param role the role name (string) to count, typically {@code "ADMIN"}
@@ -91,7 +91,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      *       the pessimistic lock and the race window the caller is trying
      *       to close re-appears.</li>
      *   <li>This is a JPQL-derived query so the entity's
-     *       {@code @SQLRestriction("is_deleted = 0")} STILL applies â€” it
+     *       {@code @SQLRestriction("is_deleted = 0")} STILL applies — it
      *       returns empty for soft-deleted users. This is the correct
      *       behaviour for the lifecycle actions (activate / deactivate /
      *       lock / unlock / reset-password / delete) that all operate on

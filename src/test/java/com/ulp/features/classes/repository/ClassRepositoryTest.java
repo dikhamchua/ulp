@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * {@link ClassRepository} integration test chay tren MySQL that
  * (theo {@code application.properties}). {@code @DataJpaTest} + Flyway
- * bao dam schema V1â€“V7 san sang truoc moi test.
+ * bao dam schema V1–V7 san sang truoc moi test.
  *
  * <p>Moi method la 1 transaction roll-back, du lieu khong ro ri sang test ke.
  */

@@ -14,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 
 /**
- * Custom OIDC user service â€” delegate to the default service, then enforce
+ * Custom OIDC user service — delegate to the default service, then enforce
  * ULP's registration rules. Only pre-registered, active, non-locked users may
  * sign in via Google OAuth. On first sign-in we link {@code users.google_id}
  * and upsert one {@code user_oauth_providers} row.
  *
  * <p>This bean is always registered. When Google sign-in is not configured
  * (no client id in {@code system_settings}), Spring Security simply never
- * dispatches an OIDC request here â€” see {@code DbClientRegistrationRepository}.
+ * dispatches an OIDC request here — see {@code DbClientRegistrationRepository}.
  */
 @Service
 public class CustomOidcUserService extends OidcUserService {
