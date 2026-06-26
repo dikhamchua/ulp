@@ -1,9 +1,9 @@
 package com.ulp.features.student.controller;
 
 import com.ulp.security.UlpUserDetails;
-import com.ulp.features.classes.service.InviteCodeValidationException;
-import com.ulp.features.classes.service.InviteRejectionReason;
-import com.ulp.features.classes.service.InviteTokenGenerator;
+import com.ulp.features.classes.service.invites.InviteCodeValidationException;
+import com.ulp.features.classes.service.invites.InviteRejectionReason;
+import com.ulp.features.classes.service.invites.InviteTokenGenerator;
 import com.ulp.features.classes.service.JoinClassService;
 import com.ulp.features.classes.service.JoinClassService.AlreadyJoined;
 import com.ulp.features.classes.service.JoinClassService.JoinResult;

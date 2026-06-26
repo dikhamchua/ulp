@@ -4,6 +4,9 @@ import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Section;
 import com.ulp.entities.SectionActivity;
 import com.ulp.features.classes.service.ClassesService;
+import com.ulp.features.lessons.controller.support.ActivityRowMapper;
+import com.ulp.features.lessons.controller.support.MutationFailureHandler;
+import com.ulp.features.lessons.dto.LessonDtos.LessonRow;
 import com.ulp.features.lessons.dto.SectionDtos.ActivityRow;
 import com.ulp.features.lessons.dto.SectionDtos.AjaxResult;
 import com.ulp.features.lessons.dto.SectionDtos.ReorderRequest;
@@ -11,6 +14,7 @@ import com.ulp.features.lessons.dto.SectionDtos.SectionForm;
 import com.ulp.features.lessons.dto.SectionDtos.SectionRow;
 import com.ulp.features.lessons.repository.SectionActivityRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
+import com.ulp.features.lessons.service.LessonsService;
 import com.ulp.features.lessons.service.SectionsService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
@@ -22,7 +26,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -43,9 +46,14 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.ulp.common.IConstant.*;
+import static com.ulp.features.lessons.controller.support.AjaxResponses.badRequest;
+import static com.ulp.features.lessons.controller.support.AjaxResponses.forbidden;
+import static com.ulp.features.lessons.controller.support.AjaxResponses.internalError;
+import static com.ulp.features.lessons.controller.support.AjaxResponses.notFound;
 
 /**
  * Controller for the lessons tab (ULP-4.0a) — section CRUD only. Lessons
@@ -76,9 +84,6 @@ public class SectionsController {
 
     private static final Logger log = LoggerFactory.getLogger(SectionsController.class);
 
-    /** History tab page size — keep the audit list scannable on one screen. */
-    private static final int HISTORY_PAGE_SIZE = 20;
-
     // ── View names ────────────────────────────────────────────────────
     private static final String VIEW_LESSONS      = "classes/detail-lessons";
     private static final String VIEW_SECTION_FORM = "classes/section-form";
@@ -88,30 +93,26 @@ public class SectionsController {
     private static final String ATTR_CAN_EDIT             = "canEdit";
     private static final String ATTR_SELECTED_SECTION_ID  = "selectedSectionId";
     private static final String ATTR_SELECTED_SECTION     = "selectedSection";
-    private static final String ATTR_CANCEL_URL           = "cancelUrl";
-    private static final String ATTR_SECTION              = "section";
-    private static final String ATTR_EDIT_BASE_URL        = "editBaseUrl";
-    private static final String ATTR_ACTIVITY_PAGE        = "activityPage";
 
-    // ── Flash messages (Vietnamese UI text) ───────────────────────────
-    private static final String MSG_SECTION_NOT_FOUND      = "Chương không tồn tại";
+    // ── Flash messages (Vietnamese UI text — local to this controller) ─
     private static final String MSG_SECTION_CREATED        = "Đã tạo chương";
     private static final String MSG_SECTION_CREATE_FAILED  = "Tạo chương thất bại, vui lòng thử lại.";
     private static final String MSG_SECTION_RENAMED        = "Đã đổi tên chương";
     private static final String MSG_SECTION_RENAME_FAILED  = "Đổi tên chương thất bại, vui lòng thử lại.";
-    private static final String MSG_FORBIDDEN_FOR_CLASS    = "Bạn không có quyền thao tác với lớp này.";
-    private static final String MSG_GENERIC_RETRY          = "Có lỗi xảy ra, vui lòng thử lại.";
 
     private final SectionsService sectionsService;
+    private final LessonsService lessonsService;
     private final ClassesService classesService;
     private final SectionRepository sectionRepository;
     private final SectionActivityRepository activityRepository;
 
     public SectionsController(SectionsService sectionsService,
+                              LessonsService lessonsService,
                               ClassesService classesService,
                               SectionRepository sectionRepository,
                               SectionActivityRepository activityRepository) {
         this.sectionsService = sectionsService;
+        this.lessonsService = lessonsService;
         this.classesService = classesService;
         this.sectionRepository = sectionRepository;
         this.activityRepository = activityRepository;
@@ -149,12 +150,22 @@ public class SectionsController {
         }
         Long selectedSectionId = selectedSection != null ? selectedSection.getId() : null;
 
+        // Lessons for the content column — fetched only when a section is
+        // selected so the "All lessons" landing page stays cheap. The list
+        // is empty when no section is picked; the template uses the
+        // selectedSectionId attribute to decide which empty state to show.
+        List<LessonRow> lessons = selectedSection != null
+                ? lessonsService.listForSection(classId, selectedSection.getId(),
+                        user.getId(), user.getRole())
+                : Collections.emptyList();
+
         model.addAttribute(ATTR_CLAZZ, clazz);
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_LESSONS);
         model.addAttribute(ATTR_SECTIONS, sections);
         model.addAttribute(ATTR_CAN_EDIT, canEdit);
         model.addAttribute(ATTR_SELECTED_SECTION_ID, selectedSectionId);
         model.addAttribute(ATTR_SELECTED_SECTION, selectedSection);
+        model.addAttribute(ATTR_LESSONS, lessons);
         return VIEW_LESSONS;
     }
 
@@ -200,9 +211,9 @@ public class SectionsController {
             sectionsService.create(classId, form.title().trim(),
                     user.getId(), user.getRole());
         } catch (RuntimeException ex) {
-            return handleMutationFailure(ex, classId, ra,
-                    MSG_SECTION_CREATE_FAILED,
-                    "Failed to create section in class {}");
+            return MutationFailureHandler.handle(ex, lessonsUrl(classId), ra,
+                    MSG_SECTION_CREATE_FAILED, log,
+                    "Failed to create section in class {}", classId);
         }
         ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_SECTION_CREATED);
         return "redirect:" + lessonsUrl(classId);
@@ -237,7 +248,7 @@ public class SectionsController {
         // Eager-load the activity page on every visit so the tab strip can
         // switch panels without a round-trip. The DB cost is small — the
         // index `idx_asec_section (section_id, created_at)` covers it and
-        // the page size is capped at HISTORY_PAGE_SIZE.
+        // the page size is capped at DEFAULT_HISTORY_PAGE_SIZE.
         model.addAttribute(ATTR_ACTIVITY_PAGE,
                 loadActivityPage(sectionId, Math.max(page, 0)));
         model.addAttribute(ATTR_CLAZZ, clazz);
@@ -276,9 +287,9 @@ public class SectionsController {
             sectionsService.rename(classId, sectionId, form.title().trim(),
                     user.getId(), user.getRole());
         } catch (RuntimeException ex) {
-            return handleMutationFailure(ex, classId, ra,
-                    MSG_SECTION_RENAME_FAILED,
-                    "Failed to rename section " + sectionId + " in class {}");
+            return MutationFailureHandler.handle(ex, lessonsUrl(classId), ra,
+                    MSG_SECTION_RENAME_FAILED, log,
+                    "Failed to rename section " + sectionId + " in class {}", classId);
         }
         ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_SECTION_RENAMED);
         // Stay on the edit page so the lecturer can see the newly-appended
@@ -379,67 +390,15 @@ public class SectionsController {
      * the template stays free of type-to-label switches.
      */
     private Page<ActivityRow> loadActivityPage(Long sectionId, int page) {
-        Pageable pageable = PageRequest.of(page, HISTORY_PAGE_SIZE);
+        Pageable pageable = PageRequest.of(page, DEFAULT_HISTORY_PAGE_SIZE);
         Page<SectionActivity> raw = activityRepository
                 .findBySectionIdOrderByCreatedAtDesc(sectionId, pageable);
         List<ActivityRow> rows = new ArrayList<>(raw.getNumberOfElements());
         for (SectionActivity a : raw.getContent()) {
             rows.add(new ActivityRow(a.getId(), a.getType(),
-                    labelFor(a.getType()), a.getDescription(),
-                    a.getCreatedAt()));
+                    ActivityRowMapper.sectionLabel(a.getType()),
+                    a.getDescription(), a.getCreatedAt()));
         }
         return new PageImpl<>(rows, pageable, raw.getTotalElements());
-    }
-
-    /** Maps a section-activity type to its Vietnamese label; unknown types pass through. */
-    private static String labelFor(String type) {
-        return switch (type) {
-            case SectionActivity.TYPE_CREATED -> "Tạo mới";
-            case SectionActivity.TYPE_RENAMED -> "Đổi tên";
-            case SectionActivity.TYPE_REORDERED -> "Sắp xếp lại";
-            case SectionActivity.TYPE_DELETED -> "Xoá";
-            // Fallback so future activity types render their raw key until labelled.
-            default -> type;
-        };
-    }
-
-    /**
-     * Maps the common mutation-time exceptions (authz, not found, anything
-     * else) onto a redirect-back-with-flash error. Keeps the controller
-     * methods themselves focused on the happy path.
-     */
-    private String handleMutationFailure(RuntimeException ex, Long classId,
-                                         RedirectAttributes ra,
-                                         String userMessage, String logTemplate) {
-        if (ex instanceof AccessDeniedException) {
-            throw ex; // bubble to GlobalExceptionHandler → 403
-        }
-        if (ex instanceof EntityNotFoundException notFound) {
-            ra.addFlashAttribute(ATTR_FLASH_ERROR, notFound.getMessage());
-            return "redirect:" + lessonsUrl(classId);
-        }
-        log.error(logTemplate, classId, ex);
-        ra.addFlashAttribute(ATTR_FLASH_ERROR, userMessage);
-        return "redirect:" + lessonsUrl(classId);
-    }
-
-    private static ResponseEntity<AjaxResult> badRequest(String message) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(AjaxResult.failure(message));
-    }
-
-    private static ResponseEntity<AjaxResult> forbidden() {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(AjaxResult.failure(MSG_FORBIDDEN_FOR_CLASS));
-    }
-
-    private static ResponseEntity<AjaxResult> notFound(String message) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(AjaxResult.failure(message));
-    }
-
-    private static ResponseEntity<AjaxResult> internalError() {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(AjaxResult.failure(MSG_GENERIC_RETRY));
     }
 }

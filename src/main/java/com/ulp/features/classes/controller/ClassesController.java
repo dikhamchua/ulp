@@ -11,7 +11,7 @@ import com.ulp.entities.ClassEntity;
 import com.ulp.entities.ClassInviteCode;
 import com.ulp.features.classes.service.ClassMembersService;
 import com.ulp.features.classes.service.ClassesService;
-import com.ulp.features.classes.service.InviteCodeService;
+import com.ulp.features.classes.service.invites.InviteCodeService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

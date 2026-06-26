@@ -19,7 +19,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -572,23 +574,33 @@ class Sprint3UserManagementIntegrationTest {
 
     /**
      * Covers spec scenario "Transaction rollback when audit insert fails".
-     * The service writes audit rows inside the same @Transactional boundary
-     * as the business mutation; if the audit insert throws, both writes must
-     * be rolled back. We assert this by passing an invalid type that violates
-     * the activity table's expectations indirectly — but a cleaner check is
-     * to verify the @Transactional boundary exists: the service method
-     * `deactivate` is annotated @Transactional and would propagate any
-     * RuntimeException from `activityRepository.save()` to the outer
-     * transaction manager, which rolls back. We assert the contract by
-     * inspecting the annotation rather than mocking the repository (mocking
-     * a JpaRepository bean in @SpringBootTest is heavy-weight and the
-     * annotation check is sufficient evidence for this sprint).
+     * Each split service ({@code AdminUsersWriteService},
+     * {@code AdminUsersLifecycleService}) writes audit rows inside the same
+     * {@code @Transactional} boundary as the business mutation; if the audit
+     * insert throws, both writes must be rolled back. We assert this by
+     * inspecting the annotation on each mutation method across the C.2
+     * service split (mocking JpaRepository beans in {@code @SpringBootTest}
+     * is heavy-weight and the annotation check is sufficient evidence for
+     * this sprint).
      */
     @Test
     void service_mutation_methods_are_transactional() throws Exception {
-        var serviceClass = Class.forName("com.ulp.features.admin.users.service.AdminUsersService");
-        for (String method : List.of("create", "update", "deactivate", "activate",
-                "lock", "unlock", "resetPassword", "softDelete", "restore")) {
+        var writeService = Class.forName("com.ulp.features.admin.users.service.AdminUsersWriteService");
+        var lifecycleService = Class.forName("com.ulp.features.admin.users.service.AdminUsersLifecycleService");
+        Map<String, Class<?>> mutations = new LinkedHashMap<>();
+        mutations.put("create", writeService);
+        mutations.put("update", writeService);
+        mutations.put("deactivate", lifecycleService);
+        mutations.put("activate", lifecycleService);
+        mutations.put("lock", lifecycleService);
+        mutations.put("unlock", lifecycleService);
+        mutations.put("resetPassword", lifecycleService);
+        mutations.put("softDelete", lifecycleService);
+        mutations.put("restore", lifecycleService);
+
+        for (var entry : mutations.entrySet()) {
+            String method = entry.getKey();
+            Class<?> serviceClass = entry.getValue();
             boolean found = false;
             for (var m : serviceClass.getDeclaredMethods()) {
                 if (m.getName().equals(method)
@@ -598,7 +610,7 @@ class Sprint3UserManagementIntegrationTest {
                 }
             }
             assertThat(found)
-                    .as("AdminUsersService." + method + " must carry @Transactional")
+                    .as(serviceClass.getSimpleName() + "." + method + " must carry @Transactional")
                     .isTrue();
         }
     }

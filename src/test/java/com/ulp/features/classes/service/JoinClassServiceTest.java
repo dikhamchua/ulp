@@ -12,6 +12,8 @@ import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.JoinClassService.AlreadyJoined;
 import com.ulp.features.classes.service.JoinClassService.JoinResult;
 import com.ulp.features.classes.service.JoinClassService.Success;
+import com.ulp.features.classes.service.invites.InviteCodeValidationException;
+import com.ulp.features.classes.service.invites.InviteRejectionReason;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

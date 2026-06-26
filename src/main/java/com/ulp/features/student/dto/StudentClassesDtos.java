@@ -1,6 +1,6 @@
 package com.ulp.features.student.dto;
 
-import com.ulp.features.classes.service.InviteTokenGenerator;
+import com.ulp.features.classes.service.invites.InviteTokenGenerator;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 

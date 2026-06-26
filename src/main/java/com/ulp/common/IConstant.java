@@ -53,6 +53,7 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_MEMBERS    = "classes/detail-members";
     String VIEW_CLASS_DETAIL_SETTINGS   = "classes/detail-settings";
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
+    String VIEW_LESSON_FORM             = "classes/lesson-form";
 
     // ───────── Model attribute keys ──────────────────────────────────
     String ATTR_FORM              = "form";
@@ -81,6 +82,19 @@ public interface IConstant {
     String ATTR_INVALID       = "invalid";
     String ATTR_FLASH_INFO    = "flashInfo";
     String ATTR_FLASH_WARNING = "flashWarning";
+
+    // Lesson-related model attribute keys (ULP-4.0b).
+    String ATTR_LESSON          = "lesson";
+    String ATTR_LESSONS         = "lessons";
+    String ATTR_LESSON_ID       = "lessonId";
+    String ATTR_SELECTED_LESSON = "selectedLesson";
+
+    // Lessons feature — shared cross-controller attrs
+    // (used by SectionsController + LessonsController).
+    String ATTR_CANCEL_URL    = "cancelUrl";
+    String ATTR_EDIT_BASE_URL = "editBaseUrl";
+    String ATTR_ACTIVITY_PAGE = "activityPage";
+    String ATTR_SECTION       = "section";
 
     // ───────── Form mode discriminators ──────────────────────────────
     String MODE_CREATE = "create";
@@ -128,6 +142,27 @@ public interface IConstant {
     String MSG_OAUTH_SESSION_UNSUPPORTED =
             "Phiên đăng nhập của bạn không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email và mật khẩu.";
 
+    // ───────── Lesson status discriminators (ULP-4.0b) ───────────────
+    String LESSON_STATUS_DRAFT     = "DRAFT";
+    String LESSON_STATUS_PUBLISHED = "PUBLISHED";
+
+    // ───────── Lesson flash messages (Vietnamese UI text) ────────────
+    String MSG_LESSON_CREATED      = "Đã tạo bài giảng";
+    String MSG_LESSON_UPDATED      = "Đã cập nhật bài giảng";
+    String MSG_LESSON_DELETED      = "Đã xoá bài giảng";
+    String MSG_LESSON_PUBLISHED    = "Đã xuất bản bài giảng";
+    String MSG_LESSON_UNPUBLISHED  = "Đã chuyển bài giảng về nháp";
+    String MSG_LESSON_NOT_FOUND    = "Bài giảng không tồn tại";
+
+    // Lessons feature — shared cross-controller messages
+    // (used by SectionsController + LessonsController).
+    String MSG_SECTION_NOT_FOUND   = "Chương không tồn tại";
+    String MSG_FORBIDDEN_FOR_CLASS = "Bạn không có quyền thao tác với lớp này.";
+    String MSG_GENERIC_RETRY       = "Có lỗi xảy ra, vui lòng thử lại.";
+
     // ───────── Pagination ────────────────────────────────────────────
     int DEFAULT_PAGE_SIZE = 20;
+
+    // Lessons feature — shared paging (history tab page size).
+    int DEFAULT_HISTORY_PAGE_SIZE = 20;
 }

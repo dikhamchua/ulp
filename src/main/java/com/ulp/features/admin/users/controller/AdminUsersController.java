@@ -1,18 +1,17 @@
 package com.ulp.features.admin.users.controller;
 
+import com.ulp.entities.User;
 import com.ulp.features.admin.users.dto.AdminUsersDtos.CreateUserForm;
 import com.ulp.features.admin.users.dto.AdminUsersDtos.EditUserForm;
-import com.ulp.features.admin.users.dto.AdminUsersDtos.LockForm;
-import com.ulp.features.admin.users.dto.AdminUsersDtos.ResetPasswordForm;
 import com.ulp.features.admin.users.dto.AdminUsersDtos.StatusFilter;
 import com.ulp.features.admin.users.dto.AdminUsersDtos.UserFilter;
 import com.ulp.features.admin.users.dto.AdminUsersDtos.UserRow;
 import com.ulp.features.admin.users.dto.DepartmentReference;
-import com.ulp.features.admin.users.service.AdminUsersService;
+import com.ulp.features.admin.users.service.AdminUsersReadService;
+import com.ulp.features.admin.users.service.AdminUsersWriteService;
 import com.ulp.features.admin.users.service.EmailAlreadyUsedException;
 import com.ulp.security.Role;
 import com.ulp.security.Roles;
-import com.ulp.entities.User;
 import com.ulp.security.UlpUserDetails;
 import com.ulp.utils.StringUtils;
 import jakarta.validation.Valid;
@@ -38,14 +37,17 @@ import java.util.Set;
 import static com.ulp.common.IConstant.*;
 
 /**
- * MVC controller for the {@code /admin/users} screen.
+ * MVC controller for the CRUD endpoints of the {@code /admin/users} screen
+ * (list, create, edit, update).
+ *
+ * <p>Lifecycle endpoints (activate / deactivate / lock / unlock /
+ * reset-password / delete / restore) live on
+ * {@link AdminUsersLifecycleController}; both controllers share the same
+ * {@code /admin/users} base mapping and ADMIN role precondition.
  *
  * <p>All endpoints are restricted to the {@code ADMIN} role at the class
  * level. CSRF protection is provided by Spring Security for every POST.
- * Validation errors render inline on the form templates; lifecycle action
- * errors (blank lock reason, blank password) round-trip through flash
- * attributes that the page-level JS uses to re-open the offending modal
- * with the previously-entered text preserved.
+ * Validation errors render inline on the form templates.
  */
 @Controller
 @RequestMapping("/admin/users")
@@ -53,8 +55,8 @@ import static com.ulp.common.IConstant.*;
 public class AdminUsersController {
 
     // ── Paths ─────────────────────────────────────────────────────
-    private static final String URL_BASE          = "/admin/users";
-    private static final String REDIRECT_BASE     = "redirect:" + URL_BASE;
+    private static final String URL_BASE             = "/admin/users";
+    private static final String REDIRECT_BASE        = "redirect:" + URL_BASE;
     private static final String EDIT_TAB_INFO_SUFFIX = "/edit?tab=" + TAB_INFO;
 
     // ── View names ────────────────────────────────────────────────
@@ -62,20 +64,16 @@ public class AdminUsersController {
     private static final String VIEW_FORM = "admin/users-form";
 
     // ── Local model attribute keys (specific to this controller) ──
-    private static final String ATTR_PAGE                    = "page";
-    private static final String ATTR_FILTER                  = "filter";
-    private static final String ATTR_ROLES                   = "roles";
-    private static final String ATTR_STATUSES                = "statuses";
-    private static final String ATTR_CURRENT_USER_ID         = "currentUserId";
-    private static final String ATTR_DEPARTMENTS             = "departments";
-    private static final String ATTR_TARGET_USER             = "targetUser";
-    private static final String ATTR_STATUS_LABEL            = "statusLabel";
-    private static final String ATTR_TARGET_CREATED_AT       = "targetCreatedAt";
-    private static final String ATTR_ACTIVITIES_PAGE         = "activitiesPage";
-    private static final String ATTR_LOCK_FORM               = "lockForm";
-    private static final String ATTR_RESET_FORM              = "resetForm";
-    private static final String ATTR_FLASH_LOCK_FORM_VALUES  = "flashLockFormValues";
-    private static final String ATTR_FLASH_RESET_FORM_VALUES = "flashResetFormValues";
+    private static final String ATTR_PAGE              = "page";
+    private static final String ATTR_FILTER            = "filter";
+    private static final String ATTR_ROLES             = "roles";
+    private static final String ATTR_STATUSES          = "statuses";
+    private static final String ATTR_CURRENT_USER_ID   = "currentUserId";
+    private static final String ATTR_DEPARTMENTS       = "departments";
+    private static final String ATTR_TARGET_USER       = "targetUser";
+    private static final String ATTR_STATUS_LABEL      = "statusLabel";
+    private static final String ATTR_TARGET_CREATED_AT = "targetCreatedAt";
+    private static final String ATTR_ACTIVITIES_PAGE   = "activitiesPage";
 
     // ── Status labels (domain enum-like) ──────────────────────────
     private static final String STATUS_ACTIVE   = "ACTIVE";
@@ -84,23 +82,23 @@ public class AdminUsersController {
     private static final String STATUS_DELETED  = "DELETED";
 
     // ── Flash messages (Vietnamese UI text) ───────────────────────
-    private static final String MSG_USER_CREATED      = "Đã tạo tài khoản ";
-    private static final String MSG_USER_UPDATED      = "Đã cập nhật tài khoản";
-    private static final String MSG_USER_ACTIVATED    = "Đã kích hoạt tài khoản";
-    private static final String MSG_USER_DEACTIVATED  = "Đã vô hiệu hoá tài khoản";
-    private static final String MSG_USER_LOCKED       = "Đã khoá tài khoản";
-    private static final String MSG_USER_UNLOCKED     = "Đã mở khoá tài khoản";
-    private static final String MSG_PASSWORD_RESET    = "Đã đặt lại mật khẩu";
-    private static final String MSG_USER_DELETED      = "Đã xoá tài khoản";
-    private static final String MSG_USER_RESTORED     = "Đã khôi phục tài khoản";
-    private static final String MSG_EMAIL_DUPLICATE   = "Email đã được sử dụng";
-    private static final String MSG_LOCK_REASON_BLANK = "Lý do khoá tài khoản không được để trống";
-    private static final String MSG_PASSWORD_BLANK    = "Mật khẩu mới không được để trống";
+    private static final String MSG_USER_CREATED    = "Đã tạo tài khoản ";
+    private static final String MSG_USER_UPDATED    = "Đã cập nhật tài khoản";
+    private static final String MSG_EMAIL_DUPLICATE = "Email đã được sử dụng";
 
-    private final AdminUsersService usersService;
+    /** Page size used by the "Lịch sử cập nhật" tab (fixed per Decision 4 in design.md). */
+    private static final int HISTORY_PAGE_SIZE = 20;
 
-    public AdminUsersController(AdminUsersService usersService) {
-        this.usersService = usersService;
+    /** Whitelist of valid {@code tab} query-parameter values; anything else falls back to {@code info}. */
+    private static final Set<String> VALID_TABS = Set.of(TAB_INFO, TAB_ACTIVITY, TAB_HISTORY);
+
+    private final AdminUsersReadService readService;
+    private final AdminUsersWriteService writeService;
+
+    public AdminUsersController(AdminUsersReadService readService,
+                                AdminUsersWriteService writeService) {
+        this.readService = readService;
+        this.writeService = writeService;
     }
 
     // ── List ──────────────────────────────────────────────────────
@@ -120,7 +118,7 @@ public class AdminUsersController {
                 StatusFilter.normalize(status),
                 StringUtils.blankToNull(sort)
         );
-        Page<UserRow> page = usersService.list(filter, pageable);
+        Page<UserRow> page = readService.list(filter, pageable);
 
         model.addAttribute(ATTR_PAGE, page);
         model.addAttribute(ATTR_FILTER, filter);
@@ -155,7 +153,7 @@ public class AdminUsersController {
             return VIEW_FORM;
         }
         try {
-            User saved = usersService.create(form, user.getId());
+            User saved = writeService.create(form, user.getId());
             ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_USER_CREATED + saved.getEmail());
             return REDIRECT_BASE;
         } catch (EmailAlreadyUsedException ex) {
@@ -167,19 +165,13 @@ public class AdminUsersController {
 
     // ── Edit form ─────────────────────────────────────────────────
 
-    /** Page size used by the "Lịch sử cập nhật" tab (fixed per Decision 4 in design.md). */
-    private static final int HISTORY_PAGE_SIZE = 20;
-
-    /** Whitelist of valid {@code tab} query-parameter values; anything else falls back to {@code info}. */
-    private static final Set<String> VALID_TABS = Set.of(TAB_INFO, TAB_ACTIVITY, TAB_HISTORY);
-
     /** Renders the edit-user form with three sub-tabs (info / activity / history). */
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id,
                            @RequestParam(name = "tab", required = false, defaultValue = TAB_INFO) String tab,
                            @RequestParam(name = "page", required = false, defaultValue = "0") int page,
                            Model model) {
-        User u = usersService.getEditable(id);
+        User u = readService.getEditable(id);
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, EditUserForm.fromUser(u));
         }
@@ -197,14 +189,14 @@ public class AdminUsersController {
 
         // "Tạo lúc" timestamp — the User entity does not map created_at, so
         // the service reads it via native SQL.
-        model.addAttribute(ATTR_TARGET_CREATED_AT, usersService.getCreatedAt(id));
+        model.addAttribute(ATTR_TARGET_CREATED_AT, readService.getCreatedAt(id));
 
         // Only query the audit history when the history tab is the one being
         // rendered. The other two tabs cost a single template render.
         if (TAB_HISTORY.equals(activeTab)) {
             int safePage = Math.max(0, page);
             model.addAttribute(ATTR_ACTIVITIES_PAGE,
-                    usersService.listActivities(id, PageRequest.of(safePage, HISTORY_PAGE_SIZE)));
+                    readService.listActivities(id, PageRequest.of(safePage, HISTORY_PAGE_SIZE)));
         }
         return VIEW_FORM;
     }
@@ -230,19 +222,10 @@ public class AdminUsersController {
                          Model model,
                          RedirectAttributes ra) {
         if (result.hasErrors()) {
-            populateFormModel(model, MODE_EDIT, id);
-            User reloaded = usersService.getEditable(id);
-            model.addAttribute(ATTR_TARGET_USER, reloaded);
-            // Validation errors always re-render the info tab — that's where
-            // the form lives. Keep the detail model attributes in sync so the
-            // template can render the toolbar + header without NPE.
-            model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO);
-            model.addAttribute(ATTR_STATUS_LABEL, deriveStatusLabel(reloaded));
-            model.addAttribute(ATTR_TARGET_CREATED_AT, usersService.getCreatedAt(id));
-            return VIEW_FORM;
+            return reRenderEditForm(model, id);
         }
         try {
-            List<String> warnings = usersService.update(id, form, user.getId());
+            List<String> warnings = writeService.update(id, form, user.getId());
             ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_USER_UPDATED);
             if (!warnings.isEmpty()) {
                 ra.addFlashAttribute(ATTR_FLASH_WARNING, String.join(" ", warnings));
@@ -250,101 +233,8 @@ public class AdminUsersController {
             return "redirect:" + userUrl(id) + EDIT_TAB_INFO_SUFFIX;
         } catch (EmailAlreadyUsedException ex) {
             result.rejectValue("email", "email.duplicate", MSG_EMAIL_DUPLICATE);
-            populateFormModel(model, MODE_EDIT, id);
-            User reloaded = usersService.getEditable(id);
-            model.addAttribute(ATTR_TARGET_USER, reloaded);
-            model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO);
-            model.addAttribute(ATTR_STATUS_LABEL, deriveStatusLabel(reloaded));
-            model.addAttribute(ATTR_TARGET_CREATED_AT, usersService.getCreatedAt(id));
-            return VIEW_FORM;
+            return reRenderEditForm(model, id);
         }
-    }
-
-    // ── Lifecycle ─────────────────────────────────────────────────
-
-    /** Activates a deactivated user account. */
-    @PostMapping("/{id}/activate")
-    public String activate(@PathVariable Long id,
-                           @AuthenticationPrincipal UlpUserDetails user,
-                           RedirectAttributes ra) {
-        usersService.activate(id, user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_USER_ACTIVATED);
-        return REDIRECT_BASE;
-    }
-
-    /** Deactivates an active user account (login blocked). */
-    @PostMapping("/{id}/deactivate")
-    public String deactivate(@PathVariable Long id,
-                             @AuthenticationPrincipal UlpUserDetails user,
-                             RedirectAttributes ra) {
-        usersService.deactivate(id, user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_USER_DEACTIVATED);
-        return REDIRECT_BASE;
-    }
-
-    /** Locks a user account with a reason; re-opens the modal on validation failure. */
-    @PostMapping("/{id}/lock")
-    public String lock(@PathVariable Long id,
-                       @Valid @ModelAttribute("lockForm") LockForm lockForm,
-                       BindingResult result,
-                       @AuthenticationPrincipal UlpUserDetails user,
-                       RedirectAttributes ra) {
-        if (result.hasErrors()) {
-            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_LOCK_REASON_BLANK);
-            ra.addFlashAttribute(ATTR_FLASH_LOCK_FORM_VALUES,
-                    new ModalReopenLockValues(id, lockForm.lockedReason()));
-            return REDIRECT_BASE;
-        }
-        usersService.lock(id, lockForm.lockedReason(), user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_USER_LOCKED);
-        return REDIRECT_BASE;
-    }
-
-    /** Unlocks a locked user account. */
-    @PostMapping("/{id}/unlock")
-    public String unlock(@PathVariable Long id,
-                         @AuthenticationPrincipal UlpUserDetails user,
-                         RedirectAttributes ra) {
-        usersService.unlock(id, user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_USER_UNLOCKED);
-        return REDIRECT_BASE;
-    }
-
-    /** Resets a user's password; re-opens the modal on validation failure. */
-    @PostMapping("/{id}/reset-password")
-    public String resetPassword(@PathVariable Long id,
-                                @Valid @ModelAttribute("resetForm") ResetPasswordForm resetForm,
-                                BindingResult result,
-                                @AuthenticationPrincipal UlpUserDetails user,
-                                RedirectAttributes ra) {
-        if (result.hasErrors()) {
-            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_PASSWORD_BLANK);
-            ra.addFlashAttribute(ATTR_FLASH_RESET_FORM_VALUES, new ModalReopenResetValues(id));
-            return REDIRECT_BASE;
-        }
-        usersService.resetPassword(id, resetForm.newPassword(), user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_PASSWORD_RESET);
-        return REDIRECT_BASE;
-    }
-
-    /** Soft-deletes a user (sets is_deleted; account becomes recoverable via restore). */
-    @PostMapping("/{id}/delete")
-    public String softDelete(@PathVariable Long id,
-                             @AuthenticationPrincipal UlpUserDetails user,
-                             RedirectAttributes ra) {
-        usersService.softDelete(id, user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_USER_DELETED);
-        return REDIRECT_BASE;
-    }
-
-    /** Restores a soft-deleted user. */
-    @PostMapping("/{id}/restore")
-    public String restore(@PathVariable Long id,
-                          @AuthenticationPrincipal UlpUserDetails user,
-                          RedirectAttributes ra) {
-        usersService.restore(id, user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_USER_RESTORED);
-        return REDIRECT_BASE;
     }
 
     // ── Helpers ───────────────────────────────────────────────────
@@ -359,14 +249,24 @@ public class AdminUsersController {
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_USERS);
     }
 
+    /**
+     * Common re-render path for the edit form on validation or duplicate-email
+     * failure. Reloads the target user so the toolbar + header have current
+     * state and pins the active detail tab to {@code info} (where the form
+     * lives) so submission never bounces the user onto activity / history.
+     */
+    private String reRenderEditForm(Model model, Long id) {
+        populateFormModel(model, MODE_EDIT, id);
+        User reloaded = readService.getEditable(id);
+        model.addAttribute(ATTR_TARGET_USER, reloaded);
+        model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO);
+        model.addAttribute(ATTR_STATUS_LABEL, deriveStatusLabel(reloaded));
+        model.addAttribute(ATTR_TARGET_CREATED_AT, readService.getCreatedAt(id));
+        return VIEW_FORM;
+    }
+
     /** Builds the canonical URL for a single admin user. */
     private static String userUrl(Long id) {
         return URL_BASE + "/" + id;
     }
-
-    /** Flash payload used by the page-level JS to re-open the Lock modal. */
-    public record ModalReopenLockValues(Long userId, String reason) {}
-
-    /** Flash payload used by the page-level JS to re-open the Reset Password modal. */
-    public record ModalReopenResetValues(Long userId) {}
 }
