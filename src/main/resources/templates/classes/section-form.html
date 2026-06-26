@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head ::
+        head(${(mode == 'edit' ? 'Đổi tên chương' : 'Tạo chương') + ' | ' + clazz.name},
+             ~{::link.page-css})}">
+  <!-- CSS load order matters: app-shell → class-detail (legacy detail rules)
+       → detail-page (design system) → admin (base form-row input styles
+       consumed by .detail-form-grid) → classes → sections (page-specific
+       bits). See docs/design-system/detail-page-pattern.md §3. -->
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/sections.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<!-- Flash drain: surfaces server-flashed messages (success/error) as toasts
+     via class-detail.js. -->
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'lessons')}"></aside>
+
+  <!-- The `.detail-page` modifier sheds the legacy width clamp from
+       `.class-detail-layout .col` so the toolbar / cards stretch to the
+       full content column. -->
+  <main class="col detail-page">
+
+    <!-- ═══ Sticky toolbar ═══════════════════════════════════════════════
+         Back link on the left, Save submit on the right. Save uses HTML5
+         form association (form="sectionForm") so the button can live in
+         the sticky toolbar while the form sits inside a card below.
+         ══════════════════════════════════════════════════════════════════ -->
+    <div class="detail-toolbar">
+      <a th:href="@{${cancelUrl}}" class="toolbar-back">
+        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Quay lại
+      </a>
+      <span class="toolbar-spacer"></span>
+      <button type="submit" form="sectionForm" class="toolbar-save"
+              th:text="${mode == 'edit' ? 'Lưu thay đổi' : 'Tạo chương'}">Tạo chương</button>
+    </div>
+
+    <!-- ═══ Header (title + meta) ═══════════════════════════════════════ -->
+    <h1 class="detail-page-title"
+        th:text="${mode == 'edit' ? 'Đổi tên chương' : 'Tạo chương mới'}">Tạo chương mới</h1>
+    <div class="detail-page-meta">
+      <div class="meta-badges">
+        <span class="status-pill status-active"
+              th:text="${mode == 'edit' ? 'CHỈNH SỬA' : 'TẠO MỚI'}">TẠO MỚI</span>
+      </div>
+      <span>Lớp:
+        <em th:text="${clazz.name}">Tên lớp</em>
+      </span>
+      <span th:if="${mode == 'edit' and section != null}">Chương hiện tại:
+        <em th:text="${section.title}">—</em>
+      </span>
+    </div>
+
+    <!-- ═══ Tab pill strip — pure client-side toggle ═════════════════════
+         Both panels are rendered in the initial HTML response so switching
+         tabs costs zero network round-trips. The inline script at the
+         bottom wires the buttons to .section-tab-panel visibility and
+         keeps the ?tab=… query parameter in sync via history.replaceState
+         (so a reload lands on the same tab and a deep link works too).
+         ══════════════════════════════════════════════════════════════════ -->
+    <nav class="detail-tabs" aria-label="Phần chỉnh sửa chương"
+         role="tablist"
+         th:if="${mode == 'edit'}">
+      <button type="button" class="detail-tab"
+              role="tab"
+              data-tab-target="info"
+              th:classappend="${activeDetailTab == 'info'} ? 'active'"
+              th:attr="aria-selected=${activeDetailTab == 'info'} ? 'true' : 'false',
+                       aria-controls='panel-info'">Thông tin</button>
+      <button type="button" class="detail-tab"
+              role="tab"
+              data-tab-target="history"
+              th:classappend="${activeDetailTab == 'history'} ? 'active'"
+              th:attr="aria-selected=${activeDetailTab == 'history'} ? 'true' : 'false',
+                       aria-controls='panel-history'">Lịch sử</button>
+    </nav>
+
+    <!-- ═══ Info panel — title form ═════════════════════════════════════
+         Always rendered. On edit pages, JS toggles `hidden` based on the
+         active tab. On create pages there is no tab strip, so the panel
+         is always visible.
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="panel-info" class="section-tab-panel"
+         role="tabpanel"
+         aria-labelledby="tab-info"
+         th:attr="hidden=${mode == 'edit' and activeDetailTab != 'info'} ? 'hidden' : null">
+      <form id="sectionForm"
+            th:action="@{${formAction}}"
+            method="post"
+            th:object="${form}"
+            novalidate>
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+        <section class="detail-card">
+          <h2 class="detail-card-title">Thông tin chương</h2>
+          <div class="detail-form-grid">
+            <div class="form-row span-3">
+              <label for="titleInput">
+                Tiêu đề chương <span class="required" aria-hidden="true">*</span>
+              </label>
+              <input id="titleInput" type="text" th:field="*{title}"
+                     th:classappend="${#fields.hasErrors('title')} ? 'is-invalid' : ''"
+                     th:attr="aria-invalid=${#fields.hasErrors('title')} ? 'true' : 'false',
+                              aria-describedby=${#fields.hasErrors('title')} ? 'title-error' : 'title-help'"
+                     maxlength="200" required aria-required="true"
+                     placeholder="Ví dụ: Chương 1 — Giới thiệu"
+                     autofocus>
+              <p id="title-error" class="field-error" role="alert"
+                 th:if="${#fields.hasErrors('title')}"
+                 th:errors="*{title}">Lỗi tiêu đề</p>
+              <p id="title-help" class="detail-field-help"
+                 th:if="${not #fields.hasErrors('title')}">Tối đa 200 ký tự.</p>
+            </div>
+          </div>
+        </section>
+      </form>
+    </div>
+
+    <!-- ═══ History panel — paginated audit log ═════════════════════════
+         Always rendered on the edit page (eager-loaded server-side) so
+         the tab switch is a pure DOM toggle. Empty state lives inside
+         the same card so the layout doesn't shift between a populated
+         and an empty history.
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="panel-history" class="section-tab-panel"
+         role="tabpanel"
+         aria-labelledby="tab-history"
+         th:if="${mode == 'edit'}"
+         th:attr="hidden=${activeDetailTab != 'history'} ? 'hidden' : null">
+      <section class="detail-card">
+        <h2 class="detail-card-title">Lịch sử thay đổi</h2>
+
+        <p class="detail-empty"
+           th:if="${activityPage == null or activityPage.empty}">
+          Chưa có hoạt động nào được ghi nhận.
+        </p>
+
+        <table class="detail-table"
+               th:if="${activityPage != null and not activityPage.empty}">
+          <thead>
+            <tr>
+              <th style="width: 140px;">Loại</th>
+              <th>Nội dung</th>
+              <th style="width: 180px;">Thời điểm</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="row : ${activityPage.content}">
+              <td>
+                <span class="detail-type-badge" th:text="${row.typeLabel()}">TYPE</span>
+              </td>
+              <td th:text="${row.description()}">message</td>
+              <td th:text="${row.createdAt() != null
+                            ? #temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm')
+                            : '—'}">—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <nav class="detail-pagination"
+             aria-label="Phân trang lịch sử"
+             th:if="${activityPage != null and activityPage.totalPages > 1}">
+          <a class="page-link"
+             th:if="${!activityPage.first}"
+             th:href="@{${editBaseUrl}(tab='history', page=${activityPage.number - 1})}">‹ Trước</a>
+          <span class="page-current"
+                th:text="'Trang ' + (${activityPage.number + 1}) + ' / ' + ${activityPage.totalPages}">—</span>
+          <a class="page-link"
+             th:if="${!activityPage.last}"
+             th:href="@{${editBaseUrl}(tab='history', page=${activityPage.number + 1})}">Sau ›</a>
+        </nav>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<!-- Tab toggle — purely client-side, no network. Both panels are already
+     in the DOM, this script just hides one and shows the other. -->
+<script th:if="${mode == 'edit'}">
+  (function () {
+    'use strict';
+    var tabs = document.querySelectorAll('[data-tab-target]');
+    var panels = document.querySelectorAll('.section-tab-panel');
+    if (!tabs.length || !panels.length) return;
+
+    function activate(name) {
+      tabs.forEach(function (t) {
+        var isActive = t.getAttribute('data-tab-target') === name;
+        t.classList.toggle('active', isActive);
+        t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      panels.forEach(function (p) {
+        p.hidden = (p.id !== 'panel-' + name);
+      });
+      // Keep ?tab=… in sync so reload + back-forward cache land on the
+      // same panel. replaceState (not pushState) avoids polluting browser
+      // history with every tab click.
+      try {
+        var url = new URL(window.location.href);
+        url.searchParams.set('tab', name);
+        window.history.replaceState(null, '', url);
+      } catch (e) {
+        // Older browsers / file://; safe to ignore.
+      }
+    }
+
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        activate(t.getAttribute('data-tab-target'));
+      });
+    });
+
+    // Initialise from ?tab=… so a reload after switching to history
+    // re-activates that tab. Default = info.
+    var initial = new URLSearchParams(window.location.search).get('tab');
+    activate(initial === 'history' ? 'history' : 'info');
+  })();
+</script>
+</body>
+</html>

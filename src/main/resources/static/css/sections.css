@@ -1,0 +1,362 @@
+/* ═════════════════════════════════════════════════════════════════════
+   ULP — Lessons tab (ULP-4.0a / Scope A redesign)
+   3-column shell: class-sidebar | folders (sections) | content (lessons
+   placeholder). Folder list keeps drag-reorder, soft-delete, and inline
+   search filter from the previous layout — the markup just moved into
+   the new folders column.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ── Lessons 2-column shell (sits inside .class-detail-layout) ────── */
+.lessons-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 0;
+  margin: 0;
+}
+
+.lessons-folders {
+  display: flex; flex-direction: column;
+  background: var(--color-bg, #fff);
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px;
+  min-height: 480px;
+}
+
+/* Folders header */
+.folders-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border-soft, #f3f4f6);
+  margin-bottom: 10px;
+}
+.folders-title {
+  font-weight: 600; font-size: 13px; letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary, #374151);
+}
+.folders-add-btn {
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: var(--color-primary, #2563eb);
+  color: #fff;
+  transition: background .12s;
+  text-decoration: none;
+}
+.folders-add-btn:hover { background: var(--color-primary-hover, #1d4ed8); }
+.folders-add-btn .ico {
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* Folders search */
+.folders-search {
+  position: relative; margin-bottom: 12px;
+}
+.folders-search input {
+  width: 100%; height: 36px;
+  padding: 0 32px 0 32px;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+}
+.folders-search input:focus {
+  outline: none;
+  border-color: var(--color-primary, #2563eb);
+  box-shadow: 0 0 0 3px var(--color-primary-soft, #eff6ff);
+}
+.folders-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px;
+  fill: none; stroke: var(--color-text-muted, #6b7280);
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  pointer-events: none;
+}
+.folders-search-clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px;
+  border: none; background: transparent; cursor: pointer;
+  font-size: 18px; line-height: 1;
+  color: var(--color-text-muted, #6b7280);
+  border-radius: 4px;
+}
+.folders-search-clear:hover {
+  color: var(--color-text, #111827);
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+/* Folders list */
+.folders-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+.folder-item {
+  position: relative;
+  display: flex; align-items: center;
+  border-radius: 8px;
+  transition: background .12s;
+}
+.folder-item:hover { background: var(--color-bg-subtle, #f9fafb); }
+.folder-item.active {
+  background: var(--color-primary-soft, #eff6ff);
+}
+.folder-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 6px; bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-primary, #2563eb);
+}
+.folder-item .folder-item-link {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  color: var(--color-text-secondary, #374151);
+  font-size: 14px; font-weight: 500;
+  text-decoration: none;
+}
+.folder-item.active .folder-item-link {
+  color: var(--color-heading-navy, #1e3a8a);
+}
+.folder-item .folder-item-link .ico {
+  flex: none;
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.folder-item .sec-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 500;
+}
+
+/* Drag handle inside folder item */
+.folder-item .sec-handle {
+  cursor: grab;
+  color: var(--color-text-muted, #6b7280);
+  width: 20px; height: 24px;
+  display: grid; place-items: center;
+  flex: none;
+  margin-left: 4px;
+}
+.folder-item .sec-handle .ico {
+  fill: currentColor; stroke: none;
+}
+.folder-item .sec-handle:active { cursor: grabbing; }
+.folder-item.is-dragging { opacity: .5; }
+.folder-item.is-ghost {
+  background: var(--color-primary-soft, #eff6ff);
+  border: 1px dashed var(--color-primary, #2563eb);
+}
+/* "All lessons" pseudo-folder has no handle — keep its link aligned
+   with rows that do. */
+.folder-item.folder-item-all .folder-item-link {
+  padding-left: 12px;
+}
+
+/* Action menu (3-dot) */
+.folder-item-menu {
+  position: relative;
+  flex: none;
+  margin-right: 4px;
+  opacity: 0;
+  transition: opacity .12s;
+}
+.folder-item:hover .folder-item-menu,
+.folder-item-menu.is-open {
+  opacity: 1;
+}
+.folder-menu-trigger {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: none; background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+}
+.folder-menu-trigger .ico {
+  fill: currentColor; stroke: none;
+}
+.folder-menu-trigger:hover {
+  background: var(--color-bg, #fff);
+  color: var(--color-text, #111827);
+}
+.folder-menu-dropdown {
+  position: absolute;
+  top: 100%; right: 0;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
+  padding: 4px;
+  z-index: 20;
+  display: flex; flex-direction: column;
+  gap: 1px;
+}
+.folder-menu-dropdown a,
+.folder-menu-dropdown button {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border: none; background: transparent;
+  font-size: 13px; text-align: left;
+  color: var(--color-text-secondary, #374151);
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  width: 100%;
+  font-family: inherit;
+}
+.folder-menu-dropdown a:hover,
+.folder-menu-dropdown button:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+  color: var(--color-text, #111827);
+}
+.folder-menu-dropdown .ico {
+  flex: none;
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.folder-menu-dropdown .sec-btn-del:hover {
+  background: var(--color-danger-soft, #fef2f2);
+  color: var(--color-danger, #dc2626);
+}
+
+/* Empty states */
+.folders-empty {
+  padding: 16px; text-align: center;
+  font-size: 13px; color: var(--color-text-muted, #6b7280);
+}
+.folders-empty p { margin: 4px 0; line-height: 1.5; }
+.folders-empty strong {
+  color: var(--color-primary, #2563eb); font-weight: 700;
+}
+
+/* ── Lessons content column ──────────────────────────────────────── */
+.lessons-content {
+  background: var(--color-bg, #fff);
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: var(--radius-lg, 12px);
+  padding: 16px 18px;
+  min-height: 480px;
+  display: flex; flex-direction: column;
+}
+
+.content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border-soft, #f3f4f6);
+  margin-bottom: 16px;
+}
+.content-title {
+  margin: 0;
+  font-size: 16px; font-weight: 600;
+  color: var(--color-heading-navy, #1e3a8a);
+}
+/* Single inline badge replacing the disabled-toolbar placeholder. Tells
+   the user the missing controls are intentional (ULP-4.0b feature) so
+   the page doesn't read as "broken". */
+.content-coming-badge {
+  display: inline-flex; align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-info-soft, #eef2ff);
+  color: var(--color-info, #3730a3);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.content-empty {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--color-text-muted, #6b7280);
+}
+.content-empty > svg {
+  width: 64px; height: 64px;
+  margin-bottom: 12px;
+  fill: none; stroke: var(--color-border-medium, #e5e7eb);
+  stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+}
+.content-empty h3 {
+  margin: 0 0 6px;
+  font-size: 16px; font-weight: 600;
+  color: var(--color-text-secondary, #374151);
+}
+.content-empty p {
+  margin: 0 0 4px; font-size: 13px; line-height: 1.5; max-width: 360px;
+}
+
+/* Responsive: stack the two columns on narrow viewports */
+@media (max-width: 900px) {
+  .lessons-shell { grid-template-columns: 1fr; }
+  .lessons-folders { min-height: 0; }
+}
+
+/* Section form modal */
+.sec-field-label {
+  display: block;
+  font-size: 13px; font-weight: 600; color: var(--fg);
+  margin: 4px 0 6px;
+}
+.sec-field-input {
+  width: 100%;
+  height: 42px; padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px; font-size: 14px;
+  background: #fff;
+}
+.sec-field-input:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.sec-field-help {
+  margin-top: 6px; font-size: 12px; color: var(--muted);
+}
+
+/* Section form (full-page) — used by /lessons/new and /lessons/sections/{id}/edit.
+   The form layout itself follows the detail-page design system
+   (detail-toolbar, detail-card, detail-form-grid). The rules below cover
+   only page-specific bits: input help text and the maxlength affordance
+   under the title field. */
+.detail-field-help {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted, var(--muted));
+}
+
+/* Tab strip uses <button> instead of <a> so clicking does not navigate.
+   The base .detail-tab styles in detail-page.css are tag-agnostic; this
+   override merely normalises the button user-agent chrome (default
+   borders / background / font) so it visually matches the anchor-based
+   tab on detail-settings.html.
+
+   IMPORTANT — do NOT set `border-bottom` here. The base rule already
+   declares `border-bottom: 2px solid transparent` and `.detail-tab.active`
+   recolours it to navy. Any override here would be more specific than
+   `.detail-tab.active` (element + class vs class+class) and would silently
+   kill the active-tab underline. Kill only the other three borders to
+   strip the user-agent button chrome. */
+.detail-tabs button.detail-tab {
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: inherit;
+}
+.detail-tabs button.detail-tab:focus-visible {
+  outline: 2px solid var(--color-primary, #2563eb);
+  outline-offset: -2px;
+  border-radius: 4px;
+}

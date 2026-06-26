@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${clazz.name} + ' | Bài giảng', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/sections.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'lessons')}"></aside>
+
+  <main class="col detail-page lessons-shell">
+    <!-- ── Column 2: Folders (sections) ───────────────────────────────── -->
+    <div class="lessons-folders">
+      <div class="folders-header">
+        <span class="folders-title">Thư mục</span>
+        <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/lessons/new'}"
+           class="folders-add-btn"
+           th:if="${canEdit}"
+           title="Tạo chương mới"
+           aria-label="Tạo chương mới">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </a>
+      </div>
+
+      <!-- Client-side search filter. Pure DOM toggling, no request — see
+           sections.js applySearch(). Diacritic- and case-insensitive so
+           "chuong 1" finds "Chương 1". -->
+      <div class="folders-search" th:if="${not #lists.isEmpty(sections)}">
+        <svg class="folders-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input id="sectionSearchInput" type="search"
+               placeholder="Tìm chương..."
+               autocomplete="off"
+               aria-label="Tìm chương">
+        <button type="button" class="folders-search-clear" id="sectionSearchClear"
+                aria-label="Xoá tìm kiếm" hidden>&times;</button>
+      </div>
+
+      <ul id="sectionList" class="folders-list"
+          th:attr="data-can-edit=${canEdit}">
+        <!-- "All lessons" pseudo-folder — static, never dragged or deleted.
+             Active when no ?section= query param is present. Sortable.js
+             ignores it via filter: '.folder-item-all'. -->
+        <li class="folder-item folder-item-all"
+            th:classappend="${selectedSectionId == null} ? 'active' : ''">
+          <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/lessons'}"
+             class="folder-item-link">
+            <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+            </svg>
+            <span class="sec-title">Tất cả bài giảng</span>
+          </a>
+        </li>
+
+        <li th:each="s : ${sections}"
+            class="folder-item sec-item"
+            th:classappend="${selectedSectionId != null and selectedSectionId == s.id} ? 'active' : ''"
+            th:attr="data-section-id=${s.id}">
+          <span class="sec-handle" title="Kéo để sắp xếp"
+                th:if="${canEdit}">
+            <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="9" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/>
+              <circle cx="15" cy="6" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+            </svg>
+          </span>
+          <a class="folder-item-link"
+             th:href="@{'/lecturer/classes/' + ${clazz.id} + '/lessons'(section=${s.id})}">
+            <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+            </svg>
+            <span class="sec-title" th:text="${s.title()}">Chương 1</span>
+          </a>
+          <div class="folder-item-menu" th:if="${canEdit}">
+            <button class="folder-menu-trigger" type="button"
+                    data-menu-trigger
+                    title="Tuỳ chọn"
+                    aria-label="Tuỳ chọn">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="5" r="1.5"/>
+                <circle cx="12" cy="12" r="1.5"/>
+                <circle cx="12" cy="19" r="1.5"/>
+              </svg>
+            </button>
+            <div class="folder-menu-dropdown" data-menu-dropdown hidden>
+              <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/lessons/sections/' + ${s.id} + '/edit'}">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                <span>Sửa</span>
+              </a>
+              <button class="sec-btn-del" type="button"
+                      th:attr="data-section-id=${s.id},data-section-title=${s.title()}">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 6h18"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <span>Xoá</span>
+              </button>
+            </div>
+          </div>
+        </li>
+      </ul>
+
+      <div id="sectionEmpty" class="folders-empty"
+           th:if="${#lists.isEmpty(sections)}">
+        <p>Chưa có chương nào.</p>
+        <p th:if="${canEdit}">Bấm nút <strong>+</strong> để tạo chương đầu tiên.</p>
+      </div>
+
+      <!-- Empty state shown by sections.js when the search filter hides
+           every row. Kept inside the panel so the layout doesn't jump. -->
+      <div id="sectionNoResult" class="folders-empty" hidden>
+        <p>Không tìm thấy chương nào khớp.</p>
+      </div>
+    </div>
+
+    <!-- ── Column 3: Lessons content (placeholder for ULP-4.0b) ─────── -->
+    <div class="lessons-content" id="sectionsPanel"
+         th:attr="data-class-id=${clazz.id}">
+      <!-- Header band — title on the left, a single "Sắp ra mắt" badge
+           on the right. The full toolbar (view-mode toggles + search +
+           "Tạo bài giảng" button) is intentionally omitted until ULP-4.0b
+           ships the Lesson CRUD that backs them. Showing four disabled
+           controls in the meantime made the page look broken — see
+           Code Review WARNING from 2026-06-26. -->
+      <div class="content-header">
+        <h2 class="content-title"
+            th:text="${selectedSection != null
+                        ? 'Bài giảng của ' + selectedSection.title
+                        : 'Tất cả bài giảng'}">Tất cả bài giảng</h2>
+        <span class="content-coming-badge"
+              title="Tính năng đầy đủ sẽ có ở phiên bản tiếp theo">
+          Sắp ra mắt (ULP-4.0b)
+        </span>
+      </div>
+
+      <div class="content-empty">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        <h3>Bài giảng đang phát triển</h3>
+        <p>Chức năng quản lý bài giảng sẽ được hoàn thiện ở phiên bản tiếp theo (ULP-4.0b).</p>
+        <p th:if="${selectedSection != null}">
+          Hiện chương này chưa có bài giảng nào.
+        </p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script th:src="@{/js/sections.js}"></script>
+</body>
+</html>
