@@ -197,6 +197,11 @@
   display: flex; flex-direction: column;
   gap: 1px;
 }
+/* `display: flex` defeats the user-agent `[hidden] { display: none }`;
+   restore it explicitly so the dropdown stays hidden until the JS opens it. */
+.folder-menu-dropdown[hidden] {
+  display: none;
+}
 .folder-menu-dropdown a,
 .folder-menu-dropdown button {
   display: flex; align-items: center; gap: 8px;
@@ -334,6 +339,38 @@
   color: var(--color-text-muted, var(--muted));
 }
 
+/* Native <select> inside the detail-form-grid. admin.css styles
+   input[type=text|email|password|number] but does not cover <select>,
+   so the status dropdown on the lesson form rendered with raw user-agent
+   chrome. Match the input look (padding, border, focus ring) and add a
+   subtle caret SVG so the control reads as a dropdown on every browser. */
+.detail-form-grid .form-row select {
+  padding: 8px 36px 8px 12px;
+  height: 40px;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-text, #111827);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
+}
+.detail-form-grid .form-row select:focus {
+  outline: none;
+  border-color: var(--color-primary, #2563eb);
+  box-shadow: 0 0 0 3px var(--color-primary-soft, #eff6ff);
+}
+.detail-form-grid .form-row select[aria-invalid="true"] {
+  border-color: var(--color-danger, #dc2626);
+}
+
 /* Tab strip uses <button> instead of <a> so clicking does not navigate.
    The base .detail-tab styles in detail-page.css are tag-agnostic; this
    override merely normalises the button user-agent chrome (default
@@ -359,4 +396,208 @@
   outline: 2px solid var(--color-primary, #2563eb);
   outline-offset: -2px;
   border-radius: 4px;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   Lesson list + form (ULP-4.0b)
+   Co-located with section CSS because the lesson list is rendered inside
+   the same lessons-tab page and the lesson form shares the detail-page
+   design system.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* Content header — gains a primary CTA on the right next to the title
+   when a section is selected. */
+.content-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.content-create-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  border-radius: 8px;
+  background: var(--color-primary, #2563eb);
+  color: #fff; font-size: 13px; font-weight: 600;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background .12s;
+}
+.content-create-btn:hover { background: var(--color-primary-hover, #1d4ed8); }
+.content-create-btn[aria-disabled="true"],
+.content-create-btn.is-disabled {
+  background: var(--color-bg-subtle, #f3f4f6);
+  color: var(--color-text-muted, #6b7280);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.content-create-btn .ico {
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* Lesson list */
+.lesson-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.lesson-item {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color .12s, box-shadow .12s;
+}
+.lesson-item:hover {
+  border-color: var(--color-primary-soft, #c7d2fe);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+.lesson-item-title {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.lesson-item-title a {
+  font-size: 14px; font-weight: 600;
+  color: var(--color-heading-navy, #1e3a8a);
+  text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lesson-item-title a:hover { text-decoration: underline; }
+.lesson-item-meta {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* Status pill */
+.lesson-status-pill {
+  display: inline-flex; align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.lesson-status-pill.is-draft {
+  background: var(--color-warning-soft, #fef3c7);
+  color: var(--color-warning, #b45309);
+}
+.lesson-status-pill.is-published {
+  background: var(--color-success-soft, #dcfce7);
+  color: var(--color-success, #15803d);
+}
+
+/* Lesson 3-dot menu — reuses the .folder-item-menu look but kept under a
+   distinct class so the JS can scope its delegation. */
+.lesson-item-menu {
+  position: relative;
+  flex: none;
+}
+.lesson-menu-trigger {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: none; background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+}
+.lesson-menu-trigger .ico {
+  fill: currentColor; stroke: none;
+}
+.lesson-menu-trigger:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+  color: var(--color-text, #111827);
+}
+.lesson-menu-dropdown {
+  position: absolute;
+  top: 100%; right: 0;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
+  padding: 4px;
+  z-index: 20;
+  display: flex; flex-direction: column;
+  gap: 1px;
+}
+/* `display: flex` above defeats the user-agent `[hidden] { display: none }`
+   default, so the dropdown leaked visible on first paint. Restore the
+   hidden behaviour explicitly. Same trap for the folder menu — see
+   `.folder-menu-dropdown[hidden]` rule below. */
+.lesson-menu-dropdown[hidden] {
+  display: none;
+}
+.lesson-menu-dropdown a,
+.lesson-menu-dropdown button {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border: none; background: transparent;
+  font-size: 13px; text-align: left;
+  color: var(--color-text-secondary, #374151);
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  width: 100%;
+  font-family: inherit;
+}
+.lesson-menu-dropdown a:hover,
+.lesson-menu-dropdown button:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+  color: var(--color-text, #111827);
+}
+.lesson-menu-dropdown .ico {
+  flex: none;
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.lesson-menu-dropdown .lesson-btn-del:hover {
+  background: var(--color-danger-soft, #fef2f2);
+  color: var(--color-danger, #dc2626);
+}
+.lesson-menu-dropdown form {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+/* Empty + hint cards inside the content column */
+.lesson-empty {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 32px 20px;
+  color: var(--color-text-muted, #6b7280);
+}
+.lesson-empty h3 {
+  margin: 0 0 6px;
+  font-size: 16px; font-weight: 600;
+  color: var(--color-text-secondary, #374151);
+}
+.lesson-empty p {
+  margin: 0 0 12px; font-size: 13px; line-height: 1.5; max-width: 360px;
+}
+
+/* Quill editor surface — pin the height so the form does not jump as the
+   lecturer types. Inherit the project font so the editor matches the
+   surrounding form rows. */
+.lesson-editor {
+  background: #fff;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: 0 0 8px 8px;
+}
+.ql-editor {
+  min-height: 320px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.ql-toolbar.ql-snow {
+  border-radius: 8px 8px 0 0;
+  border-color: var(--color-border-medium, #e5e7eb);
+}
+.ql-container.ql-snow {
+  border-color: var(--color-border-medium, #e5e7eb);
 }

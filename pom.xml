@@ -85,6 +85,13 @@
 			<version>5.2.5</version>
 		</dependency>
 
+		<!-- Jsoup: HTML sanitiser for Lesson rich-text body (ULP-4.0b) -->
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.18.3</version>
+		</dependency>
+
 		<!-- MySQL driver (runtime) -->
 		<dependency>
 			<groupId>com.mysql</groupId>

@@ -1,0 +1,36 @@
+package com.ulp.features.lessons.repository;
+
+import com.ulp.entities.Lesson;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Spring Data JPA repository for {@link Lesson}.
+ *
+ * <p>{@link Lesson} carries a {@code @SQLRestriction("is_deleted = 0")} so
+ * every method below transparently filters out soft-deleted rows.
+ */
+public interface LessonRepository extends JpaRepository<Lesson, Long> {
+
+    /** Returns the live lessons of a section ordered by {@code display_order}. */
+    List<Lesson> findBySectionIdOrderByDisplayOrderAsc(Long sectionId);
+
+    /** Loads a lesson scoped by section to harden the URL hierarchy. */
+    Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);
+
+    /**
+     * Returns the highest {@code display_order} currently used for the given
+     * section, or {@code -1} when the section has no lessons yet. The native
+     * query bypasses {@code @SQLRestriction} so soft-deleted rows are not
+     * considered — once a position is freed it can be re-used without a
+     * numbering conflict.
+     */
+    @Query(value = "SELECT COALESCE(MAX(display_order), -1) FROM lessons "
+            + "WHERE section_id = :sectionId AND is_deleted = 0",
+           nativeQuery = true)
+    short findMaxDisplayOrder(@Param("sectionId") Long sectionId);
+}

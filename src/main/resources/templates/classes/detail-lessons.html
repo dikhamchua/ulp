@@ -128,40 +128,169 @@
       </div>
     </div>
 
-    <!-- ── Column 3: Lessons content (placeholder for ULP-4.0b) ─────── -->
+    <!-- ── Column 3: Lessons content ─────────────────────────────────── -->
     <div class="lessons-content" id="sectionsPanel"
-         th:attr="data-class-id=${clazz.id}">
-      <!-- Header band — title on the left, a single "Sắp ra mắt" badge
-           on the right. The full toolbar (view-mode toggles + search +
-           "Tạo bài giảng" button) is intentionally omitted until ULP-4.0b
-           ships the Lesson CRUD that backs them. Showing four disabled
-           controls in the meantime made the page look broken — see
-           Code Review WARNING from 2026-06-26. -->
+         th:attr="data-class-id=${clazz.id},
+                  data-section-id=${selectedSectionId}">
+
+      <!-- Header band: title on the left, "Tạo bài giảng" CTA on the right.
+           CTA is disabled (with tooltip) when no section is selected. -->
       <div class="content-header">
         <h2 class="content-title"
             th:text="${selectedSection != null
                         ? 'Bài giảng của ' + selectedSection.title
                         : 'Tất cả bài giảng'}">Tất cả bài giảng</h2>
-        <span class="content-coming-badge"
-              title="Tính năng đầy đủ sẽ có ở phiên bản tiếp theo">
-          Sắp ra mắt (ULP-4.0b)
-        </span>
+        <div class="content-actions" th:if="${canEdit}">
+          <a th:if="${selectedSectionId != null}"
+             th:href="@{'/lecturer/classes/' + ${clazz.id}
+                       + '/sections/' + ${selectedSectionId} + '/lessons/new'}"
+             class="content-create-btn">
+            <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Tạo bài giảng
+          </a>
+          <span th:if="${selectedSectionId == null}"
+                class="content-create-btn is-disabled"
+                aria-disabled="true"
+                title="Chọn một chương ở cột bên trái để tạo bài giảng">
+            <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Tạo bài giảng
+          </span>
+        </div>
       </div>
 
-      <div class="content-empty">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
+      <!-- No section selected → guidance hint. -->
+      <div th:if="${selectedSectionId == null}" class="lesson-empty">
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+             style="width:48px;height:48px;fill:none;stroke:#cbd5e1;stroke-width:1.5;
+                    stroke-linecap:round;stroke-linejoin:round;margin-bottom:8px;">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+        </svg>
+        <h3>Chọn một chương để xem bài giảng</h3>
+        <p>Chọn một chương ở cột bên trái để xem hoặc tạo bài giảng trong
+          chương đó.</p>
+      </div>
+
+      <!-- Section selected but empty → CTA to create. -->
+      <div th:if="${selectedSectionId != null and #lists.isEmpty(lessons)}"
+           class="lesson-empty">
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+             style="width:48px;height:48px;fill:none;stroke:#cbd5e1;stroke-width:1.5;
+                    stroke-linecap:round;stroke-linejoin:round;margin-bottom:8px;">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <polyline points="10 9 9 9 8 9"/>
         </svg>
-        <h3>Bài giảng đang phát triển</h3>
-        <p>Chức năng quản lý bài giảng sẽ được hoàn thiện ở phiên bản tiếp theo (ULP-4.0b).</p>
-        <p th:if="${selectedSection != null}">
-          Hiện chương này chưa có bài giảng nào.
-        </p>
+        <h3>Chưa có bài giảng nào</h3>
+        <p>Bắt đầu xây dựng nội dung của chương này bằng cách tạo bài giảng
+          đầu tiên.</p>
+        <a th:if="${canEdit}"
+           th:href="@{'/lecturer/classes/' + ${clazz.id}
+                     + '/sections/' + ${selectedSectionId} + '/lessons/new'}"
+           class="content-create-btn">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Tạo bài giảng đầu tiên
+        </a>
       </div>
+
+      <!-- Lessons exist → list. -->
+      <ul id="lessonList" class="lesson-list"
+          th:if="${selectedSectionId != null and not #lists.isEmpty(lessons)}">
+        <li class="lesson-item"
+            th:each="l : ${lessons}"
+            th:attr="data-lesson-id=${l.id()}">
+          <div class="lesson-item-title">
+            <a th:href="@{'/lecturer/classes/' + ${clazz.id}
+                        + '/sections/' + ${selectedSectionId}
+                        + '/lessons/' + ${l.id()} + '/edit'}"
+               th:text="${l.title()}">Bài giảng</a>
+            <span class="lesson-item-meta"
+                  th:text="${l.status() == 'PUBLISHED'
+                              ? 'Đã xuất bản'
+                              : 'Bản nháp'}">Trạng thái</span>
+          </div>
+          <span class="lesson-status-pill"
+                th:classappend="${l.status() == 'PUBLISHED'
+                                  ? 'is-published'
+                                  : 'is-draft'}"
+                th:text="${l.status() == 'PUBLISHED' ? 'Xuất bản' : 'Nháp'}">Nháp</span>
+
+          <div class="lesson-item-menu" th:if="${canEdit}">
+            <button class="lesson-menu-trigger" type="button"
+                    data-menu-trigger
+                    title="Tuỳ chọn"
+                    aria-label="Tuỳ chọn bài giảng">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="5" r="1.5"/>
+                <circle cx="12" cy="12" r="1.5"/>
+                <circle cx="12" cy="19" r="1.5"/>
+              </svg>
+            </button>
+            <div class="lesson-menu-dropdown" data-menu-dropdown hidden>
+              <a th:href="@{'/lecturer/classes/' + ${clazz.id}
+                          + '/sections/' + ${selectedSectionId}
+                          + '/lessons/' + ${l.id()} + '/edit'}">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                <span>Sửa</span>
+              </a>
+              <!-- Publish toggle — form POST so CSRF stays enforced. The
+                   form posts to either /publish or /unpublish based on the
+                   current status. -->
+              <form th:if="${l.status() == 'DRAFT'}"
+                    th:action="@{'/lecturer/classes/' + ${clazz.id}
+                                + '/sections/' + ${selectedSectionId}
+                                + '/lessons/' + ${l.id()} + '/publish'}"
+                    method="post">
+                <input type="hidden"
+                       th:name="${_csrf.parameterName}"
+                       th:value="${_csrf.token}">
+                <button type="submit">
+                  <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12l5 5L20 7"/>
+                  </svg>
+                  <span>Xuất bản</span>
+                </button>
+              </form>
+              <form th:if="${l.status() == 'PUBLISHED'}"
+                    th:action="@{'/lecturer/classes/' + ${clazz.id}
+                                + '/sections/' + ${selectedSectionId}
+                                + '/lessons/' + ${l.id()} + '/unpublish'}"
+                    method="post">
+                <input type="hidden"
+                       th:name="${_csrf.parameterName}"
+                       th:value="${_csrf.token}">
+                <button type="submit">
+                  <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                    <line x1="9" y1="12" x2="15" y2="12"/>
+                  </svg>
+                  <span>Chuyển nháp</span>
+                </button>
+              </form>
+              <button class="lesson-btn-del" type="button"
+                      th:attr="data-lesson-id=${l.id()},
+                               data-lesson-title=${l.title()}">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 6h18"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <span>Xoá</span>
+              </button>
+            </div>
+          </div>
+        </li>
+      </ul>
     </div>
   </main>
 </div>

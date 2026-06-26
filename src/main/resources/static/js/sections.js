@@ -17,7 +17,8 @@
   var state = {
     classId: null,
     canEdit: false,
-    baseUrl: null
+    baseUrl: null,
+    selectedSectionId: null
   };
 
   function el(id) { return document.getElementById(id); }
@@ -166,9 +167,16 @@
   // Each folder row has a hover-revealed menu trigger; clicking it toggles
   // the dropdown. Only one menu can be open at a time. Click outside any
   // menu (or press Escape) closes the currently open one.
+  //
+  // Lesson rows share the same data-menu-trigger / data-menu-dropdown
+  // contract — closeAllMenus walks every wrapper class so opening one
+  // lesson menu also closes any open section menu, and vice versa.
+
+  /** Wrapper classes that host a single open-able menu at a time. */
+  var MENU_WRAPPER_SELECTOR = '.folder-item-menu.is-open, .lesson-item-menu.is-open';
 
   function closeAllMenus(except) {
-    document.querySelectorAll('.folder-item-menu.is-open').forEach(function (menu) {
+    document.querySelectorAll(MENU_WRAPPER_SELECTOR).forEach(function (menu) {
       if (menu === except) return;
       menu.classList.remove('is-open');
       var dropdown = menu.querySelector('[data-menu-dropdown]');
@@ -176,17 +184,19 @@
     });
   }
 
-  function initMenus() {
-    // Use event delegation on the list so dynamically-rendered rows
-    // (none for now, but cheap to be safe) also work.
-    var list = el('sectionList');
+  /**
+   * Wires up a single list's 3-dot menu triggers using event delegation.
+   * Re-used for both the section folders list and the lesson list so the
+   * UX (single open menu, outside-click close, Esc close) stays in sync.
+   */
+  function bindMenuToggles(list, wrapperSelector) {
     if (!list) return;
     list.addEventListener('click', function (event) {
       var trigger = event.target.closest('[data-menu-trigger]');
       if (!trigger) return;
       event.preventDefault();
       event.stopPropagation();
-      var menu = trigger.closest('.folder-item-menu');
+      var menu = trigger.closest(wrapperSelector);
       if (!menu) return;
       var dropdown = menu.querySelector('[data-menu-dropdown]');
       var willOpen = !menu.classList.contains('is-open');
@@ -194,10 +204,17 @@
       menu.classList.toggle('is-open', willOpen);
       if (dropdown) dropdown.hidden = !willOpen;
     });
+  }
 
-    // Close menus on outside click.
+  function initMenus() {
+    bindMenuToggles(el('sectionList'), '.folder-item-menu');
+    bindMenuToggles(el('lessonList'), '.lesson-item-menu');
+
+    // Close menus on outside click — walks both wrappers so neither list
+    // leaks an open dropdown.
     document.addEventListener('click', function (event) {
       if (event.target.closest('.folder-item-menu')) return;
+      if (event.target.closest('.lesson-item-menu')) return;
       closeAllMenus(null);
     });
 
@@ -322,6 +339,51 @@
     });
   }
 
+  // ── Lesson list — AJAX delete ───────────────────────────────────────
+  // Lesson rows live in the content column. Edit + publish-toggle ride on
+  // anchors / form-POSTs; only the destructive Delete action goes through
+  // the JSON API so the DOM updates in place without a full reload.
+
+  function onLessonListClick(event) {
+    var delBtn = event.target.closest('.lesson-btn-del');
+    if (!delBtn) return;
+    var id = delBtn.getAttribute('data-lesson-id');
+    var title = delBtn.getAttribute('data-lesson-title') || '';
+    closeAllMenus(null);
+    if (window.UlpModal && typeof window.UlpModal.confirm === 'function') {
+      window.UlpModal.confirm({
+        title: 'Xác nhận xoá bài giảng',
+        body: 'Bạn có chắc muốn xoá bài giảng "' + title
+              + '"? Hành động này không thể hoàn tác.',
+        confirmLabel: 'Xoá',
+        onConfirm: function () { doLessonDelete(id); }
+      });
+    } else if (window.confirm('Xoá bài giảng "' + title + '"?')) {
+      doLessonDelete(id);
+    }
+  }
+
+  function lessonsEndpoint(lessonId) {
+    return '/lecturer/classes/' + state.classId
+         + '/sections/' + state.selectedSectionId
+         + '/lessons/' + encodeURIComponent(lessonId);
+  }
+
+  function doLessonDelete(lessonId) {
+    if (!state.selectedSectionId) return;
+    return api('DELETE', lessonsEndpoint(lessonId))
+      .then(function (res) {
+        if (!res.ok) {
+          toast('error', res.message || 'Xoá bài giảng thất bại');
+          return;
+        }
+        var li = document.querySelector(
+            '.lesson-item[data-lesson-id="' + lessonId + '"]');
+        if (li && li.parentNode) li.parentNode.removeChild(li);
+        toast('success', 'Đã xoá bài giảng');
+      });
+  }
+
   // ── Bootstrap ───────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', function () {
     var panel = el('sectionsPanel');
@@ -329,11 +391,14 @@
     state.classId = panel.getAttribute('data-class-id');
     if (!state.classId) return;
     state.baseUrl = '/lecturer/classes/' + state.classId + '/lessons';
+    state.selectedSectionId = panel.getAttribute('data-section-id');
 
     var list = el('sectionList');
     state.canEdit = list && list.getAttribute('data-can-edit') === 'true';
 
     if (list) list.addEventListener('click', onListClick);
+    var lessonList = el('lessonList');
+    if (lessonList) lessonList.addEventListener('click', onLessonListClick);
 
     initSortable();
     initSearch();
