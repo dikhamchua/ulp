@@ -46,6 +46,20 @@ public class ImportStudentsController {
 
     private static final Logger log = LoggerFactory.getLogger(ImportStudentsController.class);
 
+    // ── JSON envelope key for error payloads ─────────────────────
+    private static final String JSON_KEY_ERROR = "error";
+
+    // ── Template download metadata ───────────────────────────────
+    private static final String XLSX_MIME_TYPE =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private static final String TEMPLATE_FILENAME      = "mau-import-sinh-vien.xlsx";
+    private static final String CONTENT_DISPOSITION_ATTACHMENT = "attachment";
+
+    // ── Error messages (Vietnamese UI text) ──────────────────────
+    private static final String MSG_PREVIEW_READ_FAILED = "Có lỗi không mong muốn khi đọc file.";
+    private static final String MSG_CONFIRM_FAILED      = "Có lỗi không mong muốn khi import.";
+    private static final String MSG_FORBIDDEN_IMPORT    = "Bạn không có quyền import vào lớp này.";
+
     private final ImportStudentsService importService;
     private final ExcelTemplateBuilder templateBuilder;
 
@@ -70,7 +84,7 @@ public class ImportStudentsController {
             return forbidden();
         } catch (RuntimeException ex) {
             log.error("Unexpected failure while previewing import for class {}", classId, ex);
-            return internalError("Có lỗi không mong muốn khi đọc file.");
+            return internalError(MSG_PREVIEW_READ_FAILED);
         }
     }
 
@@ -97,7 +111,7 @@ public class ImportStudentsController {
             return forbidden();
         } catch (RuntimeException ex) {
             log.error("Unexpected failure while confirming import for class {}", classId, ex);
-            return internalError("Có lỗi không mong muốn khi import.");
+            return internalError(MSG_CONFIRM_FAILED);
         }
     }
 
@@ -111,9 +125,8 @@ public class ImportStudentsController {
         try {
             byte[] bytes = templateBuilder.build();
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType(
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-            headers.setContentDispositionFormData("attachment", "mau-import-sinh-vien.xlsx");
+            headers.setContentType(MediaType.parseMediaType(XLSX_MIME_TYPE));
+            headers.setContentDispositionFormData(CONTENT_DISPOSITION_ATTACHMENT, TEMPLATE_FILENAME);
             return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
         } catch (IOException ex) {
             log.error("Failed to generate import template for class {}", classId, ex);
@@ -124,17 +137,17 @@ public class ImportStudentsController {
     // ─────────────────────── helpers ────────────────────────────────────
 
     private static ResponseEntity<Map<String, Object>> badRequest(String message) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", message));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(JSON_KEY_ERROR, message));
     }
 
     private static ResponseEntity<Map<String, Object>> forbidden() {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Bạn không có quyền import vào lớp này."));
+                .body(Map.of(JSON_KEY_ERROR, MSG_FORBIDDEN_IMPORT));
     }
 
     private static ResponseEntity<Map<String, Object>> internalError(String message) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", message));
+                .body(Map.of(JSON_KEY_ERROR, message));
     }
 
     /** JSON body for the confirm endpoint. */

@@ -20,6 +20,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.regex.Pattern;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * Deep-link handler for {@code GET /j/{token}}.
  *
@@ -35,6 +37,15 @@ public class InviteLinkController {
 
     /** Server-side regex matching the 32-char base64url LINK shape. */
     private static final Pattern LINK_PATTERN = Pattern.compile(InviteTokenGenerator.LINK_REGEX);
+
+    // ── Paths ─────────────────────────────────────────────────────
+    private static final String REDIRECT_MY_CLASSES = "redirect:/my/classes";
+    private static final String REDIRECT_JOIN       = "redirect:/my/classes/join";
+
+    // ── Link-flavoured rejection messages ─────────────────────────
+    private static final String MSG_LINK_DISABLED  = "Liên kết mời đã hết hiệu lực";
+    private static final String MSG_LINK_EXPIRED   = "Liên kết mời đã hết hạn";
+    private static final String MSG_LINK_EXHAUSTED = "Liên kết đã đạt giới hạn lượt dùng";
 
     private final JoinClassService joinClassService;
 
@@ -55,19 +66,19 @@ public class InviteLinkController {
                           @AuthenticationPrincipal UlpUserDetails user,
                           RedirectAttributes ra) {
         if (token == null || !LINK_PATTERN.matcher(token).matches()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Liên kết không hợp lệ");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, MSG_INVALID_INVITE_LINK);
         }
         try {
             JoinResult outcome = joinClassService.join(token, user.getId());
             if (outcome instanceof Success s) {
-                ra.addFlashAttribute("flashSuccess", "Đã tham gia lớp " + s.clazz().getName());
+                ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOINED_CLASS + s.clazz().getName());
             } else if (outcome instanceof AlreadyJoined a) {
-                ra.addFlashAttribute("flashInfo", "Bạn đã ở trong lớp " + a.clazz().getName());
+                ra.addFlashAttribute(ATTR_FLASH_INFO, MSG_ALREADY_IN_CLASS + a.clazz().getName());
             }
-            return "redirect:/my/classes";
+            return REDIRECT_MY_CLASSES;
         } catch (InviteCodeValidationException ex) {
-            ra.addFlashAttribute("flashError", linkMessageFor(ex.getReason()));
-            return "redirect:/my/classes/join";
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, linkMessageFor(ex.getReason()));
+            return REDIRECT_JOIN;
         }
     }
 
@@ -79,10 +90,10 @@ public class InviteLinkController {
      */
     private static String linkMessageFor(InviteRejectionReason reason) {
         return switch (reason) {
-            case INVALID -> "Liên kết không hợp lệ";
-            case DISABLED -> "Liên kết mời đã hết hiệu lực";
-            case EXPIRED -> "Liên kết mời đã hết hạn";
-            case EXHAUSTED -> "Liên kết đã đạt giới hạn lượt dùng";
+            case INVALID -> MSG_INVALID_INVITE_LINK;
+            case DISABLED -> MSG_LINK_DISABLED;
+            case EXPIRED -> MSG_LINK_EXPIRED;
+            case EXHAUSTED -> MSG_LINK_EXHAUSTED;
             default -> reason.getDefaultMessage();
         };
     }

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * Controller for the change-password feature available to authenticated users.
  *
@@ -23,6 +25,15 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  */
 @Controller
 public class ChangePasswordController {
+
+    // ── View names / paths ────────────────────────────────────────
+    private static final String VIEW_CHANGE_PASSWORD     = "change-password";
+    private static final String REDIRECT_CHANGE_PASSWORD = "redirect:/change-password";
+
+    // ── Local model attribute keys ────────────────────────────────
+    private static final String ATTR_WRONG_CURRENT    = "wrongCurrent";
+    private static final String ATTR_MISMATCH        = "mismatch";
+    private static final String ATTR_PASSWORD_CHANGED = "passwordChanged";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -40,8 +51,8 @@ public class ChangePasswordController {
      */
     @GetMapping("/change-password")
     public String form(Model model) {
-        model.addAttribute("form", new ProfileDtos.ChangePasswordRequest("", "", ""));
-        return "change-password";
+        model.addAttribute(ATTR_FORM, new ProfileDtos.ChangePasswordRequest("", "", ""));
+        return VIEW_CHANGE_PASSWORD;
     }
 
     /**
@@ -72,28 +83,28 @@ public class ChangePasswordController {
                           Model model,
                           RedirectAttributes ra) {
         if (result.hasErrors()) {
-            return "change-password";
+            return VIEW_CHANGE_PASSWORD;
         }
 
         User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
 
-        // Verify current password
+        // Reject if current password doesn't match — blocks unattended-session abuse.
         if (!passwordEncoder.matches(form.currentPassword(), user.getPasswordHash())) {
-            model.addAttribute("wrongCurrent", true);
-            return "change-password";
+            model.addAttribute(ATTR_WRONG_CURRENT, true);
+            return VIEW_CHANGE_PASSWORD;
         }
 
-        // Confirm match
+        // Reject when confirm field doesn't match new password — typo safety net.
         if (!form.newPassword().equals(form.confirmPassword())) {
-            model.addAttribute("mismatch", true);
-            return "change-password";
+            model.addAttribute(ATTR_MISMATCH, true);
+            return VIEW_CHANGE_PASSWORD;
         }
 
         user.setPasswordHash(passwordEncoder.encode(form.newPassword()));
         userRepository.save(user);
 
-        ra.addFlashAttribute("passwordChanged", true);
-        return "redirect:/change-password";
+        ra.addFlashAttribute(ATTR_PASSWORD_CHANGED, true);
+        return REDIRECT_CHANGE_PASSWORD;
     }
 }

@@ -32,6 +32,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * Controller for the lecturer class management screens.
  * Only LECTURER, HEAD, and ADMIN roles may access these endpoints (see {@link Roles}).
@@ -55,7 +57,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  * {@link UlpUserDetails}. HTTP 404 and 403 are mapped via {@code GlobalExceptionHandler}.
  */
 @Controller
-@RequestMapping("/lecturer")
+@RequestMapping(BASE_LECTURER)
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
 public class ClassesController {
 
@@ -84,15 +86,15 @@ public class ClassesController {
      */
     @GetMapping("/classes")
     public String list(@AuthenticationPrincipal UlpUserDetails user,
-                       @PageableDefault(size = 20, sort = "createdAt",
+                       @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "createdAt",
                                direction = Sort.Direction.DESC) Pageable pageable,
                        Model model) {
         Page<ClassRow> page = classesService.listForUser(user.getId(), user.getRole(), pageable);
         // Keep the existing template loop driven by ${classes} (a List). The Page
         // object is exposed separately as ${classesPage} for the pagination block.
-        model.addAttribute("classes", page.getContent());
-        model.addAttribute("classesPage", page);
-        return "classes/manage";
+        model.addAttribute(ATTR_CLASSES, page.getContent());
+        model.addAttribute(ATTR_CLASSES_PAGE, page);
+        return VIEW_CLASS_MANAGE;
     }
 
     /**
@@ -104,12 +106,13 @@ public class ClassesController {
      */
     @GetMapping("/classes/new")
     public String createForm(Model model) {
-        if (!model.containsAttribute("form")) {
-            model.addAttribute("form", ClassForm.empty());
+        // Preserve flashed form values from a prior failed POST.
+        if (!model.containsAttribute(ATTR_FORM)) {
+            model.addAttribute(ATTR_FORM, ClassForm.empty());
         }
-        model.addAttribute("mode", "create");
-        model.addAttribute("formAction", "/lecturer/classes");
-        return "classes/form";
+        model.addAttribute(ATTR_MODE, MODE_CREATE);
+        model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
+        return VIEW_CLASS_FORM;
     }
 
     /**
@@ -123,15 +126,16 @@ public class ClassesController {
                          @AuthenticationPrincipal UlpUserDetails user,
                          Model model,
                          RedirectAttributes ra) {
+        // Validation failed — re-render with bound values + field errors.
         if (result.hasErrors()) {
             rebindDateRangeError(result);
-            model.addAttribute("mode", "create");
-            model.addAttribute("formAction", "/lecturer/classes");
-            return "classes/form";
+            model.addAttribute(ATTR_MODE, MODE_CREATE);
+            model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
+            return VIEW_CLASS_FORM;
         }
         ClassEntity saved = classesService.create(form, user.getId());
-        ra.addFlashAttribute("flashSuccess", "Đã tạo lớp " + saved.getCode());
-        return "redirect:/lecturer/classes";
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_CREATED + saved.getCode());
+        return "redirect:" + URL_CLASSES_LIST;
     }
 
     /**
@@ -144,13 +148,14 @@ public class ClassesController {
                            @AuthenticationPrincipal UlpUserDetails user,
                            Model model) {
         ClassEntity entity = classesService.getEditable(id, user.getId(), user.getRole());
-        if (!model.containsAttribute("form")) {
-            model.addAttribute("form", ClassForm.fromEntity(entity));
+        // Preserve flashed form values from a prior failed POST.
+        if (!model.containsAttribute(ATTR_FORM)) {
+            model.addAttribute(ATTR_FORM, ClassForm.fromEntity(entity));
         }
-        model.addAttribute("mode", "edit");
-        model.addAttribute("formAction", "/lecturer/classes/" + id);
-        model.addAttribute("classId", id);
-        return "classes/form";
+        model.addAttribute(ATTR_MODE, MODE_EDIT);
+        model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
+        model.addAttribute(ATTR_CLASS_ID, id);
+        return VIEW_CLASS_FORM;
     }
 
     /**
@@ -165,16 +170,17 @@ public class ClassesController {
                          @AuthenticationPrincipal UlpUserDetails user,
                          Model model,
                          RedirectAttributes ra) {
+        // Validation failed — re-render with bound values + field errors.
         if (result.hasErrors()) {
             rebindDateRangeError(result);
-            model.addAttribute("mode", "edit");
-            model.addAttribute("formAction", "/lecturer/classes/" + id);
-            model.addAttribute("classId", id);
-            return "classes/form";
+            model.addAttribute(ATTR_MODE, MODE_EDIT);
+            model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
+            model.addAttribute(ATTR_CLASS_ID, id);
+            return VIEW_CLASS_FORM;
         }
         classesService.update(id, form, user.getId(), user.getRole());
-        ra.addFlashAttribute("flashSuccess", "Đã cập nhật lớp");
-        return "redirect:/lecturer/classes";
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_UPDATED);
+        return "redirect:" + URL_CLASSES_LIST;
     }
 
     /**
@@ -185,8 +191,8 @@ public class ClassesController {
                          @AuthenticationPrincipal UlpUserDetails user,
                          RedirectAttributes ra) {
         classesService.softDelete(id, user.getId(), user.getRole());
-        ra.addFlashAttribute("flashSuccess", "Đã xoá lớp");
-        return "redirect:/lecturer/classes";
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_DELETED);
+        return "redirect:" + URL_CLASSES_LIST;
     }
 
     // ───────── Class detail page — sidebar tabs (Sprint 2 phase 2) ─────────
@@ -196,7 +202,7 @@ public class ClassesController {
      */
     @GetMapping("/classes/{id}")
     public String detailRoot(@PathVariable Long id) {
-        return "redirect:/lecturer/classes/" + id + "/board";
+        return "redirect:" + classUrl(id) + "/" + TAB_BOARD;
     }
 
     /**
@@ -207,8 +213,8 @@ public class ClassesController {
                               @AuthenticationPrincipal UlpUserDetails user,
                               Model model) {
         ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
-        populateDetailModel(model, clazz, "board", user.getId(), user.getRole());
-        return "classes/detail-board";
+        populateDetailModel(model, clazz, TAB_BOARD, user.getId(), user.getRole());
+        return VIEW_CLASS_DETAIL_BOARD;
     }
 
     /**
@@ -220,10 +226,10 @@ public class ClassesController {
                                 Model model) {
         ClassMembersService.ClassMembersView view =
                 classMembersService.listForClass(id, user.getId(), user.getRole());
-        populateDetailModel(model, view.clazz(), "members", user.getId(), user.getRole());
-        model.addAttribute("members", view.members());
-        model.addAttribute("memberTotal", view.total());
-        return "classes/detail-members";
+        populateDetailModel(model, view.clazz(), TAB_MEMBERS, user.getId(), user.getRole());
+        model.addAttribute(ATTR_MEMBERS, view.members());
+        model.addAttribute(ATTR_MEMBER_TOTAL, view.total());
+        return VIEW_CLASS_DETAIL_MEMBERS;
     }
 
     /**
@@ -239,35 +245,42 @@ public class ClassesController {
                                    @RequestParam("type") String type,
                                    @AuthenticationPrincipal UlpUserDetails user,
                                    RedirectAttributes ra) {
+        // Whitelist: only CODE or LINK invite types are valid.
         if (!ClassInviteCode.TYPE_CODE.equals(type) && !ClassInviteCode.TYPE_LINK.equals(type)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Loại mã không hợp lệ");
+                    MSG_INVALID_INVITE_TYPE);
         }
         inviteCodeService.regenerateActive(id, type, user.getId(), user.getRole());
-        ra.addFlashAttribute("flashSuccess", "Đã tạo mã mời mới");
-        return "redirect:/lecturer/classes/" + id + "/settings";
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_INVITE_REGENERATED);
+        return "redirect:" + classUrl(id) + "/" + TAB_SETTINGS;
     }
 
     /**
      * Renders a placeholder view for class detail tabs not yet implemented (Sprint 3–5).
      * Handles: {@code /schedule}, {@code /roles}, {@code /groups}, {@code /assignments},
-     * {@code /scores}, {@code /lessons}, {@code /materials}.
+     * {@code /scores}, {@code /materials}.
+     *
+     * <p>Note: {@code /lessons} is intentionally NOT mapped here — it is owned
+     * by {@code SectionsController} ({@code /lecturer/classes/{classId}/lessons})
+     * starting with ULP-4.0a. Adding both mappings would raise
+     * {@code IllegalStateException: Ambiguous mapping} at startup.
      */
     @GetMapping({"/classes/{id}/schedule", "/classes/{id}/roles",
                 "/classes/{id}/groups", "/classes/{id}/assignments",
-                "/classes/{id}/scores", "/classes/{id}/lessons",
+                "/classes/{id}/scores",
                 "/classes/{id}/materials"})
     public String detailPlaceholder(@PathVariable Long id,
                                     @AuthenticationPrincipal UlpUserDetails user,
                                     jakarta.servlet.http.HttpServletRequest request,
                                     Model model) {
         ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
+        // Extract the last URL segment as the active tab key (e.g. "schedule").
         String path = request.getRequestURI();
         String tab = path.substring(path.lastIndexOf('/') + 1);
         populateDetailModel(model, clazz, tab, user.getId(), user.getRole());
-        model.addAttribute("placeholderTab", tab);
-        model.addAttribute("placeholderLabel", labelFor(tab));
-        return "classes/detail-placeholder";
+        model.addAttribute(ATTR_PLACEHOLDER_TAB, tab);
+        model.addAttribute(ATTR_PLACEHOLDER_LABEL, labelFor(tab));
+        return VIEW_CLASS_DETAIL_PLACEHOLDER;
     }
 
     /**
@@ -281,23 +294,24 @@ public class ClassesController {
      */
     @GetMapping("/classes/{id}/settings")
     public String detailSettings(@PathVariable Long id,
-                                 @RequestParam(defaultValue = "info") String tab,
+                                 @RequestParam(defaultValue = SUBTAB_INFO) String tab,
                                  @AuthenticationPrincipal UlpUserDetails user,
                                  Model model) {
         ClassEntity entity = classesService.getEditable(id, user.getId(), user.getRole());
-        if (!model.containsAttribute("form")) {
-            model.addAttribute("form", ClassForm.fromEntity(entity));
+        // Preserve flashed form values from a prior failed POST.
+        if (!model.containsAttribute(ATTR_FORM)) {
+            model.addAttribute(ATTR_FORM, ClassForm.fromEntity(entity));
         }
-        populateDetailModel(model, entity, "settings", user.getId(), user.getRole());
+        populateDetailModel(model, entity, TAB_SETTINGS, user.getId(), user.getRole());
 
         // Whitelist sub-tab to {info, invite}; anything else falls back to "info".
-        String activeDetailTab = "invite".equals(tab) ? "invite" : "info";
-        model.addAttribute("activeDetailTab", activeDetailTab);
+        String activeDetailTab = SUBTAB_INVITE.equals(tab) ? SUBTAB_INVITE : SUBTAB_INFO;
+        model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeDetailTab);
 
-        model.addAttribute("mode", "edit");
-        model.addAttribute("formAction", "/lecturer/classes/" + id);
-        model.addAttribute("classId", id);
-        return "classes/detail-settings";
+        model.addAttribute(ATTR_MODE, MODE_EDIT);
+        model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
+        model.addAttribute(ATTR_CLASS_ID, id);
+        return VIEW_CLASS_DETAIL_SETTINGS;
     }
 
     /**
@@ -312,9 +326,10 @@ public class ClassesController {
      */
     private void populateDetailModel(Model model, ClassEntity clazz, String activeTab,
                                      Long userId, Role role) {
-        model.addAttribute("clazz", clazz);
-        model.addAttribute("activeTab", activeTab);
+        model.addAttribute(ATTR_CLAZZ, clazz);
+        model.addAttribute(ATTR_ACTIVE_TAB, activeTab);
 
+        // Active invite tokens may be absent for legacy classes — render null.
         InviteCodeView activeCode = inviteCodeService.findActiveCode(clazz.getId())
                 .map(ic -> new InviteCodeView(ic.getCode(), ic.getId(), ic.getUseCount()))
                 .orElse(null);
@@ -326,23 +341,30 @@ public class ClassesController {
                 .orElse(null);
         boolean canRegenerate = classesService.isEditableBy(clazz, userId, role);
 
-        model.addAttribute("activeCode", activeCode);
-        model.addAttribute("activeLink", activeLink);
-        model.addAttribute("canRegenerate", canRegenerate);
+        model.addAttribute(ATTR_ACTIVE_CODE, activeCode);
+        model.addAttribute(ATTR_ACTIVE_LINK, activeLink);
+        model.addAttribute(ATTR_CAN_REGENERATE, canRegenerate);
     }
 
+    /** Builds the canonical URL for a single class — used by redirects and form actions. */
+    private static String classUrl(Long id) {
+        return URL_CLASSES_LIST + "/" + id;
+    }
+
+    /** Maps a tab key to its Vietnamese sidebar label; unknown keys pass through. */
     private static String labelFor(String tab) {
         return switch (tab) {
-            case "board" -> "Bảng tin";
-            case "schedule" -> "Lịch học";
-            case "members" -> "Thành viên";
-            case "roles" -> "Vai trò lớp";
-            case "groups" -> "Nhóm học tập";
-            case "assignments" -> "Bài tập";
-            case "scores" -> "Bảng điểm";
-            case "lessons" -> "Bài giảng";
-            case "materials" -> "Tài liệu";
-            case "settings" -> "Cài đặt lớp học";
+            case TAB_BOARD       -> "Bảng tin";
+            case TAB_SCHEDULE    -> "Lịch học";
+            case TAB_MEMBERS     -> "Thành viên";
+            case TAB_ROLES       -> "Vai trò lớp";
+            case TAB_GROUPS      -> "Nhóm học tập";
+            case TAB_ASSIGNMENTS -> "Bài tập";
+            case TAB_SCORES      -> "Bảng điểm";
+            case TAB_LESSONS     -> "Bài giảng";
+            case TAB_MATERIALS   -> "Tài liệu";
+            case TAB_SETTINGS    -> "Cài đặt lớp học";
+            // Fallback so future tabs render their raw key until labelled.
             default -> tab;
         };
     }

@@ -8,6 +8,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * MVC controller for authentication views.
  *
@@ -20,6 +22,16 @@ public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
+    // ── View names ────────────────────────────────────────────────
+    private static final String VIEW_LOGIN = "auth/login";
+
+    // ── Local model attribute keys ────────────────────────────────
+    private static final String ATTR_GOOGLE_ENABLED = "googleEnabled";
+
+    // ── Error code discriminators ─────────────────────────────────
+    private static final String ERROR_OAUTH_UNREGISTERED = "oauth_unregistered";
+
+    // ── Flash messages (Vietnamese UI text) ───────────────────────
     private static final String MSG_LOGIN_FAILED =
             "Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khoá.";
     private static final String MSG_OAUTH_UNREGISTERED =
@@ -62,15 +74,15 @@ public class AuthController {
             log.warn("Failed to resolve Google OAuth availability — defaulting to disabled: {}",
                     ex.getMessage());
         }
-        model.addAttribute("googleEnabled", googleEnabled);
+        model.addAttribute(ATTR_GOOGLE_ENABLED, googleEnabled);
 
         if (error != null) {
-            model.addAttribute("flashError",
-                    "oauth_unregistered".equals(error) ? MSG_OAUTH_UNREGISTERED : MSG_LOGIN_FAILED);
+            model.addAttribute(ATTR_FLASH_ERROR,
+                    ERROR_OAUTH_UNREGISTERED.equals(error) ? MSG_OAUTH_UNREGISTERED : MSG_LOGIN_FAILED);
         }
         if (logout != null) {
-            model.addAttribute("flashSuccess", MSG_LOGOUT_SUCCESS);
+            model.addAttribute(ATTR_FLASH_SUCCESS, MSG_LOGOUT_SUCCESS);
         }
-        return "auth/login";
+        return VIEW_LOGIN;
     }
 }

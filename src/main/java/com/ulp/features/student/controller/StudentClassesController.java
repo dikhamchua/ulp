@@ -28,6 +28,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * Student-facing controller for the {@code /my/classes} surface.
  *
@@ -40,6 +42,20 @@ import java.util.List;
 @RequestMapping("/my")
 @PreAuthorize("isAuthenticated()")
 public class StudentClassesController {
+
+    // ── View names ────────────────────────────────────────────────
+    private static final String VIEW_MY_CLASSES = "student/my-classes";
+    private static final String VIEW_JOIN_CLASS = "student/join-class";
+
+    // ── Paths ─────────────────────────────────────────────────────
+    private static final String REDIRECT_MY_CLASSES = "redirect:/my/classes";
+
+    // ── Local model attribute keys ────────────────────────────────
+    private static final String ATTR_ROWS = "rows";
+
+    // ── Flash messages ────────────────────────────────────────────
+    private static final String MSG_LEFT_CLASS          = "Đã rời lớp ";
+    private static final String MSG_CANNOT_LEAVE_DONE   = "Không thể rời lớp đã hoàn thành";
 
     private final StudentClassesService studentClassesService;
     private final JoinClassService joinClassService;
@@ -54,17 +70,17 @@ public class StudentClassesController {
     @GetMapping("/classes")
     public String list(@AuthenticationPrincipal UlpUserDetails user, Model model) {
         List<EnrolledClassRow> rows = studentClassesService.listEnrolledClasses(user.getId());
-        model.addAttribute("rows", rows);
-        return "student/my-classes";
+        model.addAttribute(ATTR_ROWS, rows);
+        return VIEW_MY_CLASSES;
     }
 
     /** Renders the join form. */
     @GetMapping("/classes/join")
     public String joinForm(Model model) {
-        if (!model.containsAttribute("form")) {
-            model.addAttribute("form", JoinForm.empty());
+        if (!model.containsAttribute(ATTR_FORM)) {
+            model.addAttribute(ATTR_FORM, JoinForm.empty());
         }
-        return "student/join-class";
+        return VIEW_JOIN_CLASS;
     }
 
     /**
@@ -80,14 +96,14 @@ public class StudentClassesController {
                        Model model,
                        RedirectAttributes ra) {
         if (result.hasErrors()) {
-            return "student/join-class";
+            return VIEW_JOIN_CLASS;
         }
         try {
             JoinResult outcome = joinClassService.join(form.code(), user.getId());
             return redirectAfterJoin(outcome, ra);
         } catch (InviteCodeValidationException ex) {
             result.rejectValue("code", "invite.invalid", ex.getMessage());
-            return "student/join-class";
+            return VIEW_JOIN_CLASS;
         }
     }
 
@@ -102,22 +118,26 @@ public class StudentClassesController {
                         RedirectAttributes ra) {
         try {
             ClassEntity clazz = joinClassService.leave(id, user.getId());
-            ra.addFlashAttribute("flashSuccess", "Đã rời lớp " + clazz.getName());
-            return "redirect:/my/classes";
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_LEFT_CLASS + clazz.getName());
+            return REDIRECT_MY_CLASSES;
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
         } catch (IllegalStateException ex) {
-            ra.addFlashAttribute("flashError", "Không thể rời lớp đã hoàn thành");
-            return "redirect:/my/classes";
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_CANNOT_LEAVE_DONE);
+            return REDIRECT_MY_CLASSES;
         }
     }
 
+    /**
+     * Maps a {@link JoinResult} to its redirect, attaching the right flash key:
+     * {@code flashSuccess} for fresh joins, {@code flashInfo} for already-enrolled.
+     */
     private String redirectAfterJoin(JoinResult outcome, RedirectAttributes ra) {
         if (outcome instanceof Success s) {
-            ra.addFlashAttribute("flashSuccess", "Đã tham gia lớp " + s.clazz().getName());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOINED_CLASS + s.clazz().getName());
         } else if (outcome instanceof AlreadyJoined a) {
-            ra.addFlashAttribute("flashInfo", "Bạn đã ở trong lớp " + a.clazz().getName());
+            ra.addFlashAttribute(ATTR_FLASH_INFO, MSG_ALREADY_IN_CLASS + a.clazz().getName());
         }
-        return "redirect:/my/classes";
+        return REDIRECT_MY_CLASSES;
     }
 }

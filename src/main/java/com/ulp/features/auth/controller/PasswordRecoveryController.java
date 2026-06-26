@@ -14,6 +14,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.validation.Valid;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * MVC controller for the forgot-password and reset-password flows.
  *
@@ -25,112 +27,82 @@ import jakarta.validation.Valid;
 @Controller
 public class PasswordRecoveryController {
 
+    // ── View names ────────────────────────────────────────────────
+    private static final String VIEW_FORGOT_PASSWORD = "auth/forgot-password";
+    private static final String VIEW_RESET_PASSWORD  = "auth/reset-password";
+
+    // ── Paths ─────────────────────────────────────────────────────
+    private static final String REDIRECT_FORGOT = "redirect:/forgot-password";
+    private static final String REDIRECT_LOGIN  = "redirect:/login";
+
+    // ── Local model attribute keys ────────────────────────────────
+    private static final String ATTR_RESET_SUCCESS = "resetSuccess";
+
+    // ── Flash messages ────────────────────────────────────────────
+    private static final String MSG_RESET_LINK_SENT =
+            "Nếu email tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư (kể cả thư rác).";
+
     private final PasswordRecoveryService service;
 
-    /**
-     * Creates a new {@code PasswordRecoveryController} with the required service dependency.
-     *
-     * @param service the {@link PasswordRecoveryService} used to initiate and complete password resets
-     */
     public PasswordRecoveryController(PasswordRecoveryService service) {
         this.service = service;
     }
 
-    /**
-     * Displays the forgot-password form.
-     *
-     * <p>Binds an empty {@link com.ulp.features.auth.dto.AuthDtos.ForgotPasswordRequest} to the model
-     * so that Thymeleaf can render the form with proper binding.</p>
-     *
-     * @param model the Spring MVC model used to pass data to the view
-     * @return the logical view name {@code auth/forgot-password}
-     */
+    /** Renders the forgot-password form. */
     @GetMapping("/forgot-password")
     public String forgotForm(Model model) {
-        model.addAttribute("request", new AuthDtos.ForgotPasswordRequest(""));
-        return "auth/forgot-password";
+        model.addAttribute(ATTR_REQUEST, new AuthDtos.ForgotPasswordRequest(""));
+        return VIEW_FORGOT_PASSWORD;
     }
 
     /**
-     * Handles submission of the forgot-password form.
-     *
-     * <p>If validation passes, delegates to {@link PasswordRecoveryService#requestReset(String)}
-     * to send a reset link. The handler then redirects back to the same page with a
-     * {@code flashSuccess} flash attribute that the view drains into a {@code UlpToast}
-     * success notification (per project convention — see CLAUDE.md mục 9 &amp; 11). The
-     * redirect-after-POST pattern prevents duplicate form submissions on browser refresh.</p>
-     *
-     * @param req    the validated forgot-password request containing the user's e-mail address
-     * @param result the binding result holding any validation errors
-     * @param model  the Spring MVC model (used when returning the form on validation failure)
-     * @param ra     redirect attributes used to pass the {@code flashSuccess} message to the toast
-     * @return the view name on validation failure, or a redirect to {@code /forgot-password} on success
+     * Handles forgot-password submission. Always redirects to the confirmation page
+     * (enumeration-safe — same response whether or not the email exists).
      */
     @PostMapping("/forgot-password")
     public String forgotSubmit(@Valid @ModelAttribute("request") AuthDtos.ForgotPasswordRequest req,
                                 BindingResult result, Model model, RedirectAttributes ra) {
         if (result.hasErrors()) {
-            return "auth/forgot-password";
+            return VIEW_FORGOT_PASSWORD;
         }
         service.requestReset(req.email());
-        ra.addFlashAttribute("flashSuccess",
-                "Nếu email tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư (kể cả thư rác).");
-        return "redirect:/forgot-password";
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_RESET_LINK_SENT);
+        return REDIRECT_FORGOT;
     }
 
     /**
-     * Displays the reset-password form for a given token.
-     *
-     * <p>If the token is missing, expired, or has already been used,
-     * {@link PasswordRecoveryService#validateToken(String)} returns {@code null} and the view
-     * renders an invalid-token error message. Otherwise the token and an empty
-     * {@link com.ulp.features.auth.dto.AuthDtos.ResetPasswordRequest} are placed in the model
-     * so the form can be pre-populated and submitted correctly.</p>
-     *
-     * @param token the password-reset token supplied as a query parameter
-     * @param model the Spring MVC model used to pass data to the view
-     * @return the logical view name {@code auth/reset-password}
+     * Renders the reset-password form for a valid token; sets {@code invalid=true}
+     * in the model when the token is missing, expired, or already used.
      */
     @GetMapping("/reset-password")
     public String resetForm(@RequestParam("token") String token, Model model) {
         User user = service.validateToken(token);
         if (user == null) {
-            model.addAttribute("invalid", true);
-            return "auth/reset-password";
+            model.addAttribute(ATTR_INVALID, true);
+            return VIEW_RESET_PASSWORD;
         }
-        model.addAttribute("token", token);
-        model.addAttribute("request", new AuthDtos.ResetPasswordRequest(token, ""));
-        return "auth/reset-password";
+        model.addAttribute(ATTR_TOKEN, token);
+        model.addAttribute(ATTR_REQUEST, new AuthDtos.ResetPasswordRequest(token, ""));
+        return VIEW_RESET_PASSWORD;
     }
 
     /**
-     * Handles submission of the reset-password form.
-     *
-     * <p>Validates the new password and delegates to
-     * {@link PasswordRecoveryService#resetPassword(String, String)} to apply the change.
-     * On success the user is redirected to the login page with a {@code resetSuccess} flash
-     * attribute. If the token has expired or is invalid by the time the form is submitted,
-     * the view renders an error message without exposing which condition failed.</p>
-     *
-     * @param req    the validated reset-password request containing the token and new password
-     * @param result the binding result holding any validation errors
-     * @param model  the Spring MVC model (used when returning the form on validation failure)
-     * @param ra     redirect attributes used to pass the {@code resetSuccess} flash flag
-     * @return the view name on failure, or a redirect to {@code /login} on success
+     * Submits the reset-password form. Redirects to {@code /login} on success
+     * with {@code resetSuccess} flash; re-renders with {@code invalid=true} on failure.
      */
     @PostMapping("/reset-password")
     public String resetSubmit(@Valid @ModelAttribute("request") AuthDtos.ResetPasswordRequest req,
                                BindingResult result, Model model, RedirectAttributes ra) {
         if (result.hasErrors()) {
-            model.addAttribute("token", req.token());
-            return "auth/reset-password";
+            model.addAttribute(ATTR_TOKEN, req.token());
+            return VIEW_RESET_PASSWORD;
         }
         boolean ok = service.resetPassword(req.token(), req.newPassword());
         if (!ok) {
-            model.addAttribute("invalid", true);
-            return "auth/reset-password";
+            model.addAttribute(ATTR_INVALID, true);
+            return VIEW_RESET_PASSWORD;
         }
-        ra.addFlashAttribute("resetSuccess", true);
-        return "redirect:/login";
+        ra.addFlashAttribute(ATTR_RESET_SUCCESS, true);
+        return REDIRECT_LOGIN;
     }
 }

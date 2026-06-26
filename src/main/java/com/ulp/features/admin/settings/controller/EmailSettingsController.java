@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * Admin controller for the Email Settings (SMTP) screen — accessible by ADMIN role only.
  *
@@ -34,6 +36,19 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequestMapping("/admin/settings/email")
 @PreAuthorize("hasRole('" + Roles.ADMIN + "')")
 public class EmailSettingsController {
+
+    // ── Paths ─────────────────────────────────────────────────────
+    private static final String URL_BASE      = "/admin/settings/email";
+    private static final String REDIRECT_BASE = "redirect:" + URL_BASE;
+
+    // ── View names ────────────────────────────────────────────────
+    private static final String VIEW_SETTINGS_EMAIL = "admin/settings-email";
+
+    // ── Local model attribute keys ────────────────────────────────
+    private static final String ATTR_DEFAULT_TEST_RECIPIENT = "defaultTestRecipient";
+
+    // ── Flash messages ────────────────────────────────────────────
+    private static final String MSG_SETTINGS_SAVED = "Email settings saved.";
 
     private final EmailSettingsService service;
 
@@ -54,31 +69,20 @@ public class EmailSettingsController {
      */
     @GetMapping
     public String view(@AuthenticationPrincipal UlpUserDetails principal, Model model) {
-        if (!model.containsAttribute("form")) {
-            model.addAttribute("form", service.load());
+        if (!model.containsAttribute(ATTR_FORM)) {
+            model.addAttribute(ATTR_FORM, service.load());
         }
-        model.addAttribute("activeTab", "settings");
-        model.addAttribute("defaultTestRecipient",
+        model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
+        model.addAttribute(ATTR_DEFAULT_TEST_RECIPIENT,
                 principal != null ? principal.getUsername() : "");
-        return "admin/settings-email";
+        return VIEW_SETTINGS_EMAIL;
     }
 
     /**
-     * Handles submission of the Email Settings form and persists the SMTP configuration.
-     *
-     * <p>If validation fails, the form is re-rendered with error messages.
-     * On success, the settings are saved and the user is redirected back with a success flash.
-     *
-     * @param form               the submitted and validated SMTP settings form
-     * @param result             binding result containing any validation errors
-     * @param principal          the currently authenticated admin user; may be {@code null}
-     *                           when the admin authenticated via Google OAuth2 (type mismatch
-     *                           between {@code CustomOidcUserPrincipal} and
-     *                           {@link UlpUserDetails} causes {@code @AuthenticationPrincipal}
-     *                           to inject {@code null}) — see note below
-     * @param model              the Spring MVC model
-     * @param redirectAttributes flash attributes used to pass success/error messages across the redirect
-     * @return a redirect to {@code /admin/settings/email} on success, or the view name on validation failure
+     * Saves the SMTP configuration. Rejects OAuth2-authenticated admins because
+     * {@code updated_by} requires a {@link UlpUserDetails} principal (see inline note).
+     * Re-renders with inline errors on validation failure; otherwise redirects with a
+     * success flash.
      */
     @PostMapping
     public String save(@Valid @ModelAttribute("form") EmailSettingsForm form,
@@ -92,18 +96,18 @@ public class EmailSettingsController {
         // the request rather than throwing an NPE. When OAuth admin support is properly
         // implemented, extend the principal resolver at the Security layer.
         if (principal == null) {
-            redirectAttributes.addFlashAttribute("flashError",
-                    "Your session type does not support this operation. Please log in again with email and password.");
-            return "redirect:/admin/settings/email";
+            redirectAttributes.addFlashAttribute(ATTR_FLASH_ERROR, MSG_OAUTH_SESSION_UNSUPPORTED);
+            return REDIRECT_BASE;
         }
+        // Validation failed — re-render with bound values + field errors.
         if (result.hasErrors()) {
-            model.addAttribute("activeTab", "settings");
-            model.addAttribute("defaultTestRecipient", principal.getUsername());
-            return "admin/settings-email";
+            model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
+            model.addAttribute(ATTR_DEFAULT_TEST_RECIPIENT, principal.getUsername());
+            return VIEW_SETTINGS_EMAIL;
         }
         service.save(form, principal.getId());
-        redirectAttributes.addFlashAttribute("flashSuccess", "Email settings saved.");
-        return "redirect:/admin/settings/email";
+        redirectAttributes.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_SETTINGS_SAVED);
+        return REDIRECT_BASE;
     }
 
     /**

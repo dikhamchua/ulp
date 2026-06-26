@@ -19,12 +19,30 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * Controller for viewing and updating the current user's personal profile,
  * including full name, bio, phone number, and avatar.
  */
 @Controller
 public class ProfileController {
+
+    // ── View names / paths ────────────────────────────────────────
+    private static final String VIEW_PROFILE     = "profile";
+    private static final String REDIRECT_PROFILE = "redirect:/profile";
+
+    // ── Multipart parameter name ──────────────────────────────────
+    private static final String PARAM_AVATAR = "avatar";
+
+    // ── Local model attribute keys ────────────────────────────────
+    private static final String ATTR_PROFILE_FORM    = "profileForm";
+    private static final String ATTR_PROFILE_UPDATED = "profileUpdated";
+    private static final String ATTR_AVATAR_UPDATED  = "avatarUpdated";
+    private static final String ATTR_AVATAR_ERROR    = "avatarError";
+
+    // ── Flash messages ────────────────────────────────────────────
+    private static final String MSG_AVATAR_SAVE_FAILED = "Could not save file, please try again";
 
     private final ProfileService profileService;
     private final AvatarStorageService avatarService;
@@ -47,12 +65,12 @@ public class ProfileController {
     @GetMapping("/profile")
     public String view(@AuthenticationPrincipal UlpUserDetails principal, Model model) {
         User user = profileService.getCurrentUser(principal.getId());
-        model.addAttribute("user", user);
-        model.addAttribute("profileForm", new ProfileDtos.ProfileUpdateRequest(
+        model.addAttribute(ATTR_USER, user);
+        model.addAttribute(ATTR_PROFILE_FORM, new ProfileDtos.ProfileUpdateRequest(
                 user.getFullName(),
                 user.getBio() != null ? user.getBio() : "",
                 user.getPhone() != null ? user.getPhone() : ""));
-        return "profile";
+        return VIEW_PROFILE;
     }
 
     /**
@@ -71,12 +89,12 @@ public class ProfileController {
                           RedirectAttributes ra) {
         User user = profileService.getCurrentUser(principal.getId());
         if (result.hasErrors()) {
-            model.addAttribute("user", user);
-            return "profile";
+            model.addAttribute(ATTR_USER, user);
+            return VIEW_PROFILE;
         }
         profileService.updateProfile(user, form.fullName(), form.bio(), form.phone());
-        ra.addFlashAttribute("profileUpdated", true);
-        return "redirect:/profile";
+        ra.addFlashAttribute(ATTR_PROFILE_UPDATED, true);
+        return REDIRECT_PROFILE;
     }
 
     /**
@@ -88,19 +106,19 @@ public class ProfileController {
      * {@code avatarError} flash attribute is set with a human-readable message.
      */
     @PostMapping("/profile/avatar")
-    public String uploadAvatar(@RequestParam("avatar") MultipartFile file,
+    public String uploadAvatar(@RequestParam(PARAM_AVATAR) MultipartFile file,
                                 @AuthenticationPrincipal UlpUserDetails principal,
                                 RedirectAttributes ra) {
         User user = profileService.getCurrentUser(principal.getId());
         try {
             String url = avatarService.store(file);
             profileService.updateAvatar(user, url);
-            ra.addFlashAttribute("avatarUpdated", true);
+            ra.addFlashAttribute(ATTR_AVATAR_UPDATED, true);
         } catch (IllegalArgumentException e) {
-            ra.addFlashAttribute("avatarError", e.getMessage());
+            ra.addFlashAttribute(ATTR_AVATAR_ERROR, e.getMessage());
         } catch (IOException e) {
-            ra.addFlashAttribute("avatarError", "Could not save file, please try again");
+            ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_AVATAR_SAVE_FAILED);
         }
-        return "redirect:/profile";
+        return REDIRECT_PROFILE;
     }
 }

@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * Admin controller for the OAuth Settings screen — accessible by the
  * {@code ADMIN} role only.
@@ -34,6 +36,18 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequestMapping("/admin/settings/oauth")
 @PreAuthorize("hasRole('" + Roles.ADMIN + "')")
 public class OauthSettingsController {
+
+    // ── Paths ─────────────────────────────────────────────────────
+    private static final String URL_BASE      = "/admin/settings/oauth";
+    private static final String REDIRECT_BASE = "redirect:" + URL_BASE;
+
+    // ── View names ────────────────────────────────────────────────
+    private static final String VIEW_SETTINGS_OAUTH = "admin/settings-oauth";
+
+    // ── Flash messages ────────────────────────────────────────────
+    private static final String MSG_SAVED = "Đã lưu cài đặt OAuth.";
+    private static final String MSG_CLIENT_SECRET_REQUIRED =
+            "Client Secret là bắt buộc khi đã nhập Client ID";
 
     private final OauthSettingsService service;
 
@@ -54,33 +68,17 @@ public class OauthSettingsController {
      */
     @GetMapping
     public String view(Model model) {
-        if (!model.containsAttribute("form")) {
-            model.addAttribute("form", service.load());
+        if (!model.containsAttribute(ATTR_FORM)) {
+            model.addAttribute(ATTR_FORM, service.load());
         }
-        model.addAttribute("activeTab", "settings");
-        return "admin/settings-oauth";
+        model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
+        return VIEW_SETTINGS_OAUTH;
     }
 
     /**
-     * Handles submission of the OAuth Settings form and persists the
-     * provider configuration.
-     *
-     * <p>If validation fails, the form is re-rendered with error messages.
-     * On success, the settings are saved and the user is redirected back
-     * with a success flash.
-     *
-     * @param form               the submitted and validated settings form
-     * @param result             binding result containing any validation errors
-     * @param principal          the currently authenticated admin user; may be
-     *                           {@code null} when the admin signed in via Google
-     *                           OAuth2 (the principal type is then
-     *                           {@code CustomOidcUserPrincipal}, not
-     *                           {@link UlpUserDetails}), in which case the save
-     *                           is rejected because {@code updated_by} cannot
-     *                           be stamped
-     * @param model              the Spring MVC model
-     * @param redirectAttributes flash attributes used to pass success/error messages across the redirect
-     * @return a redirect to {@code /admin/settings/oauth} on success, or the view name on validation failure
+     * Saves the OAuth provider configuration. Rejects OAuth2-authenticated admins
+     * (see {@link EmailSettingsController}). Applies a cross-field guard requiring
+     * Client Secret when Client ID is set (unless a stored secret already exists).
      */
     @PostMapping
     public String save(@Valid @ModelAttribute("form") OauthSettingsForm form,
@@ -89,9 +87,8 @@ public class OauthSettingsController {
                        Model model,
                        RedirectAttributes redirectAttributes) {
         if (principal == null) {
-            redirectAttributes.addFlashAttribute("flashError",
-                    "Phiên đăng nhập của bạn không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email và mật khẩu.");
-            return "redirect:/admin/settings/oauth";
+            redirectAttributes.addFlashAttribute(ATTR_FLASH_ERROR, MSG_OAUTH_SESSION_UNSUPPORTED);
+            return REDIRECT_BASE;
         }
 
         // Cross-field guard: if Client ID is set, a Client Secret must exist
@@ -103,16 +100,17 @@ public class OauthSettingsController {
         if (!clientId.isBlank() && submittedSecret.isBlank() && !service.hasStoredGoogleSecret()) {
             result.rejectValue("googleClientSecret",
                     "googleClientSecret.required",
-                    "Client Secret là bắt buộc khi đã nhập Client ID");
+                    MSG_CLIENT_SECRET_REQUIRED);
         }
 
+        // Validation failed — re-render with bound values + field errors.
         if (result.hasErrors()) {
-            model.addAttribute("activeTab", "settings");
-            return "admin/settings-oauth";
+            model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
+            return VIEW_SETTINGS_OAUTH;
         }
 
         service.save(form, principal.getId());
-        redirectAttributes.addFlashAttribute("flashSuccess", "Đã lưu cài đặt OAuth.");
-        return "redirect:/admin/settings/oauth";
+        redirectAttributes.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_SAVED);
+        return REDIRECT_BASE;
     }
 }

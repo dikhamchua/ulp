@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.List;
 
+import static com.ulp.common.IConstant.*;
+
 /**
  * MVC controller for the system administration panel.
  * Access is restricted to the {@code ADMIN} role only — may be relaxed to include
@@ -36,54 +38,83 @@ import java.util.List;
 @PreAuthorize("hasRole('" + Roles.ADMIN + "')")
 public class AdminController {
 
+    // ── Paths ─────────────────────────────────────────────────────
+    private static final String REDIRECT_DASHBOARD = "redirect:/admin/dashboard";
+
+    // ── View names ────────────────────────────────────────────────
+    private static final String VIEW_DASHBOARD   = "admin/dashboard";
+    private static final String VIEW_SETTINGS    = "admin/settings";
+    private static final String VIEW_PLACEHOLDER = "admin/placeholder";
+
+    // ── Local model attribute keys ────────────────────────────────
+    private static final String ATTR_STATS           = "stats";
+    private static final String ATTR_ROLES_BREAKDOWN = "rolesBreakdown";
+    private static final String ATTR_RECENT_CLASSES  = "recentClasses";
+
+    // ── Placeholder tab keys ──────────────────────────────────────
+    private static final String TAB_DEPARTMENTS = "departments";
+    private static final String TAB_CLASSES     = "classes";
+
+    // ── Placeholder labels (Vietnamese sidebar text) ──────────────
+    private static final String LABEL_DEPARTMENTS = "Bộ môn";
+    private static final String LABEL_CLASSES     = "Lớp học";
+
+    /** Recent-classes panel size on the dashboard. */
+    private static final int RECENT_CLASSES_LIMIT = 5;
+
     private final AdminDashboardService dashboardService;
 
     public AdminController(AdminDashboardService dashboardService) {
         this.dashboardService = dashboardService;
     }
 
+    /** Redirects /admin to the default dashboard tab. */
     @GetMapping
     public String root() {
-        return "redirect:/admin/dashboard";
+        return REDIRECT_DASHBOARD;
     }
 
+    /** Renders the admin dashboard with platform stats and recent classes. */
     @GetMapping("/dashboard")
     public String dashboard(Model model) {
         DashboardStats stats = dashboardService.stats();
         List<UserRoleCount> rolesBreakdown = dashboardService.usersByRole();
-        List<RecentClass> recentClasses = dashboardService.recentClasses(5);
+        List<RecentClass> recentClasses = dashboardService.recentClasses(RECENT_CLASSES_LIMIT);
 
-        model.addAttribute("stats", stats);
-        model.addAttribute("rolesBreakdown", rolesBreakdown);
-        model.addAttribute("recentClasses", recentClasses);
-        populateSidebar(model, "dashboard");
-        return "admin/dashboard";
+        model.addAttribute(ATTR_STATS, stats);
+        model.addAttribute(ATTR_ROLES_BREAKDOWN, rolesBreakdown);
+        model.addAttribute(ATTR_RECENT_CLASSES, recentClasses);
+        populateSidebar(model, TAB_DASHBOARD);
+        return VIEW_DASHBOARD;
     }
 
+    /** Renders the settings index page (links to Email, OAuth, General sub-tabs). */
     @GetMapping("/settings")
     public String settingsIndex(Model model) {
-        populateSidebar(model, "settings");
-        return "admin/settings";
+        populateSidebar(model, TAB_SETTINGS);
+        return VIEW_SETTINGS;
     }
 
+    /** Renders a placeholder view for tabs not yet implemented (Sprint 6). */
     @GetMapping({"/departments", "/classes"})
     public String placeholder(HttpServletRequest request, Model model) {
         String path = request.getRequestURI();
         String tab = path.substring(path.lastIndexOf('/') + 1);
         populateSidebar(model, tab);
-        model.addAttribute("placeholderTab", tab);
-        model.addAttribute("placeholderLabel", labelFor(tab));
-        return "admin/placeholder";
+        model.addAttribute(ATTR_PLACEHOLDER_TAB, tab);
+        model.addAttribute(ATTR_PLACEHOLDER_LABEL, labelFor(tab));
+        return VIEW_PLACEHOLDER;
     }
 
     private void populateSidebar(Model model, String activeTab) {
-        model.addAttribute("activeTab", activeTab);
+        model.addAttribute(ATTR_ACTIVE_TAB, activeTab);
     }
 
+    /** Maps a tab key to its Vietnamese sidebar label; unknown keys pass through. */
     private static String labelFor(String tab) {
         return switch (tab) {
-            case "departments" -> "Bộ môn";
-            case "classes" -> "Lớp học";
+            case TAB_DEPARTMENTS -> LABEL_DEPARTMENTS;
+            case TAB_CLASSES     -> LABEL_CLASSES;
             default -> tab;
         };
     }
