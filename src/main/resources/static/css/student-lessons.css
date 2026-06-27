@@ -1,0 +1,176 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Student class-lessons (ULP-4.1)
+   ----------------------------------------------------------------------------
+   2-column layout (sidebar + main) for the student-facing read view at
+   /my/classes/{classId}/lessons. Imports tokens from detail-page.css which
+   must be linked BEFORE this stylesheet.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.student-lessons-shell {
+  padding: var(--space-6) var(--space-8);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ── Header (back link + class name) ─────────────────────────────────── */
+.student-lessons-header {
+  margin-bottom: var(--space-6);
+}
+
+.student-lessons-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-medium);
+  margin-bottom: var(--space-3);
+}
+
+.student-lessons-back:hover {
+  color: var(--color-primary);
+}
+
+.student-lessons-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-heading-navy);
+  margin: 0;
+}
+
+/* ── Two-column grid ─────────────────────────────────────────────────── */
+.student-lessons-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (max-width: 767px) {
+  .student-lessons-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+.student-lessons-sidebar {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  position: sticky;
+  top: calc(var(--toolbar-sticky-top) + var(--space-3));
+}
+
+.student-lessons-sidebar-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-3);
+}
+
+.student-lessons-section-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.student-lessons-section-item a {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-medium);
+  line-height: 1.4;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.student-lessons-section-item a:hover {
+  background: var(--color-neutral-soft);
+  color: var(--color-text);
+}
+
+.student-lessons-section-item.active a {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
+
+/* ── Main panel ──────────────────────────────────────────────────────── */
+.student-lessons-main {
+  min-width: 0;
+}
+
+.student-lessons-main-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-heading-navy);
+  margin: 0 0 var(--space-4);
+}
+
+/* Lesson list */
+.student-lessons-lesson-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.student-lessons-lesson-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.student-lessons-lesson-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+}
+
+.student-lessons-lesson-link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  text-decoration: none;
+  color: inherit;
+}
+
+.student-lessons-lesson-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.student-lessons-lesson-meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* ── Empty states ────────────────────────────────────────────────────── */
+.student-lessons-empty-class,
+.student-lessons-empty-section {
+  background: var(--color-bg-subtle);
+  border: 1px dashed var(--color-border-medium);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+}
+
+.student-lessons-empty-class p,
+.student-lessons-empty-section p {
+  margin: 0;
+}

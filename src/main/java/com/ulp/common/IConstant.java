@@ -54,6 +54,7 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_SETTINGS   = "classes/detail-settings";
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
     String VIEW_LESSON_FORM             = "classes/lesson-form";
+    String VIEW_STUDENT_CLASS_LESSONS   = "student/class-lessons";
 
     // ───────── Model attribute keys ──────────────────────────────────
     String ATTR_FORM              = "form";
@@ -91,6 +92,10 @@ public interface IConstant {
 
     // Lesson attachments (ULP-4.0c).
     String ATTR_ATTACHMENTS     = "attachments";
+
+    // Student class-lessons view (ULP-4.1).
+    String ATTR_VIEW              = "view";
+    String ATTR_ACTIVE_SECTION_ID = "activeSectionId";
 
     // Lessons feature — shared cross-controller attrs
     // (used by SectionsController + LessonsController).
@@ -173,6 +178,10 @@ public interface IConstant {
     String MSG_ATTACHMENT_MAGIC_FAIL     = "Định dạng tệp không hợp lệ";
     String MSG_ATTACHMENT_NOT_FOUND      = "Không tìm thấy tệp đính kèm";
     String MSG_ATTACHMENT_EMPTY          = "Tệp đính kèm rỗng";
+
+    // ───────── Student class-lessons (ULP-4.1) Vietnamese UI text ────
+    String MSG_STUDENT_LESSONS_EMPTY_SECTION = "Chương này chưa có bài giảng";
+    String MSG_STUDENT_LESSONS_EMPTY_CLASS   = "Lớp này chưa có chương";
 
     // ───────── Pagination ────────────────────────────────────────────
     int DEFAULT_PAGE_SIZE = 20;

@@ -41,6 +41,10 @@
         <p class="meta meta-sub">Tham gia: <span th:text="${#temporals.format(row.joinedAt(), 'dd/MM/yyyy HH:mm')}">--</span></p>
       </div>
       <div class="actions">
+        <a th:href="@{|/my/classes/${row.classId()}/lessons|}"
+           class="btn-primary enter-class-btn">
+          Vào lớp
+        </a>
         <form th:action="@{/my/classes/{id}/leave(id=${row.classId()})}"
               method="post"
               class="leave-form">

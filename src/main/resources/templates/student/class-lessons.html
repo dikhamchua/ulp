@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${view.className()} + ' — Bài giảng', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+
+<main class="student-lessons-shell">
+  <div class="student-lessons-header">
+    <a th:href="@{/my/classes}" class="student-lessons-back">
+      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Quay lại lớp của tôi
+    </a>
+    <h1 class="student-lessons-title" th:text="${view.className()}">Tên lớp</h1>
+  </div>
+
+  <!-- Class-level empty state: no sections at all -->
+  <div class="student-lessons-empty-class"
+       th:if="${#lists.isEmpty(view.sections())}">
+    <p>Lớp này chưa có chương</p>
+  </div>
+
+  <!-- 2-column layout when at least one section exists -->
+  <div class="student-lessons-grid"
+       th:unless="${#lists.isEmpty(view.sections())}">
+
+    <!-- Sidebar: all live sections, in display order -->
+    <aside class="student-lessons-sidebar">
+      <h2 class="student-lessons-sidebar-title">Chương</h2>
+      <ul class="student-lessons-section-list">
+        <li th:each="section : ${view.sections()}"
+            th:classappend="${section.sectionId() == activeSectionId} ? ' active' : ''"
+            class="student-lessons-section-item">
+          <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()})}"
+             th:text="${section.title()}">Chương 1</a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main: PUBLISHED lessons of the active section -->
+    <section class="student-lessons-main">
+      <th:block th:each="section : ${view.sections()}"
+                th:if="${section.sectionId() == activeSectionId}">
+        <h2 class="student-lessons-main-title" th:text="${section.title()}">Tên chương</h2>
+
+        <!-- Empty-section state -->
+        <div class="student-lessons-empty-section"
+             th:if="${#lists.isEmpty(section.lessons())}">
+          <p>Chương này chưa có bài giảng</p>
+        </div>
+
+        <!-- Lesson cards -->
+        <ul class="student-lessons-lesson-list"
+            th:unless="${#lists.isEmpty(section.lessons())}">
+          <li th:each="lesson : ${section.lessons()}" class="student-lessons-lesson-card">
+            <a th:href="@{|/my/classes/${view.classId()}/lessons/${lesson.id()}|}"
+               class="student-lessons-lesson-link">
+              <span class="student-lessons-lesson-title" th:text="${lesson.title()}">Bài giảng</span>
+              <span class="student-lessons-lesson-meta"
+                    th:if="${lesson.publishedAt() != null}"
+                    th:text="'Đăng ngày ' + ${#temporals.format(lesson.publishedAt(), 'dd/MM/yyyy')}">
+                Đăng ngày --/--/----
+              </span>
+            </a>
+          </li>
+        </ul>
+      </th:block>
+    </section>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
