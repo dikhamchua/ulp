@@ -9,6 +9,7 @@ import com.ulp.features.lessons.controller.support.LessonFormSupport;
 import com.ulp.features.lessons.controller.support.MutationFailureHandler;
 import com.ulp.features.lessons.dto.LessonDtos.LessonForm;
 import com.ulp.features.lessons.repository.LessonRepository;
+import com.ulp.features.lessons.service.LessonAttachmentsService;
 import com.ulp.features.lessons.service.LessonsService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
@@ -65,17 +66,20 @@ public class LessonsController {
     private final LessonRepository lessonRepository;
     private final LessonActivityPageLoader activityPageLoader;
     private final LessonFormSupport formSupport;
+    private final LessonAttachmentsService attachmentsService;
 
     public LessonsController(LessonsService lessonsService,
                              ClassesService classesService,
                              LessonRepository lessonRepository,
                              LessonActivityPageLoader activityPageLoader,
-                             LessonFormSupport formSupport) {
+                             LessonFormSupport formSupport,
+                             LessonAttachmentsService attachmentsService) {
         this.lessonsService = lessonsService;
         this.classesService = classesService;
         this.lessonRepository = lessonRepository;
         this.activityPageLoader = activityPageLoader;
         this.formSupport = formSupport;
+        this.attachmentsService = attachmentsService;
     }
 
     // ── Create lesson — full-page form ─────────────────────────────────
@@ -149,6 +153,11 @@ public class LessonsController {
         // Eager-load the activity page so the tab toggle is purely client-side.
         model.addAttribute(ATTR_ACTIVITY_PAGE,
                 activityPageLoader.load(lessonId, Math.max(page, 0)));
+        // Preload attachments so the form renders the existing list without a
+        // second round-trip; the JS layer only needs to handle inserts/deletes.
+        model.addAttribute(ATTR_ATTACHMENTS,
+                attachmentsService.listForLesson(classId, sectionId, lessonId,
+                        user.getId(), user.getRole()));
         model.addAttribute(ATTR_CLAZZ, clazz);
         model.addAttribute(ATTR_SECTION, section);
         model.addAttribute(ATTR_LESSON, lesson);

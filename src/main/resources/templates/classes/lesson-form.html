@@ -16,6 +16,35 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/sections.css}">
   <link class="page-css" rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+  <!-- Inline styles for the attachments list (ULP-4.0c). Kept inline per
+       project guideline to avoid adding a one-off CSS file for ~50 rules. -->
+  <style>
+    .lesson-attach-upload { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .lesson-attach-pick { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .lesson-attach-pick-btn { display: inline-block; padding: 8px 14px;
+        border: 1px solid #d0d7de; border-radius: 6px; background: #f6f8fa;
+        font-weight: 500; }
+    .lesson-attach-pick-btn:hover { background: #eef1f4; }
+    .lesson-attach-pick-hint { color: #57606a; font-size: 0.9em; }
+    .lesson-attach-progress { flex: 1 1 200px; min-width: 200px; height: 8px;
+        background: #eef1f4; border-radius: 4px; overflow: hidden; }
+    .lesson-attach-progress-bar { height: 100%; width: 0%; background: #2563eb;
+        transition: width 0.2s ease; }
+    .lesson-attach-list { list-style: none; padding: 0; margin: 12px 0 0; }
+    .lesson-attach-item { display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px; border: 1px solid #d0d7de; border-radius: 6px;
+        margin-bottom: 8px; background: #fff; }
+    .lesson-attach-icon { font-size: 1.2em; }
+    .lesson-attach-name { flex: 1 1 auto; min-width: 0; color: #0969da;
+        text-decoration: none; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; }
+    .lesson-attach-name:hover { text-decoration: underline; }
+    .lesson-attach-size { color: #57606a; font-size: 0.85em;
+        white-space: nowrap; }
+    .lesson-attach-del { background: transparent; border: none; cursor: pointer;
+        padding: 4px; color: #cf222e; border-radius: 4px; display: inline-flex; }
+    .lesson-attach-del:hover { background: #ffebe9; }
+  </style>
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
@@ -139,6 +168,60 @@
           <div id="lessonContentEditor" class="lesson-editor"></div>
         </section>
       </form>
+
+      <!-- ═══ Attachments — edit-mode only (ULP-4.0c) ═══════════════════ -->
+      <section class="detail-card" th:if="${mode == 'edit' and lesson != null}"
+               id="lessonAttachmentsCard"
+               th:attr="data-lesson-id=${lesson.id},
+                        data-class-id=${clazz.id},
+                        data-section-id=${section.id},
+                        data-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/attachments|}">
+        <h2 class="detail-card-title">Tệp đính kèm</h2>
+        <p class="detail-field-help">
+          Chấp nhận PDF, DOCX, PPTX, XLSX, ZIP. Tối đa 20MB/tệp.
+        </p>
+
+        <div class="lesson-attach-upload">
+          <label class="lesson-attach-pick" for="lessonAttachInput">
+            <input id="lessonAttachInput" type="file"
+                   accept=".pdf,.docx,.pptx,.xlsx,.zip" hidden>
+            <span class="lesson-attach-pick-btn">Chọn tệp tải lên</span>
+            <span class="lesson-attach-pick-hint">hoặc kéo & thả vào đây</span>
+          </label>
+          <div class="lesson-attach-progress" id="lessonAttachProgress" hidden>
+            <div class="lesson-attach-progress-bar"></div>
+          </div>
+        </div>
+
+        <p class="detail-empty" id="lessonAttachEmpty"
+           th:if="${attachments == null or #lists.isEmpty(attachments)}">
+          Chưa có tệp đính kèm.
+        </p>
+
+        <ul class="lesson-attach-list" id="lessonAttachList"
+            th:attr="hidden=${attachments == null or #lists.isEmpty(attachments)} ? 'hidden' : null">
+          <li class="lesson-attach-item"
+              th:each="att : ${attachments}"
+              th:attr="data-attachment-id=${att.id()},
+                       data-delete-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/attachments/${att.id()}|}">
+            <span class="lesson-attach-icon" aria-hidden="true">📎</span>
+            <a class="lesson-attach-name" th:href="@{${att.downloadUrl()}}"
+               th:text="${att.originalFilename()}"
+               th:title="${att.originalFilename()}">tệp.pdf</a>
+            <span class="lesson-attach-size"
+                  th:text="${att.sizeBytes()}"
+                  th:attr="data-size-bytes=${att.sizeBytes()}">—</span>
+            <button type="button" class="lesson-attach-del"
+                    aria-label="Xoá tệp đính kèm">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              </svg>
+            </button>
+          </li>
+        </ul>
+      </section>
     </div>
 
     <!-- ═══ History panel — paginated audit log ═════════════════════════ -->
@@ -196,6 +279,8 @@
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/class-detail.js}"></script>
+<!-- Lesson attachments uploader (ULP-4.0c) — only active in edit mode. -->
+<script th:if="${mode == 'edit'}" th:src="@{/js/lesson-attachments.js}" defer></script>
 <!-- Quill 2.x from CDN — pinned to a minor version so the editor surface
      doesn't drift unannounced. -->
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>

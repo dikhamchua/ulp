@@ -48,17 +48,20 @@ public class LessonsService {
     private final LessonActivityWriter activityWriter;
     private final LessonsReorderService reorderService;
     private final LessonsUpdateHelper updateHelper;
+    private final LessonAttachmentsService attachmentsService;
 
     public LessonsService(LessonRepository lessonRepository,
                           ClassesService classesService,
                           LessonActivityWriter activityWriter,
                           LessonsReorderService reorderService,
-                          LessonsUpdateHelper updateHelper) {
+                          LessonsUpdateHelper updateHelper,
+                          LessonAttachmentsService attachmentsService) {
         this.lessonRepository = lessonRepository;
         this.classesService = classesService;
         this.activityWriter = activityWriter;
         this.reorderService = reorderService;
         this.updateHelper = updateHelper;
+        this.attachmentsService = attachmentsService;
     }
 
     /**
@@ -169,6 +172,10 @@ public class LessonsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
+        // Cascade hard-delete of attachments (rows + on-disk files) BEFORE the
+        // lesson is soft-deleted — see design D2. A failure here aborts the
+        // soft-delete so the lesson is never half-deleted with orphan files.
+        attachmentsService.deleteAllByLesson(lessonId);
         lesson.markDeleted();
         lessonRepository.save(lesson);
         activityWriter.write(
