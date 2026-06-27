@@ -1,6 +1,6 @@
 package com.ulp.features.auth.repository;
 
-import com.ulp.features.admin.users.dto.AdminUsersDtos.UserRow;
+import com.ulp.features.admin.users.dto.UserRow;
 import com.ulp.entities.User;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;

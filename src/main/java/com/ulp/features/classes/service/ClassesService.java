@@ -1,20 +1,14 @@
 package com.ulp.features.classes.service;
 
-import com.ulp.security.Role;
-import com.ulp.features.classes.ClassGradient;
-import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
-import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
+import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
+import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.features.classes.repository.ClassRepository;
-import com.ulp.features.classes.service.codes.ClassCodeGenerationException;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
+import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.core.NestedExceptionUtils;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -47,18 +41,16 @@ import java.util.Map;
  * <p>Every mutation (create/update/softDelete) writes one row to
  * {@link ClassActivity} via {@link ClassActivityWriter}. Because service methods
  * are {@code @Transactional}, a failure when inserting the activity record will
- * also roll back the class mutation.
+ * also roll back the class mutation. The create flow is delegated to a
+ * package-private {@link ClassCreator} helper that owns the collision-retry loop
+ * and token-provisioning step.
  */
 @Service
 public class ClassesService {
 
-    private static final Logger log = LoggerFactory.getLogger(ClassesService.class);
-    private static final int MAX_CODE_GEN_ATTEMPTS = 3;
-
     private final ClassRepository classRepository;
     private final ClassActivityWriter activityWriter;
-    private final ClassCodeGenerator codeGenerator;
-    private final InviteCodeService inviteCodeService;
+    private final ClassCreator creator;
 
     public ClassesService(ClassRepository classRepository,
                           ClassActivityWriter activityWriter,
@@ -66,8 +58,8 @@ public class ClassesService {
                           InviteCodeService inviteCodeService) {
         this.classRepository = classRepository;
         this.activityWriter = activityWriter;
-        this.codeGenerator = codeGenerator;
-        this.inviteCodeService = inviteCodeService;
+        this.creator = new ClassCreator(classRepository, activityWriter,
+                codeGenerator, inviteCodeService);
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────
@@ -83,11 +75,6 @@ public class ClassesService {
      * the audit's "good enough" tolerance for the cosmetic ordering of class
      * thumbnails. Pages are otherwise sorted strictly per the supplied {@link Pageable}
      * (typically {@code createdAt DESC}).
-     *
-     * @param userId   the authenticated user's database id
-     * @param role     the authenticated user's role
-     * @param pageable page request (page index, size, sort)
-     * @return a {@link Page} of {@link ClassRow} DTOs
      */
     @Transactional(readOnly = true)
     public Page<ClassRow> listForUser(Long userId, Role role, Pageable pageable) {
@@ -98,7 +85,7 @@ public class ClassesService {
         List<ClassEntity> content = page.getContent();
         List<ClassRow> rows = new ArrayList<>(content.size());
         for (int i = 0; i < content.size(); i++) {
-            rows.add(toRow(content.get(i), i));
+            rows.add(ClassRowMapper.toRow(content.get(i), i));
         }
         return new PageImpl<>(rows, pageable, page.getTotalElements());
     }
@@ -123,46 +110,12 @@ public class ClassesService {
     }
 
     /**
-     * Creates a new class. Generates the {@code classes.code} value, retrying up to
-     * {@value #MAX_CODE_GEN_ATTEMPTS} times when the unique index
-     * {@code uk_classes_code} reports a collision. Other unique-violation causes
-     * (e.g., on a different column) are rethrown immediately.
+     * Creates a new class. Delegates the collision-retry loop and the default
+     * CODE + LINK invite token provisioning to {@link ClassCreator}.
      */
     @Transactional
     public ClassEntity create(ClassForm form, Long userId) {
-        DataIntegrityViolationException lastCollision = null;
-        for (int attempt = 1; attempt <= MAX_CODE_GEN_ATTEMPTS; attempt++) {
-            ClassEntity entity = new ClassEntity(
-                    form.name(), userId, userId,
-                    form.description(), form.startDate(), form.endDate(),
-                    form.maxStudents());
-            entity.setCode(codeGenerator.generate());
-            try {
-                ClassEntity saved = classRepository.saveAndFlush(entity);
-                activityWriter.write(
-                        saved.getId(),
-                        ClassActivity.TYPE_CREATED,
-                        "Tạo lớp " + saved.getName(),
-                        userId
-                );
-                // Atomically provision the default CODE + LINK invite
-                // tokens for the new class. Token-provisioning failure
-                // (DB error, repeated collision) propagates out of
-                // this @Transactional method, rolling the class
-                // creation back together with the audit row.
-                inviteCodeService.provisionDefaults(saved.getId(), userId);
-                return saved;
-            } catch (DataIntegrityViolationException ex) {
-                if (!isCodeCollision(ex)) {
-                    throw ex;
-                }
-                lastCollision = ex;
-                log.warn("Class code collision on attempt {} — retrying", attempt);
-            }
-        }
-        throw new ClassCodeGenerationException(
-                "Không sinh được mã lớp sau " + MAX_CODE_GEN_ATTEMPTS + " lần thử",
-                lastCollision);
+        return creator.create(form, userId);
     }
 
     /** Updates an existing class. Authorization is enforced; writes an UPDATED activity row with a before/after diff. */
@@ -170,12 +123,12 @@ public class ClassesService {
     public ClassEntity update(Long id, ClassForm form, Long userId, Role role) {
         ClassEntity entity = loadEditable(id, userId, role);
 
-        Map<String, Object> oldState = snapshot(entity);
+        Map<String, Object> oldState = ClassRowMapper.snapshot(entity);
         entity.updateDetails(form.name(), form.description(),
                 form.startDate(), form.endDate(), form.maxStudents());
         ClassEntity saved = classRepository.save(entity);
 
-        Map<String, Object> newState = snapshot(saved);
+        Map<String, Object> newState = ClassRowMapper.snapshot(saved);
         Map<String, Object> diff = new LinkedHashMap<>();
         diff.put("old", oldState);
         diff.put("new", newState);
@@ -222,46 +175,9 @@ public class ClassesService {
     private ClassEntity loadEditable(Long id, Long userId, Role role) {
         ClassEntity entity = classRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
-        requireEditableBy(entity, userId, role);
-        return entity;
-    }
-
-    private void requireEditableBy(ClassEntity entity, Long userId, Role role) {
         if (!isEditableBy(entity, userId, role)) {
             throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
         }
-    }
-
-    private boolean isCodeCollision(DataIntegrityViolationException ex) {
-        Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
-        String msg = cause.getMessage();
-        return msg != null && msg.contains("uk_classes_code");
-    }
-
-    private ClassRow toRow(ClassEntity e, int index) {
-        // TODO Sprint 3/5: wire real counts from enrollments/lessons/assignments/lesson_attachments
-        int studentCount = 0;
-        int lectureCount = 0;
-        int assignmentCount = 0;
-        int materialCount = 0;
-        String createdAtIso = e.getCreatedAt() != null ? e.getCreatedAt().toString() : "";
-        return new ClassRow(
-                e.getId(),
-                e.getName(),
-                e.getCode(),
-                ClassGradient.forIndex(index).css(),
-                studentCount, lectureCount, assignmentCount, materialCount,
-                createdAtIso
-        );
-    }
-
-    private Map<String, Object> snapshot(ClassEntity e) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("name", e.getName());
-        m.put("description", e.getDescription());
-        m.put("startDate", e.getStartDate() != null ? e.getStartDate().toString() : null);
-        m.put("endDate", e.getEndDate() != null ? e.getEndDate().toString() : null);
-        m.put("maxStudents", e.getMaxStudents());
-        return m;
+        return entity;
     }
 }

@@ -2,8 +2,8 @@ package com.ulp.features.admin.users.service;
 
 import com.ulp.entities.User;
 import com.ulp.features.admin.users.dto.ActivityRow;
-import com.ulp.features.admin.users.dto.AdminUsersDtos.UserFilter;
-import com.ulp.features.admin.users.dto.AdminUsersDtos.UserRow;
+import com.ulp.features.admin.users.dto.UserFilter;
+import com.ulp.features.admin.users.dto.UserRow;
 import com.ulp.features.admin.users.repository.UserActivityRepository;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.utils.StringUtils;

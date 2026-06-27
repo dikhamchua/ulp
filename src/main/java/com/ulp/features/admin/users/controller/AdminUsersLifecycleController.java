@@ -1,7 +1,7 @@
 package com.ulp.features.admin.users.controller;
 
-import com.ulp.features.admin.users.dto.AdminUsersDtos.LockForm;
-import com.ulp.features.admin.users.dto.AdminUsersDtos.ResetPasswordForm;
+import com.ulp.features.admin.users.dto.LockForm;
+import com.ulp.features.admin.users.dto.ResetPasswordForm;
 import com.ulp.features.admin.users.service.AdminUsersLifecycleService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;

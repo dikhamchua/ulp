@@ -59,4 +59,25 @@ public final class LessonDtos {
             LocalDateTime createdAt
     ) {
     }
+
+    /**
+     * One attachment row as rendered in the lesson edit page and returned by
+     * the upload / list endpoints (ULP-4.0c).
+     *
+     * @param id               attachment row id
+     * @param originalFilename filename as the lecturer uploaded it
+     * @param mimeType         resolved MIME type
+     * @param sizeBytes        file size in bytes (JS formats to KB/MB)
+     * @param uploadedAt       insert timestamp
+     * @param downloadUrl      canonical download URL (lecturer + student share it)
+     */
+    public record LessonAttachmentRow(
+            Long id,
+            String originalFilename,
+            String mimeType,
+            long sizeBytes,
+            LocalDateTime uploadedAt,
+            String downloadUrl
+    ) {
+    }
 }

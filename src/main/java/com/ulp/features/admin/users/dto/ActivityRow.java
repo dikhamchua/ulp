@@ -6,8 +6,8 @@ import java.time.LocalDateTime;
  * One row of administrative audit history for a target user, used by the
  * user-detail page's "Lịch sử cập nhật" tab.
  *
- * <p>Declared as a top-level record (rather than nested inside
- * {@link AdminUsersDtos}) because Hibernate 6's JPQL parser cannot resolve
+ * <p>Declared as a top-level record (rather than nested inside a parent
+ * {@code AdminUsersDtos} holder) because Hibernate 6's JPQL parser cannot resolve
  * nested-class names in {@code SELECT new ...} projections — it interprets
  * the dot as a property path rather than an enclosing-class separator. A
  * top-level type sidesteps the issue without needing a Hibernate-specific

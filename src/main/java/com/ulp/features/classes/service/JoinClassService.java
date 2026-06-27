@@ -1,23 +1,19 @@
 package com.ulp.features.classes.service;
 
-import com.ulp.entities.User;
-import com.ulp.features.auth.repository.UserRepository;
-import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.ClassInviteCode;
 import com.ulp.entities.Enrollment;
+import com.ulp.entities.User;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassInviteCodeRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.invites.InviteCodeValidationException;
 import com.ulp.features.classes.service.invites.InviteRejectionReason;
-import com.ulp.features.classes.service.invites.InviteTokenGenerator;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -34,6 +30,11 @@ import java.util.Optional;
  * → short-circuit info, {@code COMPLETED} → reject. INSERTing a
  * second row is impossible due to the {@code idx_enroll_user_class}
  * unique index.
+ *
+ * <p>Validation logic (token resolution, expiry, class status,
+ * capacity) and audit-row construction are delegated to the
+ * package-private {@link JoinTokenValidator} and {@link JoinAuditWriter}
+ * helpers so this class stays focused on the enrollment state machine.
  */
 @Service
 public class JoinClassService {
@@ -41,8 +42,9 @@ public class JoinClassService {
     private final ClassInviteCodeRepository inviteRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
-    private final ClassActivityWriter activityWriter;
     private final UserRepository userRepository;
+    private final JoinTokenValidator validator;
+    private final JoinAuditWriter auditWriter;
 
     public JoinClassService(ClassInviteCodeRepository inviteRepository,
                             EnrollmentRepository enrollmentRepository,
@@ -52,8 +54,10 @@ public class JoinClassService {
         this.inviteRepository = inviteRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
-        this.activityWriter = activityWriter;
         this.userRepository = userRepository;
+        this.validator = new JoinTokenValidator(inviteRepository, classRepository,
+                enrollmentRepository);
+        this.auditWriter = new JoinAuditWriter(activityWriter);
     }
 
     /** Outcome of a successful join attempt, returned to the controller. */
@@ -88,88 +92,29 @@ public class JoinClassService {
      */
     @Transactional
     public JoinResult join(String rawToken, Long userId) {
-        if (rawToken == null || rawToken.isBlank()) {
-            throw new InviteCodeValidationException(InviteRejectionReason.INVALID);
-        }
-        String normalized = rawToken.length() == InviteTokenGenerator.CODE_LENGTH
-                ? rawToken.toUpperCase()
-                : rawToken;
+        String normalized = JoinTokenValidator.normalize(rawToken);
+        ClassInviteCode token = validator.resolveAndValidate(normalized);
+        ClassEntity clazz = validator.loadJoinableClass(token);
 
-        // 1. Resolve token under a pessimistic lock. A NULL result
-        //    means either there is no row at all OR the row is
-        //    disabled. The unlocked findByCode lookup disambiguates.
-        Optional<ClassInviteCode> locked = inviteRepository.findByCodeForUpdate(normalized);
-        if (locked.isEmpty()) {
-            // Distinguish unknown vs disabled for friendlier messaging.
-            Optional<ClassInviteCode> any = inviteRepository.findByCode(normalized);
-            if (any.isPresent() && !any.get().isActive()) {
-                throw new InviteCodeValidationException(InviteRejectionReason.DISABLED);
-            }
-            throw new InviteCodeValidationException(InviteRejectionReason.INVALID);
-        }
-        ClassInviteCode token = locked.get();
-
-        // 2. Expiry + max-uses validation.
-        if (token.getExpiresAt() != null
-                && token.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new InviteCodeValidationException(InviteRejectionReason.EXPIRED);
-        }
-        if (token.getMaxUses() != null && token.getUseCount() >= token.getMaxUses()) {
-            throw new InviteCodeValidationException(InviteRejectionReason.EXHAUSTED);
-        }
-
-        // 3. Class status / soft-delete gating. We use findById
-        //    directly because @SQLRestriction filters out soft-
-        //    deleted rows, which is exactly what we want — but we
-        //    need a clear error code in that case.
-        ClassEntity clazz = classRepository.findById(token.getClassId()).orElse(null);
-        if (clazz == null) {
-            // Class soft-deleted: the token still exists but the
-            // class is gone from our view.
-            throw new InviteCodeValidationException(InviteRejectionReason.CLASS_NOT_JOINABLE);
-        }
-        if (!"UPCOMING".equals(clazz.getStatus()) && !"ACTIVE".equals(clazz.getStatus())) {
-            throw new InviteCodeValidationException(InviteRejectionReason.CLASS_NOT_JOINABLE);
-        }
-
-        // 4. Existing enrollment handling — duplicates / revival.
+        // Existing enrollment handling — duplicates / revival.
         Optional<Enrollment> existing =
                 enrollmentRepository.findByUserIdAndClassId(userId, token.getClassId());
         if (existing.isPresent()) {
-            Enrollment row = existing.get();
-            switch (row.getStatus()) {
-                case Enrollment.STATUS_ACTIVE -> {
-                    return new AlreadyJoined(clazz);
-                }
-                case Enrollment.STATUS_COMPLETED -> throw new InviteCodeValidationException(
-                        InviteRejectionReason.ALREADY_COMPLETED);
-                case Enrollment.STATUS_REMOVED -> {
-                    // 5a. Capacity check applies for revival too.
-                    enforceCapacity(clazz);
-                    row.reactivateVia(joinedVia(token.getType()), token.getId());
-                    enrollmentRepository.save(row);
-                    token.incrementUseCount();
-                    inviteRepository.save(token);
-                    writeJoinAudit(clazz, userId, token);
-                    return new Success(clazz);
-                }
-                default -> throw new IllegalStateException(
-                        "Trạng thái enrollment không hợp lệ: " + row.getStatus());
-            }
+            return handleExisting(existing.get(), clazz, token, userId);
         }
 
-        // 5. Fresh enrollment path.
-        enforceCapacity(clazz);
+        // Fresh enrollment path.
+        validator.enforceCapacity(clazz);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Người dùng không tồn tại"));
         Enrollment fresh = Enrollment.createFor(user, clazz.getId(),
-                joinedVia(token.getType()), token.getId());
+                JoinAuditWriter.joinedVia(token.getType()), token.getId());
         enrollmentRepository.save(fresh);
 
         token.incrementUseCount();
         inviteRepository.save(token);
 
-        writeJoinAudit(clazz, userId, token);
+        auditWriter.writeJoin(clazz, userId, token);
         return new Success(clazz);
     }
 
@@ -190,9 +135,9 @@ public class JoinClassService {
         Enrollment row = enrollmentRepository.findByUserIdAndClassId(userId, classId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy enrollment"));
         if (Enrollment.STATUS_REMOVED.equals(row.getStatus())) {
-            // From the caller's perspective this is the same as "not
-            // a member" — surface as 404 so we don't leak the
-            // existence of the previous enrollment.
+            // From the caller's perspective this is the same as "not a
+            // member" — surface as 404 so we don't leak the existence of
+            // the previous enrollment.
             throw new EntityNotFoundException("Không tìm thấy enrollment");
         }
         if (Enrollment.STATUS_COMPLETED.equals(row.getStatus())) {
@@ -205,46 +150,33 @@ public class JoinClassService {
         row.markRemoved();
         enrollmentRepository.save(row);
 
-        activityWriter.write(
-                clazz.getId(),
-                ClassActivity.TYPE_MEMBER_LEFT,
-                "Học viên rời lớp " + clazz.getName(),
-                Map.of("user_id", userId),
-                userId
-        );
+        auditWriter.writeLeave(clazz, userId);
         return clazz;
     }
 
     // ──────────────────── internal ────────────────────
 
-    private void enforceCapacity(ClassEntity clazz) {
-        Integer cap = clazz.getMaxStudents();
-        if (cap == null) return;
-        long active = enrollmentRepository.countActiveByClassId(clazz.getId());
-        if (active >= cap) {
-            throw new InviteCodeValidationException(InviteRejectionReason.CLASS_FULL);
+    /** Dispatches existing-enrollment branches: short-circuit ACTIVE, revive REMOVED, reject COMPLETED. */
+    private JoinResult handleExisting(Enrollment row, ClassEntity clazz,
+                                      ClassInviteCode token, Long userId) {
+        switch (row.getStatus()) {
+            case Enrollment.STATUS_ACTIVE -> {
+                return new AlreadyJoined(clazz);
+            }
+            case Enrollment.STATUS_COMPLETED -> throw new InviteCodeValidationException(
+                    InviteRejectionReason.ALREADY_COMPLETED);
+            case Enrollment.STATUS_REMOVED -> {
+                // Capacity check applies for revival too.
+                validator.enforceCapacity(clazz);
+                row.reactivateVia(JoinAuditWriter.joinedVia(token.getType()), token.getId());
+                enrollmentRepository.save(row);
+                token.incrementUseCount();
+                inviteRepository.save(token);
+                auditWriter.writeJoin(clazz, userId, token);
+                return new Success(clazz);
+            }
+            default -> throw new IllegalStateException(
+                    "Trạng thái enrollment không hợp lệ: " + row.getStatus());
         }
-    }
-
-    private void writeJoinAudit(ClassEntity clazz, Long userId, ClassInviteCode token) {
-        activityWriter.write(
-                clazz.getId(),
-                ClassActivity.TYPE_MEMBER_JOINED,
-                "Học viên tham gia lớp " + clazz.getName(),
-                Map.of("user_id", userId, "joined_via", joinedVia(token.getType()).name()),
-                userId
-        );
-    }
-
-    /**
-     * Maps the invite-token type to the {@link Enrollment.JoinedVia} channel.
-     * A 6-character code maps to {@link Enrollment.JoinedVia#CODE}; anything else
-     * (currently only the 32-character link type) maps to
-     * {@link Enrollment.JoinedVia#LINK}.
-     */
-    private Enrollment.JoinedVia joinedVia(String tokenType) {
-        return ClassInviteCode.TYPE_CODE.equals(tokenType)
-                ? Enrollment.JoinedVia.CODE
-                : Enrollment.JoinedVia.LINK;
     }
 }

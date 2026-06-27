@@ -89,6 +89,9 @@ public interface IConstant {
     String ATTR_LESSON_ID       = "lessonId";
     String ATTR_SELECTED_LESSON = "selectedLesson";
 
+    // Lesson attachments (ULP-4.0c).
+    String ATTR_ATTACHMENTS     = "attachments";
+
     // Lessons feature — shared cross-controller attrs
     // (used by SectionsController + LessonsController).
     String ATTR_CANCEL_URL    = "cancelUrl";
@@ -159,6 +162,17 @@ public interface IConstant {
     String MSG_SECTION_NOT_FOUND   = "Chương không tồn tại";
     String MSG_FORBIDDEN_FOR_CLASS = "Bạn không có quyền thao tác với lớp này.";
     String MSG_GENERIC_RETRY       = "Có lỗi xảy ra, vui lòng thử lại.";
+
+    // ───────── Lesson attachments (ULP-4.0c) Vietnamese UI text ──────
+    String MSG_ATTACHMENT_UPLOADED       = "Đã tải lên tệp đính kèm";
+    String MSG_ATTACHMENT_DELETED        = "Đã xoá tệp đính kèm";
+    String MSG_ATTACHMENT_INVALID        = "Tệp đính kèm không hợp lệ";
+    String MSG_ATTACHMENT_TOO_LARGE      = "Tệp đính kèm vượt quá giới hạn 20MB";
+    String MSG_ATTACHMENT_EXT_NOT_ALLOWED =
+            "Chỉ chấp nhận tệp PDF, DOCX, PPTX, XLSX hoặc ZIP";
+    String MSG_ATTACHMENT_MAGIC_FAIL     = "Định dạng tệp không hợp lệ";
+    String MSG_ATTACHMENT_NOT_FOUND      = "Không tìm thấy tệp đính kèm";
+    String MSG_ATTACHMENT_EMPTY          = "Tệp đính kèm rỗng";
 
     // ───────── Pagination ────────────────────────────────────────────
     int DEFAULT_PAGE_SIZE = 20;

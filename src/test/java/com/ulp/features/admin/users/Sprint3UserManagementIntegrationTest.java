@@ -159,7 +159,7 @@ class Sprint3UserManagementIntegrationTest {
                 .andExpect(view().name("admin/users-form"))
                 .andExpect(model().attributeExists("form"))
                 .andReturn();
-        var form = (com.ulp.features.admin.users.dto.AdminUsersDtos.CreateUserForm)
+        var form = (com.ulp.features.admin.users.dto.CreateUserForm)
                 result.getModelAndView().getModel().get("form");
         assertThat(form.role()).isEqualTo(Role.LECTURER);
     }
