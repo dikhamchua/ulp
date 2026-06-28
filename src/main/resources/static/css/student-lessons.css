@@ -1,75 +1,133 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ULP — Student class-lessons (ULP-4.1)
    ----------------------------------------------------------------------------
-   2-column layout (sidebar + main) for the student-facing read view at
-   /my/classes/{classId}/lessons. Imports tokens from detail-page.css which
-   must be linked BEFORE this stylesheet.
+   3-column layout inspired by SHub Classroom lesson page:
+   - Left sidebar (240px): class info + nav menu (kept minimal here)
+   - Main center (fluid): selected section title + lesson placeholder
+   - Right sidebar (360px): all lessons of the active section
+   Tokens come from detail-page.css which must be linked BEFORE this stylesheet.
    ══════════════════════════════════════════════════════════════════════════ */
 
-.student-lessons-shell {
-  padding: var(--space-6) var(--space-8);
-  max-width: 1200px;
-  margin: 0 auto;
+:root {
+  --shub-bg: #f5f6f8;
+  --shub-surface: #ffffff;
+  --shub-border: #e6e8eb;
+  --shub-text: #202227;
+  --shub-text-muted: #6b7280;
+  --shub-primary: #1e88e5;
+  --shub-primary-soft: #e8f3fd;
+  --shub-active-bg: #efeff5;
+  --shub-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
-/* ── Header (back link + class name) ─────────────────────────────────── */
+/* ── Shell: full-bleed grey background, hide global padding ──────────── */
+.student-lessons-shell {
+  padding: 0;
+  max-width: none;
+  margin: 0;
+  background: var(--shub-bg);
+  min-height: calc(100vh - var(--header-height, 64px));
+}
+
+/* ── Top bar (back link + class name) ────────────────────────────────── */
 .student-lessons-header {
-  margin-bottom: var(--space-6);
+  background: var(--shub-surface);
+  border-bottom: 1px solid var(--shub-border);
+  padding: var(--space-4) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .student-lessons-back {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--color-text-secondary);
+  color: var(--shub-text-muted);
   text-decoration: none;
-  font-size: var(--font-size-base);
-  font-weight: var(--weight-medium);
-  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  width: max-content;
 }
 
 .student-lessons-back:hover {
-  color: var(--color-primary);
+  color: var(--shub-primary);
 }
 
 .student-lessons-title {
-  font-size: var(--font-size-xl);
-  font-weight: var(--weight-bold);
-  color: var(--color-heading-navy);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--shub-text);
   margin: 0;
+  line-height: 1.3;
 }
 
-/* ── Two-column grid ─────────────────────────────────────────────────── */
+/* ── 3-column layout when at least one section exists ────────────────── */
 .student-lessons-grid {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: var(--space-6);
-  align-items: start;
+  grid-template-columns: 260px 1fr 360px;
+  gap: 0;
+  align-items: stretch;
+  min-height: calc(100vh - 64px - 80px);
+}
+
+@media (max-width: 1199px) {
+  .student-lessons-grid {
+    grid-template-columns: 240px 1fr;
+  }
+  .student-lessons-rail {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--shub-border);
+  }
 }
 
 @media (max-width: 767px) {
   .student-lessons-grid {
     grid-template-columns: 1fr;
   }
+  .student-lessons-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--shub-border);
+  }
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────── */
+/* ── Left sidebar: class card + nav menu ─────────────────────────────── */
 .student-lessons-sidebar {
-  background: var(--color-bg);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  position: sticky;
-  top: calc(var(--toolbar-sticky-top) + var(--space-3));
+  background: var(--shub-surface);
+  border-right: 1px solid var(--shub-border);
+  padding: var(--space-5) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.student-lessons-class-card {
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--shub-border);
+}
+
+.student-lessons-class-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--shub-text);
+  margin: 0 0 var(--space-1);
+  line-height: 1.4;
+}
+
+.student-lessons-class-code {
+  font-size: 13px;
+  color: var(--shub-text-muted);
+  margin: 0;
 }
 
 .student-lessons-sidebar-title {
-  font-size: var(--font-size-base);
-  font-weight: var(--weight-semibold);
-  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--shub-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 var(--space-3);
+  letter-spacing: 0.04em;
+  margin: 0 var(--space-3) var(--space-2);
 }
 
 .student-lessons-section-list {
@@ -78,99 +136,265 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .student-lessons-section-item a {
-  display: block;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  border-radius: 8px;
+  color: var(--shub-text);
   text-decoration: none;
-  font-size: var(--font-size-base);
-  font-weight: var(--weight-medium);
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.4;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .student-lessons-section-item a:hover {
-  background: var(--color-neutral-soft);
-  color: var(--color-text);
+  background: var(--shub-active-bg);
 }
 
 .student-lessons-section-item.active a {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-weight: var(--weight-semibold);
+  background: var(--shub-primary-soft);
+  color: var(--shub-primary);
+  font-weight: 600;
 }
 
-/* ── Main panel ──────────────────────────────────────────────────────── */
+.student-lessons-section-item a::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: currentColor;
+  opacity: 0.15;
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'><path d='M4 6h16v2H4zM4 11h16v2H4zM4 16h10v2H4z'/></svg>");
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'><path d='M4 6h16v2H4zM4 11h16v2H4zM4 16h10v2H4z'/></svg>");
+}
+
+.student-lessons-section-item.active a::before {
+  opacity: 1;
+}
+
+/* ── Main center: hero / section banner ──────────────────────────────── */
 .student-lessons-main {
   min-width: 0;
+  padding: var(--space-6);
+  background: var(--shub-surface);
+  display: flex;
+  flex-direction: column;
 }
 
 .student-lessons-main-title {
-  font-size: var(--font-size-lg);
-  font-weight: var(--weight-semibold);
-  color: var(--color-heading-navy);
-  margin: 0 0 var(--space-4);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--shub-text);
+  margin: 0 0 var(--space-2);
 }
 
-/* Lesson list */
+.student-lessons-main-subtitle {
+  font-size: 14px;
+  color: var(--shub-text-muted);
+  margin: 0 0 var(--space-5);
+}
+
+.student-lessons-hero {
+  background: linear-gradient(135deg, #e8f3fd 0%, #f5f7fa 100%);
+  border: 1px solid var(--shub-border);
+  border-radius: 12px;
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+  margin-bottom: var(--space-5);
+}
+
+.student-lessons-hero-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--space-3);
+  display: block;
+  color: var(--shub-primary);
+  opacity: 0.7;
+}
+
+.student-lessons-hero-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--shub-text);
+  margin: 0 0 var(--space-2);
+}
+
+.student-lessons-hero-text {
+  font-size: 14px;
+  color: var(--shub-text-muted);
+  margin: 0;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.student-lessons-divider {
+  height: 1px;
+  background: var(--shub-border);
+  margin: var(--space-4) 0;
+}
+
+.student-lessons-meta-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--shub-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-2);
+}
+
+.student-lessons-meta-value {
+  font-size: 14px;
+  color: var(--shub-text);
+  margin: 0;
+}
+
+/* ── Right rail: list of lessons in the active section ───────────────── */
+.student-lessons-rail {
+  background: var(--shub-surface);
+  border-left: 1px solid var(--shub-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.student-lessons-rail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--shub-border);
+  background: var(--shub-surface);
+}
+
+.student-lessons-rail-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--shub-text-muted);
+}
+
+.student-lessons-rail-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--shub-text);
+  margin: 0;
+  flex: 1;
+}
+
+.student-lessons-rail-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--shub-text-muted);
+  background: var(--shub-active-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
 .student-lessons-lesson-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  overflow-y: auto;
 }
 
 .student-lessons-lesson-card {
-  background: var(--color-bg);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.student-lessons-lesson-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+  border-bottom: 1px solid var(--shub-border);
 }
 
 .student-lessons-lesson-link {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-4);
+  align-items: center;
+  gap: var(--space-3);
+  padding: 16px 24px;
   text-decoration: none;
   color: inherit;
+  transition: background 0.12s ease;
+}
+
+.student-lessons-lesson-link:hover {
+  background: var(--shub-active-bg);
+}
+
+.student-lessons-lesson-link.active,
+.student-lessons-lesson-card:first-child .student-lessons-lesson-link {
+  background: var(--shub-active-bg);
+}
+
+.student-lessons-lesson-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--shub-primary-soft);
+  color: var(--shub-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.student-lessons-lesson-thumb svg {
+  width: 22px;
+  height: 22px;
+}
+
+.student-lessons-lesson-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .student-lessons-lesson-title {
-  font-size: var(--font-size-base);
-  font-weight: var(--weight-semibold);
-  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--shub-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .student-lessons-lesson-meta {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  font-size: 12px;
+  color: var(--shub-text-muted);
 }
 
 /* ── Empty states ────────────────────────────────────────────────────── */
 .student-lessons-empty-class,
-.student-lessons-empty-section {
-  background: var(--color-bg-subtle);
-  border: 1px dashed var(--color-border-medium);
-  border-radius: var(--radius-md);
-  padding: var(--space-6);
+.student-lessons-empty-section,
+.student-lessons-empty-rail {
+  background: var(--shub-surface);
+  padding: var(--space-8) var(--space-6);
   text-align: center;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-base);
+  color: var(--shub-text-muted);
+  font-size: 14px;
+}
+
+.student-lessons-empty-class {
+  margin: 0;
+  border-bottom: 1px solid var(--shub-border);
+}
+
+.student-lessons-empty-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-3);
+  color: var(--shub-text-muted);
+  opacity: 0.4;
 }
 
 .student-lessons-empty-class p,
-.student-lessons-empty-section p {
+.student-lessons-empty-section p,
+.student-lessons-empty-rail p {
   margin: 0;
 }

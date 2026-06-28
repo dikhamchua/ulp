@@ -9,9 +9,11 @@
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <main class="student-lessons-shell">
+  <!-- Top bar with back link + class name -->
   <div class="student-lessons-header">
     <a th:href="@{/my/classes}" class="student-lessons-back">
-      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           width="16" height="16">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
       Quay lại lớp của tôi
@@ -22,36 +24,95 @@
   <!-- Class-level empty state: no sections at all -->
   <div class="student-lessons-empty-class"
        th:if="${#lists.isEmpty(view.sections())}">
-    <p>Lớp này chưa có chương</p>
+    <svg class="student-lessons-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+    </svg>
+    <p th:text="${T(com.ulp.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_CLASS}">Lớp này chưa có chương</p>
   </div>
 
-  <!-- 2-column layout when at least one section exists -->
+  <!-- 3-column layout when at least one section exists -->
   <div class="student-lessons-grid"
        th:unless="${#lists.isEmpty(view.sections())}">
 
-    <!-- Sidebar: all live sections, in display order -->
+    <!-- LEFT SIDEBAR: class info + sections nav -->
     <aside class="student-lessons-sidebar">
-      <h2 class="student-lessons-sidebar-title">Chương</h2>
-      <ul class="student-lessons-section-list">
-        <li th:each="section : ${view.sections()}"
-            th:classappend="${section.sectionId() == activeSectionId} ? ' active' : ''"
-            class="student-lessons-section-item">
-          <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()})}"
-             th:text="${section.title()}">Chương 1</a>
-        </li>
-      </ul>
+      <div class="student-lessons-class-card">
+        <p class="student-lessons-class-name" th:text="${view.className()}">Tên lớp</p>
+        <p class="student-lessons-class-code">Danh sách chương</p>
+      </div>
+
+      <div>
+        <p class="student-lessons-sidebar-title">Chương</p>
+        <ul class="student-lessons-section-list">
+          <li th:each="section : ${view.sections()}"
+              th:classappend="${section.sectionId() == activeSectionId} ? ' active' : ''"
+              class="student-lessons-section-item">
+            <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()})}"
+               th:text="${section.title()}">Chương 1</a>
+          </li>
+        </ul>
+      </div>
     </aside>
 
-    <!-- Main: PUBLISHED lessons of the active section -->
+    <!-- MAIN CENTER: hero placeholder for the active section -->
     <section class="student-lessons-main">
       <th:block th:each="section : ${view.sections()}"
                 th:if="${section.sectionId() == activeSectionId}">
         <h2 class="student-lessons-main-title" th:text="${section.title()}">Tên chương</h2>
+        <p class="student-lessons-main-subtitle">
+          <span th:text="${#lists.size(section.lessons())}">0</span>
+          bài giảng đã xuất bản
+        </p>
+
+        <div class="student-lessons-hero">
+          <svg class="student-lessons-hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
+          </svg>
+          <p class="student-lessons-hero-title">Chọn bài giảng để bắt đầu</p>
+          <p class="student-lessons-hero-text">
+            Nhấn vào một bài giảng ở cột bên phải để xem nội dung chi tiết của chương này.
+          </p>
+        </div>
+
+        <div class="student-lessons-divider"></div>
+        <p class="student-lessons-meta-label">Mô tả chương</p>
+        <p class="student-lessons-meta-value">Chương này chưa có mô tả</p>
+      </th:block>
+    </section>
+
+    <!-- RIGHT RAIL: list of PUBLISHED lessons of the active section -->
+    <aside class="student-lessons-rail">
+      <th:block th:each="section : ${view.sections()}"
+                th:if="${section.sectionId() == activeSectionId}">
+        <div class="student-lessons-rail-header">
+          <svg class="student-lessons-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"/>
+            <line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/>
+            <line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          <p class="student-lessons-rail-title">Bài giảng</p>
+          <span class="student-lessons-rail-count" th:text="${#lists.size(section.lessons())}">0</span>
+        </div>
 
         <!-- Empty-section state -->
-        <div class="student-lessons-empty-section"
+        <div class="student-lessons-empty-rail"
              th:if="${#lists.isEmpty(section.lessons())}">
-          <p>Chương này chưa có bài giảng</p>
+          <svg class="student-lessons-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2" ry="2"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <p th:text="${T(com.ulp.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_SECTION}">Chương này chưa có bài giảng</p>
         </div>
 
         <!-- Lesson cards -->
@@ -60,17 +121,26 @@
           <li th:each="lesson : ${section.lessons()}" class="student-lessons-lesson-card">
             <a th:href="@{|/my/classes/${view.classId()}/lessons/${lesson.id()}|}"
                class="student-lessons-lesson-link">
-              <span class="student-lessons-lesson-title" th:text="${lesson.title()}">Bài giảng</span>
-              <span class="student-lessons-lesson-meta"
-                    th:if="${lesson.publishedAt() != null}"
-                    th:text="'Đăng ngày ' + ${#temporals.format(lesson.publishedAt(), 'dd/MM/yyyy')}">
-                Đăng ngày --/--/----
+              <span class="student-lessons-lesson-thumb">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="23 7 16 12 23 17 23 7" fill="currentColor"/>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+              </span>
+              <span class="student-lessons-lesson-body">
+                <span class="student-lessons-lesson-title" th:text="${lesson.title()}">Bài giảng</span>
+                <span class="student-lessons-lesson-meta"
+                      th:if="${lesson.publishedAt() != null}"
+                      th:text="'Đăng ' + ${#temporals.format(lesson.publishedAt(), 'dd/MM/yyyy')}">
+                  Đăng --/--/----
+                </span>
               </span>
             </a>
           </li>
         </ul>
       </th:block>
-    </section>
+    </aside>
   </div>
 </main>
 

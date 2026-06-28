@@ -2,6 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Lớp của tôi', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-classes.css}">
 </head>
 <body>
@@ -11,52 +12,118 @@
       th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError},data-flash-info=${flashInfo}"
       style="display:none;"></span>
 
-<main class="my-classes-shell">
-  <div class="my-classes-header">
-    <h1>Lớp của tôi</h1>
-    <a th:href="@{/my/classes/join}" class="btn-primary">
-      <svg class="ico ico-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Tham gia lớp mới
-    </a>
-  </div>
+<main class="class-page my-classes-shell">
 
-  <!-- Empty state -->
-  <div class="my-classes-empty" th:if="${#lists.isEmpty(rows)}">
-    <p>Bạn chưa tham gia lớp nào.</p>
-    <a th:href="@{/my/classes/join}" class="btn-primary">Tham gia lớp ngay</a>
-  </div>
+  <section class="panel">
 
-  <!-- Class cards -->
-  <ul class="my-classes-list" th:unless="${#lists.isEmpty(rows)}">
-    <li th:each="row : ${rows}" class="my-class-card">
-      <div class="thumb" th:style="'background:' + ${row.avatarGradient()}"
-           th:text="${row.thumbLabel()}">??</div>
-      <div class="info">
-        <h3 class="name" th:text="${row.className()}">Class name</h3>
-        <p class="meta">
-          <span class="cls-code" th:text="${row.classCode()}">CODE5</span>
-          <span class="dot">•</span>
-          <span th:text="${row.lecturerName()}">Lecturer</span>
-        </p>
-        <p class="meta meta-sub">Tham gia: <span th:text="${#temporals.format(row.joinedAt(), 'dd/MM/yyyy HH:mm')}">--</span></p>
+    <!-- Tabs row -->
+    <div class="panel-top">
+      <div class="tabs">
+        <button class="tab active" type="button">
+          Lớp của bạn <span th:text="${rows != null ? rows.size() : 0}">0</span>
+        </button>
       </div>
-      <div class="actions">
-        <a th:href="@{|/my/classes/${row.classId()}/lessons|}"
-           class="btn-primary enter-class-btn">
-          Vào lớp
-        </a>
-        <form th:action="@{/my/classes/{id}/leave(id=${row.classId()})}"
-              method="post"
-              class="leave-form">
-          <button class="btn-danger leave-btn"
-                  type="submit"
-                  th:attr="data-class-name=${row.className()}">
-            Rời lớp
+      <div class="panel-top-right">
+        <button class="btn-ghost icon-only" id="viewToggle" type="button" aria-label="Chuyển dạng lưới">
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search">
+        <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+        <label for="searchInput" class="sr-only">Tìm kiếm lớp học</label>
+        <input type="text" id="searchInput" placeholder="Tìm kiếm..." aria-label="Tìm kiếm lớp học">
+      </div>
+      <div class="dropdown sort" id="sortDd" style="position:relative;">
+        <button class="sort-btn" data-toggle="dropdown" type="button">
+          <span id="sortLabel">Sắp xếp...</span>
+          <svg class="ico ico-sm caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="menu left">
+          <button class="menu-item" data-sort="Mới nhất" data-sort-key="joined-desc" type="button">Mới nhất
+            <svg class="ico ico-sm check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
           </button>
+          <button class="menu-item" data-sort="Cũ nhất" data-sort-key="joined-asc" type="button">Cũ nhất</button>
+          <button class="menu-item" data-sort="Tên A-Z" data-sort-key="name-asc" type="button">Tên A-Z</button>
+          <button class="menu-item" data-sort="Tên Z-A" data-sort-key="name-desc" type="button">Tên Z-A</button>
+        </div>
+      </div>
+      <a class="create-btn" th:href="@{/my/classes/join}">
+        <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        Tham gia lớp mới
+      </a>
+    </div>
+
+    <!-- List header -->
+    <div class="list-head">
+      <div class="col-name">Tên lớp</div>
+      <div class="col">Giảng viên</div>
+      <div class="col">Ngày tham gia</div>
+      <div class="col"></div>
+    </div>
+
+    <!-- Class list -->
+    <div class="class-list">
+
+      <!-- Empty state when no classes -->
+      <div class="empty" th:if="${rows == null or rows.isEmpty()}">
+        Bạn chưa tham gia lớp nào. Nhấn <b>Tham gia lớp mới</b> để bắt đầu.
+      </div>
+
+      <!-- Class rows. The whole card area is a link that opens the lessons view. -->
+      <div th:each="row : ${rows}" class="class-row student-class-row"
+           th:attr="data-class-id=${row.classId()},data-class-name=${row.className()},data-class-code=${row.classCode()},data-joined-at=${#temporals.format(row.joinedAt(), 'yyyy-MM-dd''T''HH:mm:ss')}">
+        <a class="class-main class-main-link"
+           th:href="@{|/my/classes/${row.classId()}/lessons|}"
+           th:aria-label="'Mở lớp ' + ${row.className()}">
+          <div class="class-thumb"
+               th:style="'background:' + ${row.avatarGradient()}"
+               th:text="${row.thumbLabel()}">SE</div>
+          <div class="class-info">
+            <h4 th:text="${row.className()}">SE1865</h4>
+            <div class="class-code">
+              Mã lớp &bull; <b th:text="${row.classCode()}">NILXM</b>
+              <button class="copy-code" type="button" aria-label="Sao chép mã"
+                      th:attr="data-code=${row.classCode()}">
+                <svg class="ico ico-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </a>
+        <div class="stat student-stat-text" th:text="${row.lecturerName()}">Lecturer</div>
+        <div class="stat student-stat-text"
+             th:text="${#temporals.format(row.joinedAt(), 'dd/MM/yyyy')}">--/--/----</div>
+        <div class="dropdown row-menu" style="position:relative;">
+          <button class="icon-btn" data-toggle="dropdown" type="button" aria-label="Tùy chọn">
+            <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+          </button>
+          <div class="menu right">
+            <a class="menu-item" th:href="@{|/my/classes/${row.classId()}/lessons|}">
+              <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              Vào lớp
+            </a>
+            <div class="menu-sep"></div>
+            <button class="menu-item danger" type="button"
+                    data-action="leave-class"
+                    th:attr="data-class-id=${row.classId()},data-class-name=${row.className()}">
+              <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+              Rời khỏi lớp
+            </button>
+          </div>
+        </div>
+
+        <!-- Hidden per-row leave form (Thymeleaf injects CSRF, JS calls form.submit()) -->
+        <form th:id="'leave-form-' + ${row.classId()}"
+              th:action="@{|/my/classes/${row.classId()}/leave|}"
+              method="post" class="leave-form" style="display:none;">
         </form>
       </div>
-    </li>
-  </ul>
+
+    </div>
+  </section>
 </main>
 
 <script th:src="@{/js/app.js}"></script>

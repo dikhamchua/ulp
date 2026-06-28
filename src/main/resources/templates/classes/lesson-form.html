@@ -142,33 +142,54 @@
       </form>
 
       <!-- ═══ Attachments — edit-mode only (ULP-4.0c) ═══════════════════ -->
-      <section class="detail-card" th:if="${mode == 'edit' and lesson != null}"
+      <section class="detail-card latt-card" th:if="${mode == 'edit' and lesson != null}"
                id="lessonAttachmentsCard"
                th:attr="data-lesson-id=${lesson.id},
                         data-class-id=${clazz.id},
                         data-section-id=${section.id},
                         data-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/attachments|}">
-        <h2 class="detail-card-title">Tệp đính kèm</h2>
-        <p class="detail-field-help">
-          Chấp nhận PDF, DOCX, PPTX, XLSX, ZIP. Tối đa 20MB/tệp.
-        </p>
 
-        <!-- Drag-drop zone mirroring the import-excel uploader. Clicking the
-             zone forwards to the hidden file input below. -->
+        <!-- Card header: icon + title + count badge -->
+        <header class="latt-header">
+          <span class="latt-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </span>
+          <div class="latt-header-text">
+            <h2 class="latt-title">Tệp đính kèm</h2>
+            <p class="latt-subtitle">Tài liệu, slide, đề bài dành cho học viên</p>
+          </div>
+          <span class="latt-count" id="lessonAttachCount"
+                th:text="${attachments == null ? 0 : #lists.size(attachments)}">0</span>
+        </header>
+
+        <!-- Format chips: visual whitelist of supported types -->
+        <div class="latt-formats" aria-hidden="true">
+          <span class="latt-chip latt-chip-pdf">PDF</span>
+          <span class="latt-chip latt-chip-doc">DOCX</span>
+          <span class="latt-chip latt-chip-ppt">PPTX</span>
+          <span class="latt-chip latt-chip-xls">XLSX</span>
+          <span class="latt-chip latt-chip-zip">ZIP</span>
+          <span class="latt-size-hint">≤ 20 MB/tệp</span>
+        </div>
+
+        <!-- Drag-drop zone — full-width hero with gradient and large prompt -->
         <div id="lessonAttachDrop" class="latt-drop" tabindex="0" role="button"
              aria-label="Kéo thả tệp đính kèm vào đây hoặc bấm để chọn">
           <span class="latt-drop-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="17 8 12 3 7 8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
           </span>
           <p class="latt-drop-title">
-            <strong>Kéo &amp; thả</strong> tệp vào đây, hoặc bấm để chọn từ máy
+            <strong>Kéo &amp; thả</strong> hoặc <span class="latt-drop-cta">chọn tệp</span> từ máy
           </p>
-          <p class="latt-drop-hint">PDF, DOCX, PPTX, XLSX, ZIP — tối đa 20MB</p>
+          <p class="latt-drop-hint">Hệ thống sẽ tự quét và hiển thị tệp ngay sau khi tải lên</p>
           <p class="latt-drop-meta" id="lessonAttachFileLabel">Chưa chọn tệp</p>
           <input id="lessonAttachInput" type="file"
                  accept=".pdf,.docx,.pptx,.xlsx,.zip" style="display:none;">
@@ -179,9 +200,21 @@
           <div class="latt-progress-bar"></div>
         </div>
 
+        <!-- File list section header (only visible when at least 1 file). -->
+        <h3 class="latt-list-title"
+            th:unless="${attachments == null or #lists.isEmpty(attachments)}">
+          Tệp đã tải lên
+        </h3>
+
         <p class="latt-empty" id="lessonAttachEmpty"
            th:if="${attachments == null or #lists.isEmpty(attachments)}">
-          Chưa có tệp đính kèm.
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+               class="latt-empty-icon" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Chưa có tệp đính kèm nào.
         </p>
 
         <ul class="latt-list" id="lessonAttachList"
@@ -190,8 +223,16 @@
               th:each="att : ${attachments}"
               th:attr="data-attachment-id=${att.id()},
                        data-delete-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/attachments/${att.id()}|}">
-            <span class="latt-ext" aria-hidden="true"
-                  th:text="${#strings.substringAfter(att.originalFilename(), '.')}">PDF</span>
+            <th:block
+                th:with="lname=${#strings.toLowerCase(att.originalFilename())},
+                         extKey=${#strings.endsWith(lname,'.pdf') ? 'ext-pdf'
+                                  : (#strings.endsWith(lname,'.docx') or #strings.endsWith(lname,'.doc') ? 'ext-doc'
+                                  : (#strings.endsWith(lname,'.xlsx') or #strings.endsWith(lname,'.xls') ? 'ext-xls'
+                                  : (#strings.endsWith(lname,'.pptx') or #strings.endsWith(lname,'.ppt') ? 'ext-ppt'
+                                  : (#strings.endsWith(lname,'.zip') ? 'ext-zip' : ''))))}">
+              <span class="latt-ext" th:classappend="${extKey}" aria-hidden="true"
+                    th:text="${#strings.substringAfter(att.originalFilename(), '.')}">PDF</span>
+            </th:block>
             <span class="latt-meta">
               <a class="latt-name" th:href="@{${att.downloadUrl()}}"
                  th:text="${att.originalFilename()}"
@@ -200,8 +241,19 @@
                     th:text="${att.sizeBytes()}"
                     th:attr="data-size-bytes=${att.sizeBytes()}">—</span>
             </span>
-            <button type="button" class="latt-del"
-                    aria-label="Xoá tệp đính kèm">
+            <a class="latt-action latt-download"
+               th:href="@{${att.downloadUrl()}}"
+               aria-label="Tải tệp"
+               title="Tải tệp">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </a>
+            <button type="button" class="latt-action latt-del"
+                    aria-label="Xoá tệp đính kèm" title="Xoá tệp">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
