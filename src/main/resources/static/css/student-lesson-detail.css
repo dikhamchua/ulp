@@ -1,0 +1,207 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Student lesson detail (ULP-4.2)
+   ----------------------------------------------------------------------------
+   Single-column read view at /my/classes/{cid}/lessons/{lid}. All rules are
+   scoped to `.student-lesson-detail-*` so they cannot leak into the list page
+   (student-lessons.css). Tokens (`--color-*`, `--space-*`, `--radius-*`) come
+   from detail-page.css which must be linked BEFORE this stylesheet.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.student-lesson-detail-shell {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-6);
+}
+
+.student-lesson-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-medium);
+  margin-bottom: var(--space-4);
+}
+
+.student-lesson-detail-back:hover {
+  color: var(--color-primary);
+}
+
+.student-lesson-detail-breadcrumb {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.student-lesson-detail-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-heading-navy);
+  margin: 0 0 var(--space-2);
+  line-height: 1.3;
+}
+
+.student-lesson-detail-meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-5);
+}
+
+/* ── Rich-text content body ──────────────────────────────────────────── */
+.student-lesson-detail-content {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  line-height: 1.7;
+  margin-bottom: var(--space-6);
+}
+
+/* Direct children only — avoid leaking spacing into nested regions. */
+.student-lesson-detail-content > p,
+.student-lesson-detail-content > ul,
+.student-lesson-detail-content > ol,
+.student-lesson-detail-content > blockquote,
+.student-lesson-detail-content > pre,
+.student-lesson-detail-content > h2,
+.student-lesson-detail-content > h3 {
+  margin: 0 0 var(--space-4);
+}
+
+.student-lesson-detail-content > h2 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-heading-navy);
+  margin-top: var(--space-5);
+}
+
+.student-lesson-detail-content > h3 {
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-heading-navy);
+  margin-top: var(--space-4);
+}
+
+.student-lesson-detail-content > blockquote {
+  border-left: 4px solid var(--color-primary);
+  padding-left: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.student-lesson-detail-content > pre {
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+}
+
+.student-lesson-detail-empty {
+  background: var(--color-bg-subtle);
+  border: 1px dashed var(--color-border-medium);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+  margin: 0 0 var(--space-6);
+}
+
+/* ── Attachments section ─────────────────────────────────────────────── */
+.student-lesson-detail-attachments {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+}
+
+.student-lesson-detail-attachments-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-3);
+}
+
+.student-lesson-detail-attachment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.student-lesson-detail-attachment-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  transition: border-color 0.15s ease;
+}
+
+.student-lesson-detail-attachment-item:hover {
+  border-color: var(--color-primary);
+}
+
+.student-lesson-detail-attachment-ext {
+  flex: 0 0 auto;
+  min-width: 48px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--weight-bold);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.student-lesson-detail-attachment-name {
+  flex: 1 1 auto;
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.student-lesson-detail-attachment-name:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.student-lesson-detail-attachment-size {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Narrow viewport ─────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .student-lesson-detail-shell {
+    padding: var(--space-4) var(--space-3);
+  }
+  .student-lesson-detail-content,
+  .student-lesson-detail-attachments {
+    padding: var(--space-4);
+  }
+  .student-lesson-detail-attachment-item {
+    flex-wrap: wrap;
+  }
+  .student-lesson-detail-attachment-size {
+    flex-basis: 100%;
+    padding-left: 56px;
+  }
+}

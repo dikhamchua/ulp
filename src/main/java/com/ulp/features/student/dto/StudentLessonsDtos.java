@@ -54,4 +54,61 @@ public class StudentLessonsDtos {
             String className,
             List<SectionWithLessons> sections
     ) { }
+
+    /**
+     * One attachment row rendered on the student-facing lesson detail page.
+     *
+     * <p>The {@code downloadUrl} is built once by the service so the view
+     * stays free of URL string concatenation (see ULP-4.2 design D7). The
+     * URL targets the existing endpoint exposed by capability
+     * {@code lesson-attachments} (ULP-4.0c) — no new download route.
+     *
+     * @param id          attachment primary key
+     * @param filename    original filename as uploaded by the lecturer
+     * @param sizeBytes   file size in bytes
+     * @param mimeType    resolved MIME type (from the extension whitelist)
+     * @param downloadUrl absolute path to the existing download endpoint
+     */
+    public record LessonAttachmentRow(
+            Long id,
+            String filename,
+            long sizeBytes,
+            String mimeType,
+            String downloadUrl
+    ) { }
+
+    /**
+     * Top-level view model for the student-facing lesson detail page at
+     * {@code /my/classes/{classId}/lessons/{lessonId}}.
+     *
+     * <p>Built entirely inside the service's read transaction so the
+     * template never touches a lazy collection (see ULP-4.2 design D9).
+     * All fields are nullable-safe for the template: empty content is
+     * allowed (template renders a placeholder) and empty attachments
+     * collapse to an absent section.
+     *
+     * @param classId         owning class id (used by the back link)
+     * @param className       owning class display name (breadcrumb)
+     * @param lessonId        lesson primary key
+     * @param lessonTitle     lesson display title
+     * @param sectionId       owning section id (used by the back link
+     *                        to pre-select the section on the list page)
+     * @param sectionTitle    owning section display title (breadcrumb)
+     * @param contentRichtext sanitised rich-text HTML body; may be null
+     *                        or empty when the lecturer published an
+     *                        outline-only lesson
+     * @param publishedAt     timestamp the lesson was published
+     * @param attachments     attachment rows in upload order; may be empty
+     */
+    public record LessonDetailView(
+            Long classId,
+            String className,
+            Long lessonId,
+            String lessonTitle,
+            Long sectionId,
+            String sectionTitle,
+            String contentRichtext,
+            LocalDateTime publishedAt,
+            List<LessonAttachmentRow> attachments
+    ) { }
 }

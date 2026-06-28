@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${lessonDetail.lessonTitle()} + ' — ' + ${lessonDetail.className()}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lesson-detail.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+
+<main class="student-lesson-detail-shell">
+  <!-- Back link returns to the section-scoped list view (D5 of ULP-4.1) -->
+  <a class="student-lesson-detail-back"
+     th:href="@{|/my/classes/${lessonDetail.classId()}/lessons|(section=${lessonDetail.sectionId()})}">
+    <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+    Quay lại bài giảng
+  </a>
+
+  <p class="student-lesson-detail-breadcrumb">
+    <span th:text="${lessonDetail.className()}">Tên lớp</span>
+    <span aria-hidden="true">›</span>
+    <span th:text="${lessonDetail.sectionTitle()}">Tên chương</span>
+  </p>
+
+  <h1 class="student-lesson-detail-title" th:text="${lessonDetail.lessonTitle()}">Tiêu đề bài giảng</h1>
+
+  <p class="student-lesson-detail-meta"
+     th:if="${lessonDetail.publishedAt() != null}"
+     th:text="'Đăng ngày ' + ${#temporals.format(lessonDetail.publishedAt(), 'dd/MM/yyyy')}">
+    Đăng ngày --/--/----
+  </p>
+
+  <!-- Rich-text body: lecturer-side sanitises HTML before persist (D6) -->
+  <div class="student-lesson-detail-content"
+       th:if="${not #strings.isEmpty(lessonDetail.contentRichtext())}"
+       th:utext="${lessonDetail.contentRichtext()}">
+    <p>Nội dung bài giảng</p>
+  </div>
+  <p class="student-lesson-detail-empty"
+     th:if="${#strings.isEmpty(lessonDetail.contentRichtext())}">
+    Bài giảng này chưa có nội dung
+  </p>
+
+  <!-- Attachments section is omitted entirely when empty (D8) -->
+  <section class="student-lesson-detail-attachments"
+           th:if="${not #lists.isEmpty(lessonDetail.attachments())}">
+    <h2 class="student-lesson-detail-attachments-title">Tệp đính kèm</h2>
+    <ul class="student-lesson-detail-attachment-list">
+      <li th:each="att : ${lessonDetail.attachments()}"
+          class="student-lesson-detail-attachment-item">
+        <span class="student-lesson-detail-attachment-ext"
+              th:text="${#strings.toUpperCase(#strings.substringAfterLast(att.filename(), '.'))}">PDF</span>
+        <a class="student-lesson-detail-attachment-name"
+           th:href="${att.downloadUrl()}"
+           th:text="${att.filename()}"
+           rel="noopener">tep.pdf</a>
+        <span class="student-lesson-detail-attachment-size"
+              th:text="${att.sizeBytes()} + ' B'">0 B</span>
+      </li>
+    </ul>
+  </section>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

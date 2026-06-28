@@ -55,6 +55,7 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
     String VIEW_LESSON_FORM             = "classes/lesson-form";
     String VIEW_STUDENT_CLASS_LESSONS   = "student/class-lessons";
+    String VIEW_STUDENT_LESSON_DETAIL   = "student/lesson-detail";
 
     // ───────── Model attribute keys ──────────────────────────────────
     String ATTR_FORM              = "form";
@@ -96,6 +97,9 @@ public interface IConstant {
     // Student class-lessons view (ULP-4.1).
     String ATTR_VIEW              = "view";
     String ATTR_ACTIVE_SECTION_ID = "activeSectionId";
+
+    // Student lesson detail view (ULP-4.2).
+    String ATTR_LESSON_DETAIL     = "lessonDetail";
 
     // Lessons feature — shared cross-controller attrs
     // (used by SectionsController + LessonsController).
