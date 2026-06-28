@@ -325,9 +325,13 @@
   background: var(--shub-active-bg);
 }
 
-.student-lessons-lesson-link.active,
-.student-lessons-lesson-card:first-child .student-lessons-lesson-link {
+.student-lessons-lesson-card.active .student-lessons-lesson-link {
   background: var(--shub-active-bg);
+}
+
+.student-lessons-lesson-card.active .student-lessons-lesson-thumb {
+  background: var(--shub-primary);
+  color: #fff;
 }
 
 .student-lessons-lesson-thumb {

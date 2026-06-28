@@ -4,6 +4,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lesson-detail.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
@@ -56,31 +57,71 @@
       </div>
     </aside>
 
-    <!-- MAIN CENTER: hero placeholder for the active section -->
+    <!-- MAIN CENTER: lesson detail when ?lesson=X is set, else hero placeholder -->
     <section class="student-lessons-main">
-      <th:block th:each="section : ${view.sections()}"
-                th:if="${section.sectionId() == activeSectionId}">
-        <h2 class="student-lessons-main-title" th:text="${section.title()}">Tên chương</h2>
-        <p class="student-lessons-main-subtitle">
-          <span th:text="${#lists.size(section.lessons())}">0</span>
-          bài giảng đã xuất bản
+      <!-- Inlined lesson detail (ULP-4.2) — renders when controller resolves ?lesson=X. -->
+      <th:block th:if="${lessonDetail != null}">
+        <h2 class="student-lessons-main-title" th:text="${lessonDetail.lessonTitle()}">Tên bài giảng</h2>
+        <p class="student-lessons-main-subtitle"
+           th:if="${lessonDetail.publishedAt() != null}"
+           th:text="'Đăng ngày ' + ${#temporals.format(lessonDetail.publishedAt(), 'dd/MM/yyyy')}">
+          Đăng ngày --/--/----
         </p>
 
-        <div class="student-lessons-hero">
-          <svg class="student-lessons-hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
-          </svg>
-          <p class="student-lessons-hero-title">Chọn bài giảng để bắt đầu</p>
-          <p class="student-lessons-hero-text">
-            Nhấn vào một bài giảng ở cột bên phải để xem nội dung chi tiết của chương này.
-          </p>
-        </div>
+        <article class="student-lesson-detail-content"
+                 th:if="${lessonDetail.contentRichtext() != null and !#strings.isEmpty(lessonDetail.contentRichtext())}"
+                 th:utext="${lessonDetail.contentRichtext()}">
+          Nội dung bài giảng
+        </article>
+        <p class="student-lesson-detail-empty"
+           th:if="${lessonDetail.contentRichtext() == null or #strings.isEmpty(lessonDetail.contentRichtext())}">
+          Bài giảng này chưa có nội dung.
+        </p>
 
-        <div class="student-lessons-divider"></div>
-        <p class="student-lessons-meta-label">Mô tả chương</p>
-        <p class="student-lessons-meta-value">Chương này chưa có mô tả</p>
+        <section class="student-lesson-detail-attachments"
+                 th:unless="${#lists.isEmpty(lessonDetail.attachments())}">
+          <h3 class="student-lesson-detail-attachments-title">Tệp đính kèm</h3>
+          <ul class="student-lesson-detail-attachment-list">
+            <li th:each="att : ${lessonDetail.attachments()}" class="student-lesson-detail-attachment-item">
+              <span class="student-lesson-detail-attachment-ext"
+                    th:text="${#strings.substringAfter(att.filename(), '.')}">PDF</span>
+              <a class="student-lesson-detail-attachment-name"
+                 th:href="${att.downloadUrl()}"
+                 th:text="${att.filename()}"
+                 th:title="${att.filename()}">tệp.pdf</a>
+              <span class="student-lesson-detail-attachment-size"
+                    th:text="${att.formattedSize()}">— KB</span>
+            </li>
+          </ul>
+        </section>
+      </th:block>
+
+      <!-- Fallback hero placeholder when no lesson is selected. -->
+      <th:block th:if="${lessonDetail == null}">
+        <th:block th:each="section : ${view.sections()}"
+                  th:if="${section.sectionId() == activeSectionId}">
+          <h2 class="student-lessons-main-title" th:text="${section.title()}">Tên chương</h2>
+          <p class="student-lessons-main-subtitle">
+            <span th:text="${#lists.size(section.lessons())}">0</span>
+            bài giảng đã xuất bản
+          </p>
+
+          <div class="student-lessons-hero">
+            <svg class="student-lessons-hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
+            </svg>
+            <p class="student-lessons-hero-title">Chọn bài giảng để bắt đầu</p>
+            <p class="student-lessons-hero-text">
+              Nhấn vào một bài giảng ở cột bên phải để xem nội dung chi tiết của chương này.
+            </p>
+          </div>
+
+          <div class="student-lessons-divider"></div>
+          <p class="student-lessons-meta-label">Mô tả chương</p>
+          <p class="student-lessons-meta-value">Chương này chưa có mô tả</p>
+        </th:block>
       </th:block>
     </section>
 
@@ -118,8 +159,10 @@
         <!-- Lesson cards -->
         <ul class="student-lessons-lesson-list"
             th:unless="${#lists.isEmpty(section.lessons())}">
-          <li th:each="lesson : ${section.lessons()}" class="student-lessons-lesson-card">
-            <a th:href="@{|/my/classes/${view.classId()}/lessons/${lesson.id()}|}"
+          <li th:each="lesson : ${section.lessons()}"
+              th:classappend="${lessonDetail != null and lesson.id() == lessonDetail.lessonId()} ? ' active' : ''"
+              class="student-lessons-lesson-card">
+            <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${activeSectionId},lesson=${lesson.id()})}"
                class="student-lessons-lesson-link">
               <span class="student-lessons-lesson-thumb">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

@@ -75,7 +75,20 @@ public class StudentLessonsDtos {
             long sizeBytes,
             String mimeType,
             String downloadUrl
-    ) { }
+    ) {
+        /**
+         * Human-readable size string (B / KB / MB). Mirrors the
+         * lecturer-side formatter in {@code lesson-attachments.js} so
+         * both surfaces show consistent units.
+         */
+        public String formattedSize() {
+            if (sizeBytes < 1024) return sizeBytes + " B";
+            if (sizeBytes < 1024L * 1024L) {
+                return String.format("%.1f KB", sizeBytes / 1024.0);
+            }
+            return String.format("%.1f MB", sizeBytes / (1024.0 * 1024.0));
+        }
+    }
 
     /**
      * Top-level view model for the student-facing lesson detail page at
