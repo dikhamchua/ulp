@@ -16,6 +16,7 @@ import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.features.lessons.service.LessonAttachmentsService.DownloadHandle;
 import com.ulp.security.Role;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,7 @@ class LessonAttachmentsServiceTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
+    @Autowired private EntityManager entityManager;
 
     private User lecturer;
     private User otherLecturer;
@@ -204,6 +206,30 @@ class LessonAttachmentsServiceTest {
         assertThatThrownBy(() -> attachmentsService.download(
                 lessonId, row.id(), student.getId(), Role.STUDENT))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void delete_main_pdf_clears_lesson_pdf_attachment_id_fk() throws Exception {
+        // Upload + bind as main PDF.
+        LessonAttachmentRow row = attachmentsService.uploadMainPdf(
+                clazz.getId(), section.getId(), lessonId, somePdf(),
+                lecturer.getId(), Role.LECTURER);
+        // Force a fresh DB read so the JPA first-level cache is bypassed —
+        // the FK was just set inside the @Transactional service call.
+        entityManager.flush();
+        entityManager.clear();
+        var beforeDelete = lessonRepository.findById(lessonId).orElseThrow();
+        assertThat(beforeDelete.getPdfAttachmentId()).isEqualTo(row.id());
+
+        attachmentsService.delete(clazz.getId(), section.getId(), lessonId,
+                row.id(), lecturer.getId(), Role.LECTURER);
+        entityManager.flush();
+        entityManager.clear();
+
+        // After delete, the FK is NULL and the row is gone — no dangling ref.
+        var reloaded = lessonRepository.findById(lessonId).orElseThrow();
+        assertThat(reloaded.getPdfAttachmentId()).isNull();
+        assertThat(attachmentRepository.findById(row.id())).isEmpty();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

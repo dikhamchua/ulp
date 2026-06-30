@@ -92,8 +92,10 @@ public class LessonsController {
         ClassEntity clazz = classesService.getEditable(classId, user.getId(), user.getRole());
         Section section = formSupport.loadSection(classId, sectionId);
         if (!model.containsAttribute(ATTR_FORM)) {
+            // Default to RICHTEXT so legacy submit behavior is preserved.
             model.addAttribute(ATTR_FORM,
-                    new LessonForm("", LESSON_STATUS_DRAFT, ""));
+                    new LessonForm("", LESSON_STATUS_DRAFT, "",
+                            CONTENT_TYPE_RICHTEXT, null, null));
         }
         model.addAttribute(ATTR_CLAZZ, clazz);
         model.addAttribute(ATTR_SECTION, section);
@@ -147,7 +149,9 @@ public class LessonsController {
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, new LessonForm(
                     lesson.getTitle(), lesson.getStatus(),
-                    lesson.getContentRichtext() == null ? "" : lesson.getContentRichtext()));
+                    lesson.getContentRichtext() == null ? "" : lesson.getContentRichtext(),
+                    lesson.getContentType() == null ? CONTENT_TYPE_RICHTEXT : lesson.getContentType(),
+                    lesson.getVideoUrl(), lesson.getVideoProvider()));
         }
         String activeDetailTab = TAB_HISTORY.equals(tab) ? TAB_HISTORY : TAB_INFO;
         // Eager-load the activity page so the tab toggle is purely client-side.
@@ -190,9 +194,11 @@ public class LessonsController {
                     lessonEditUrl(classId, sectionId, lessonId));
         }
         try {
+            LessonForm trimmed = new LessonForm(form.title().trim(), form.status(),
+                    form.contentHtml(), form.effectiveContentType(),
+                    form.videoUrl(), form.videoProvider());
             lessonsService.update(classId, sectionId, lessonId,
-                    form.title().trim(), form.status(), form.contentHtml(),
-                    user.getId(), user.getRole());
+                    trimmed, user.getId(), user.getRole());
         } catch (RuntimeException ex) {
             return MutationFailureHandler.handle(ex,
                     lessonsTabUrl(classId, sectionId), ra,

@@ -3,11 +3,13 @@ package com.ulp.features.student.controller;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
+import com.ulp.entities.LessonAttachment;
 import com.ulp.entities.Section;
 import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
+import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.features.student.dto.StudentLessonsDtos.ClassLessonsView;
@@ -23,7 +25,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,6 +42,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * and V8 for {@code sv01@ulp.edu.vn}) because {@code @WithUserDetails}
  * resolves the principal before {@code @BeforeEach} runs, so users
  * created in setup are not visible to {@code UserDetailsService}.
+ *
+ * <p>The single-template refactor folded the standalone lesson-detail
+ * view into the 3-column list template; tests here also cover the
+ * inline viewer dispatch per {@code contentType}.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -54,12 +62,14 @@ class StudentLessonsControllerTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private SectionRepository sectionRepository;
     @Autowired private LessonRepository lessonRepository;
+    @Autowired private LessonAttachmentRepository lessonAttachmentRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
 
     private User lecturer;
     private User student;
     private ClassEntity clazz;
     private Section section1;
+    private Lesson defaultLesson;
 
     @BeforeEach
     void setUp() {
@@ -69,8 +79,9 @@ class StudentLessonsControllerTest {
         section1 = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         Lesson l = new Lesson(section1.getId(), "Bài 1", (short) 0, lecturer.getId());
+        l.updateContent("<p>Body</p>");
         l.publish();
-        lessonRepository.saveAndFlush(l);
+        defaultLesson = lessonRepository.saveAndFlush(l);
         // Enroll the seeded primary student into this fresh class.
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
                 student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
@@ -122,11 +133,73 @@ class StudentLessonsControllerTest {
         assertThat(active).isEqualTo(section1.getId());
     }
 
+    // ── Inline lesson detail (single-template refactor) ───────────────
+
+    /** RICHTEXT lessons render the sanitised body inside the article wrapper. */
+    @Test
+    @WithUserDetails(STUDENT_EMAIL)
+    void class_lessons_renders_richtext_viewer_when_type_is_RICHTEXT() throws Exception {
+        mockMvc.perform(get(urlWithLesson(clazz.getId(), section1.getId(), defaultLesson.getId())))
+                .andExpect(status().isOk())
+                .andExpect(view().name("student/class-lessons"))
+                .andExpect(model().attributeExists("lessonDetail"))
+                // Article wrapper is the contract used by the RICHTEXT branch.
+                .andExpect(content().string(containsString("<article class=\"student-lesson-detail-content\"")))
+                // Body must be unescaped (th:utext) — proven by the raw <p> tag.
+                .andExpect(content().string(containsString("<p>Body</p>")));
+    }
+
+    /** PDF lessons render an &lt;embed&gt; pointing at the stream URL. */
+    @Test
+    @WithUserDetails(STUDENT_EMAIL)
+    void class_lessons_renders_pdf_viewer_when_type_is_PDF() throws Exception {
+        Lesson pdfLesson = new Lesson(section1.getId(), "Bài PDF", (short) 1, lecturer.getId());
+        pdfLesson.publish();
+        pdfLesson = lessonRepository.saveAndFlush(pdfLesson);
+        LessonAttachment main = lessonAttachmentRepository.saveAndFlush(new LessonAttachment(
+                pdfLesson.getId(), "main.pdf", "stored/main.pdf",
+                "application/pdf", 4096L, lecturer.getId()));
+        pdfLesson.switchContentTypeTo("PDF");
+        pdfLesson.setPdfAttachmentId(main.getId());
+        pdfLesson = lessonRepository.saveAndFlush(pdfLesson);
+
+        String expectedPdfUrl = "/api/lessons/" + pdfLesson.getId()
+                + "/attachments/" + main.getId() + "/download";
+        mockMvc.perform(get(urlWithLesson(clazz.getId(), section1.getId(), pdfLesson.getId())))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("<embed")))
+                .andExpect(content().string(containsString("type=\"application/pdf\"")))
+                .andExpect(content().string(containsString(expectedPdfUrl)));
+    }
+
+    /** VIDEO/YOUTUBE lessons render an iframe pointing at the embed URL. */
+    @Test
+    @WithUserDetails(STUDENT_EMAIL)
+    void class_lessons_renders_video_iframe_when_provider_is_YOUTUBE() throws Exception {
+        Lesson videoLesson = new Lesson(section1.getId(), "Bài YT", (short) 2, lecturer.getId());
+        videoLesson.publish();
+        videoLesson = lessonRepository.saveAndFlush(videoLesson);
+        videoLesson.switchContentTypeTo("VIDEO");
+        videoLesson.setVideoProvider("YOUTUBE");
+        videoLesson.setVideoUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+        videoLesson = lessonRepository.saveAndFlush(videoLesson);
+
+        mockMvc.perform(get(urlWithLesson(clazz.getId(), section1.getId(), videoLesson.getId())))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("<iframe")))
+                .andExpect(content().string(containsString("youtube.com/embed/dQw4w9WgXcQ")));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────
 
     private static String url(Long classId, Long sectionParam) {
         String base = "/my/classes/" + classId + "/lessons";
         return sectionParam == null ? base : base + "?section=" + sectionParam;
+    }
+
+    private static String urlWithLesson(Long classId, Long sectionId, Long lessonId) {
+        return "/my/classes/" + classId + "/lessons"
+                + "?section=" + sectionId + "&lesson=" + lessonId;
     }
 
     private ClassEntity saveClass(String name, Long lecturerId, String code) {

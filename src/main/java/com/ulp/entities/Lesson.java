@@ -11,23 +11,20 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 
 /**
- * JPA entity mapping the {@code lessons} table aligned by V14.
+ * JPA entity mapping the {@code lessons} table.
  *
- * <p>A lesson is a unit of content inside a {@link Section}. ULP-4.0b
- * narrows the lesson model to a single rich-text body persisted inline in
- * {@code content_richtext}; PDF / video attachments come in ULP-4.0c.
+ * <p>A lesson carries one of three body types selected by
+ * {@code content_type}: {@code content_richtext}, or a FK to
+ * {@code lesson_attachments} ({@code pdf_attachment_id}), or
+ * {@code video_url} + {@code video_provider}.
  *
- * <p>Soft-deleted rows are filtered out by {@link SQLRestriction}. The
- * {@code display_order} column is nullable on purpose: when a lesson is
- * soft-deleted, {@link #markDeleted()} clears the slot to NULL so the
- * unique key {@code uk_lesson_section_order} allows another lesson to
- * claim that position. The two-phase reorder in {@code LessonsService}
- * relies on the same pattern.
- *
- * <p>Plain getters (no Lombok {@code @Data}) to avoid the equals/hashCode
- * pitfalls flagged in the project conventions.
+ * <p>Soft-deleted rows are filtered by {@link SQLRestriction}.
+ * {@code display_order} is nullable so soft-deleted rows can release
+ * their slot — the unique key {@code uk_lesson_section_order} allows
+ * multiple NULLs.
  */
 @Entity
 @Table(name = "lessons")
@@ -36,6 +33,14 @@ public class Lesson {
 
     public static final String STATUS_DRAFT = "DRAFT";
     public static final String STATUS_PUBLISHED = "PUBLISHED";
+
+    public static final String CONTENT_TYPE_RICHTEXT = "RICHTEXT";
+    public static final String CONTENT_TYPE_PDF = "PDF";
+    public static final String CONTENT_TYPE_VIDEO = "VIDEO";
+
+    /** Allowed values for {@link #contentType}; mirrored by the DB CHECK in V16. */
+    private static final Set<String> VALID_CONTENT_TYPES =
+            Set.of(CONTENT_TYPE_RICHTEXT, CONTENT_TYPE_PDF, CONTENT_TYPE_VIDEO);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,6 +65,22 @@ public class Lesson {
     @Column(name = "content_richtext", columnDefinition = "LONGTEXT")
     private String contentRichtext;
 
+    /** RICHTEXT / PDF / VIDEO — guarded by V16 CHECK + {@link #VALID_CONTENT_TYPES}. */
+    @Column(name = "content_type", nullable = false, length = 20)
+    private String contentType;
+
+    /** FK to {@code lesson_attachments(id)} when content_type = PDF; NULL otherwise. */
+    @Column(name = "pdf_attachment_id")
+    private Long pdfAttachmentId;
+
+    /** External URL (YouTube/Vimeo) or server-relative MP4 path; NULL outside VIDEO. */
+    @Column(name = "video_url", length = 500)
+    private String videoUrl;
+
+    /** YOUTUBE / VIMEO / UPLOAD — NULL outside VIDEO. */
+    @Column(name = "video_provider", length = 20)
+    private String videoProvider;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 
@@ -80,7 +101,9 @@ public class Lesson {
     }
 
     /**
-     * Creates a new draft lesson ready to be persisted.
+     * Creates a new draft lesson ready to be persisted. Defaults
+     * {@code content_type} to RICHTEXT so the lecturer can save a body
+     * straight away without an explicit type pick.
      *
      * @param sectionId    owning section id
      * @param title        display title (<=300 chars)
@@ -93,6 +116,12 @@ public class Lesson {
         this.displayOrder = displayOrder;
         this.createdBy = createdBy;
         this.status = STATUS_DRAFT;
+        this.contentType = CONTENT_TYPE_RICHTEXT;
+        // CHECK chk_lesson_content_shape requires content_richtext to be
+        // non-null when content_type=RICHTEXT. Default to empty string so
+        // a freshly-created lesson satisfies the constraint without forcing
+        // the caller to populate the body before the first persist.
+        this.contentRichtext = "";
         this.deleted = false;
     }
 
@@ -157,6 +186,57 @@ public class Lesson {
         this.displayOrder = null;
     }
 
+    // ── Content-type setters ──────────────────────────────────────────
+
+    /** Sets the PDF attachment FK. The caller (service) ensures the row exists. */
+    public void setPdfAttachmentId(Long pdfAttachmentId) {
+        this.pdfAttachmentId = pdfAttachmentId;
+    }
+
+    /** Sets the external video URL or server-relative MP4 path. */
+    public void setVideoUrl(String videoUrl) {
+        this.videoUrl = videoUrl;
+    }
+
+    /** Sets the video provider (YOUTUBE / VIMEO / UPLOAD). */
+    public void setVideoProvider(String videoProvider) {
+        this.videoProvider = videoProvider;
+    }
+
+    /**
+     * Switches the lesson's content type and nulls every column that no
+     * longer belongs to the new type. Does NOT delete files — the service
+     * orchestrates that around the call (see design D7).
+     *
+     * @param newType one of {@link #CONTENT_TYPE_RICHTEXT},
+     *                {@link #CONTENT_TYPE_PDF}, {@link #CONTENT_TYPE_VIDEO}
+     * @throws IllegalArgumentException if {@code newType} is not in the
+     *                                  whitelist
+     */
+    public void switchContentTypeTo(String newType) {
+        validateContentType(newType);
+        this.contentType = newType;
+        // Wipe fields that the new type does not carry so the DB CHECK
+        // never sees stale data lingering from the previous type.
+        if (!CONTENT_TYPE_RICHTEXT.equals(newType)) {
+            this.contentRichtext = null;
+        }
+        if (!CONTENT_TYPE_PDF.equals(newType)) {
+            this.pdfAttachmentId = null;
+        }
+        if (!CONTENT_TYPE_VIDEO.equals(newType)) {
+            this.videoUrl = null;
+            this.videoProvider = null;
+        }
+    }
+
+    /** Whitelist guard shared with the constructor / switch method. */
+    public static void validateContentType(String value) {
+        if (value == null || !VALID_CONTENT_TYPES.contains(value)) {
+            throw new IllegalArgumentException("Unknown content type: " + value);
+        }
+    }
+
     // ── Getters ────────────────────────────────────────────────────────
 
     public Long getId() {
@@ -181,6 +261,22 @@ public class Lesson {
 
     public String getContentRichtext() {
         return contentRichtext;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public Long getPdfAttachmentId() {
+        return pdfAttachmentId;
+    }
+
+    public String getVideoUrl() {
+        return videoUrl;
+    }
+
+    public String getVideoProvider() {
+        return videoProvider;
     }
 
     public Long getCreatedBy() {

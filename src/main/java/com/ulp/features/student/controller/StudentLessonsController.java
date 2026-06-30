@@ -7,6 +7,9 @@ import com.ulp.features.student.service.StudentLessonDetailService;
 import com.ulp.features.student.service.StudentLessonsService;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -20,28 +23,25 @@ import static com.ulp.common.IConstant.ATTR_ACTIVE_SECTION_ID;
 import static com.ulp.common.IConstant.ATTR_LESSON_DETAIL;
 import static com.ulp.common.IConstant.ATTR_VIEW;
 import static com.ulp.common.IConstant.VIEW_STUDENT_CLASS_LESSONS;
-import static com.ulp.common.IConstant.VIEW_STUDENT_LESSON_DETAIL;
 
 /**
- * Student-facing controller for
- * {@code GET /my/classes/{classId}/lessons} (ULP-4.1) and
- * {@code GET /my/classes/{classId}/lessons/{lessonId}} (ULP-4.2).
+ * Student-facing controller for the class lessons list page.
  *
- * <p>Authentication is gated by {@code SecurityConfig} ({@code /my/**}
- * → {@code isAuthenticated()}); the services perform the
- * enrollment-ACTIVE check and raise {@link EntityNotFoundException}
- * (handled centrally as HTTP 404) when the caller is not enrolled.
+ * <p>The standalone detail URL
+ * ({@code /my/classes/{classId}/lessons/{lessonId}}) now returns a 301
+ * redirect to the canonical query-param form
+ * ({@code /my/classes/{classId}/lessons?section=X&lesson=Y}).
  *
  * <p>Two query parameters control the list endpoint:
  * <ul>
  *   <li>{@code ?section=X} — selects which section's lessons render in
  *       the rail. An invalid id falls back silently to the first section
- *       (anti-fuzzing, D7).</li>
- *   <li>{@code ?lesson=Y} — inlines that lesson's rich-text content into
- *       the main panel. Must belong to the active section and pass the
- *       same authz gates as the dedicated detail route. Invalid /
- *       cross-section ids fall back to the hero placeholder rather than
- *       throwing — again anti-fuzzing.</li>
+ *       (anti-fuzzing).</li>
+ *   <li>{@code ?lesson=Y} — inlines that lesson's content into the main
+ *       panel and switches the viewer per {@code contentType}
+ *       (RICHTEXT / PDF / VIDEO). Must belong to the active section and
+ *       pass the same authz gates. Invalid / cross-section ids fall
+ *       back to the hero placeholder — again anti-fuzzing.</li>
  * </ul>
  */
 @Controller
@@ -123,27 +123,45 @@ public class StudentLessonsController {
     }
 
     /**
-     * Renders the read-only detail page for one PUBLISHED lesson at
-     * {@code GET /my/classes/{classId}/lessons/{lessonId}} (ULP-4.2).
+     * Permanently redirects the legacy standalone detail URL
+     * ({@code /my/classes/{classId}/lessons/{lessonId}}) to the canonical
+     * inline form ({@code /my/classes/{classId}/lessons?section=X&lesson=Y}).
+     * The single-template refactor folds detail rendering into the
+     * 3-column list view so PDFs and videos share the surrounding
+     * sidebar + lesson rail.
      *
-     * <p>Kept as a permalink route — deep-linking from notifications,
-     * search results, or sharing surfaces the dedicated detail view. The
-     * inline {@code ?lesson=} variant on the list endpoint is the
-     * primary in-app navigation path.
+     * <p>Delegates to {@link StudentLessonDetailService#getLessonDetail}
+     * for ALL authz gates (enrollment ACTIVE, class live, cross-class,
+     * lesson PUBLISHED). Any gate failure raises {@code EntityNotFoundException}
+     * mapped to HTTP 404 — the redirect never leaks lesson existence to
+     * non-enrolled callers or for DRAFT lessons.
      *
-     * <p>The service enforces enrollment + class + cross-class + status
-     * gates and raises {@link EntityNotFoundException} (mapped to HTTP
-     * 404 by {@code GlobalExceptionHandler}) when any gate fails.
+     * @return HTTP 301 with the rewritten {@code Location} header
      */
     @GetMapping("/{lessonId}")
-    public String viewLesson(@PathVariable Long classId,
-                             @PathVariable Long lessonId,
-                             @AuthenticationPrincipal UlpUserDetails user,
-                             Model model) {
-        LessonDetailView lessonDetail = studentLessonDetailService
+    public ResponseEntity<Void> redirectStandaloneLesson(@PathVariable Long classId,
+                                                         @PathVariable Long lessonId,
+                                                         @AuthenticationPrincipal UlpUserDetails user) {
+        // Reuse the detail service so every gate (enrollment / class /
+        // cross-class / PUBLISHED) runs unchanged. sectionId comes from
+        // the resolved view so the query-param URL pre-selects the right
+        // sidebar entry.
+        LessonDetailView detail = studentLessonDetailService
                 .getLessonDetail(classId, lessonId, user.getId());
-        model.addAttribute(ATTR_LESSON_DETAIL, lessonDetail);
-        return VIEW_STUDENT_LESSON_DETAIL;
+
+        String location = studentLessonUrl(classId, detail.sectionId(), detail.lessonId());
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.LOCATION, location);
+        return new ResponseEntity<>(headers, HttpStatus.MOVED_PERMANENTLY);
+    }
+
+    /**
+     * Builds the canonical student lesson detail query-param URL.
+     * Kept as a helper (not in IConstant) because it carries path variables.
+     */
+    private static String studentLessonUrl(Long classId, Long sectionId, Long lessonId) {
+        return "/my/classes/" + classId + "/lessons"
+                + "?section=" + sectionId + "&lesson=" + lessonId;
     }
 }
 

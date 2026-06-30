@@ -1,9 +1,11 @@
+<!-- DEPRECATED: This template is no longer routed. Kept for emergency rollback. Lesson detail now renders inline inside class-lessons.html. -->
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head(${lessonDetail.lessonTitle()} + ' — ' + ${lessonDetail.className()}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lesson-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
@@ -32,16 +34,48 @@
     Đăng ngày --/--/----
   </p>
 
-  <!-- Rich-text body: lecturer-side sanitises HTML before persist (D6) -->
+  <!-- Rich-text body — sanitised on persistence so utext is safe (D6). -->
   <div class="student-lesson-detail-content"
-       th:if="${not #strings.isEmpty(lessonDetail.contentRichtext())}"
+       th:if="${lessonDetail.contentType() == 'RICHTEXT' and not #strings.isEmpty(lessonDetail.contentRichtext())}"
        th:utext="${lessonDetail.contentRichtext()}">
     <p>Nội dung bài giảng</p>
   </div>
   <p class="student-lesson-detail-empty"
-     th:if="${#strings.isEmpty(lessonDetail.contentRichtext())}">
+     th:if="${lessonDetail.contentType() == 'RICHTEXT' and #strings.isEmpty(lessonDetail.contentRichtext())}">
     Bài giảng này chưa có nội dung
   </p>
+
+  <!-- PDF viewer (Sprint 3) — inline embed with a fallback link for
+       browsers without an inline PDF plugin (mobile, mostly). The link
+       opens in a new tab; Content-Disposition: inline keeps it from
+       downloading directly. -->
+  <div class="lesson-pdf-viewer"
+       th:if="${lessonDetail.contentType() == 'PDF' and lessonDetail.pdfDownloadUrl() != null}">
+    <embed th:src="${lessonDetail.pdfDownloadUrl()}" type="application/pdf"
+           class="lesson-pdf-embed">
+      <a th:href="${lessonDetail.pdfDownloadUrl()}" target="_blank" rel="noopener"
+         class="lesson-pdf-fallback">Mở PDF trong tab mới</a>
+    </embed>
+  </div>
+
+  <!-- Video viewer (Sprint 3) — iframe for YouTube/Vimeo, HTML5 video
+       for UPLOAD. The 16:9 wrapper keeps both shapes responsive. -->
+  <div class="lesson-video-viewer"
+       th:if="${lessonDetail.contentType() == 'VIDEO' and lessonDetail.videoUrl() != null}">
+    <div class="lesson-video-aspect">
+      <iframe th:if="${lessonDetail.videoProvider() == 'YOUTUBE' or lessonDetail.videoProvider() == 'VIMEO'}"
+              th:src="${lessonDetail.videoUrl()}"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen>
+      </iframe>
+      <video th:if="${lessonDetail.videoProvider() == 'UPLOAD'}"
+             th:src="${lessonDetail.videoUrl()}"
+             controls preload="metadata">
+        Trình duyệt không hỗ trợ thẻ video.
+      </video>
+    </div>
+  </div>
 
   <!-- Attachments section is omitted entirely when empty (D8) -->
   <section class="student-lesson-detail-attachments"
@@ -51,7 +85,7 @@
       <li th:each="att : ${lessonDetail.attachments()}"
           class="student-lesson-detail-attachment-item">
         <span class="student-lesson-detail-attachment-ext"
-              th:text="${#strings.toUpperCase(#strings.substringAfterLast(att.filename(), '.'))}">PDF</span>
+              th:text="${att.extension()}">PDF</span>
         <a class="student-lesson-detail-attachment-name"
            th:href="${att.downloadUrl()}"
            th:text="${att.filename()}"

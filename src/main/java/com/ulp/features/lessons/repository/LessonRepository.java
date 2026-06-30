@@ -2,6 +2,7 @@ package com.ulp.features.lessons.repository;
 
 import com.ulp.entities.Lesson;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -33,4 +34,16 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
             + "WHERE section_id = :sectionId AND is_deleted = 0",
            nativeQuery = true)
     short findMaxDisplayOrder(@Param("sectionId") Long sectionId);
+
+    /**
+     * Clears {@code lessons.pdf_attachment_id} for every row that points at
+     * the supplied attachment id. Called before the attachment row itself is
+     * deleted so no dangling FK exists during the cascade — see design D2.
+     */
+    @Modifying
+    @Query(value = "UPDATE lessons SET pdf_attachment_id = NULL "
+            + "WHERE pdf_attachment_id = :attachmentId",
+           nativeQuery = true)
+    void clearPdfAttachmentId(@Param("attachmentId") Long attachmentId);
 }
+

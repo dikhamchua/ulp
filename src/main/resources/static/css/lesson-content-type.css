@@ -1,0 +1,282 @@
+/* Lesson content-type styling (add-lesson-content-types, Sprint 3).
+   Covers: type picker cards on the lesson form, the PDF embed +
+   16:9 video wrapper on the student detail page, and the confirm
+   modal shown when the lecturer switches a persisted lesson's type. */
+
+/* ── Type picker cards ───────────────────────────────────────────── */
+.lct-picker {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+    .lct-picker {
+        grid-template-columns: 1fr;
+    }
+}
+
+.lct-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    background: #fff;
+}
+
+.lct-card:hover {
+    border-color: #94a3b8;
+}
+
+.lct-card input[type="radio"] {
+    accent-color: #2563eb;
+    transform: scale(1.1);
+}
+
+.lct-card input[type="radio"]:checked ~ .lct-card-body {
+    color: #1d4ed8;
+}
+
+.lct-card:has(input[type="radio"]:checked) {
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.lct-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lct-card-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: inherit;
+}
+
+.lct-card-desc {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+/* ── PDF / Video sub-section helpers ─────────────────────────────── */
+.lct-warn {
+    color: #b45309;
+    font-weight: 500;
+}
+
+.lct-pdf-upload,
+.lct-video-url-block,
+.lct-video-upload-block {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.lct-video-url-block label,
+.lct-video-upload-block label {
+    display: block;
+    flex-basis: 100%;
+    font-weight: 500;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.lct-pdf-status,
+.lct-video-status {
+    color: #475569;
+    font-size: 0.85rem;
+}
+
+.lct-video-providers {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.lct-video-providers label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+}
+
+/* Hide sub-sections that do not belong to the current type. JS adds the
+   .is-hidden class to keep CSS clean of inline display logic. */
+[data-content-type-section].is-hidden {
+    display: none !important;
+}
+
+/* ── Confirm modal ───────────────────────────────────────────────── */
+.lct-modal[hidden] {
+    display: none;
+}
+
+.lct-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lct-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.lct-modal-panel {
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 460px;
+    width: calc(100% - 32px);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+}
+
+.lct-modal-title {
+    margin: 0 0 12px;
+    font-size: 1.15rem;
+}
+
+.lct-modal-body {
+    margin: 0 0 20px;
+    color: #475569;
+}
+
+.lct-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* ── List badge (detail-lessons page) ────────────────────────────── */
+.lesson-type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-right: 8px;
+}
+
+.lesson-type-richtext {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.lesson-type-pdf {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.lesson-type-video {
+    background: #dcfce7;
+    color: #166534;
+}
+
+/* ── Student detail PDF embed + video aspect ratio ───────────────── */
+.lesson-pdf-viewer {
+    margin-top: 12px;
+}
+
+.lesson-pdf-embed {
+    width: 100%;
+    height: 75vh;
+    min-height: 480px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+}
+
+.lesson-pdf-fallback {
+    display: inline-block;
+    margin-top: 8px;
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+.lesson-video-viewer {
+    margin-top: 12px;
+}
+
+.lesson-video-aspect {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.lesson-video-aspect iframe,
+.lesson-video-aspect video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+/* Generic helper buttons used by the form sub-sections. */
+.btn-secondary {
+    padding: 6px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    color: #1e293b;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    border-color: #2563eb;
+    color: #1d4ed8;
+}
+
+.btn-primary {
+    padding: 6px 14px;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+}
+
+/* ── 3-column main-center scoping (single-template refactor) ─────── */
+/* When PDF/VIDEO viewers render inside .student-lessons-main (the
+   middle column of class-lessons.html) the parent column has limited
+   width (1fr in a 260px / 1fr / 360px grid). Cap the embed/aspect to
+   100% width so neither viewer can spill into the right rail when a
+   future change widens the iframe/embed default sizing. */
+.student-lessons-main .lesson-pdf-viewer,
+.student-lessons-main .lesson-video-viewer {
+    max-width: 100%;
+}
+
+.student-lessons-main .lesson-pdf-embed {
+    max-width: 100%;
+    display: block;
+}
+
+.student-lessons-main .lesson-video-aspect {
+    max-width: 100%;
+}

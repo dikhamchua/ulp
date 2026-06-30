@@ -5,6 +5,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lesson-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
@@ -68,15 +69,46 @@
           Đăng ngày --/--/----
         </p>
 
+        <!-- RICHTEXT viewer — sanitised on persistence so utext is safe. -->
         <article class="student-lesson-detail-content"
-                 th:if="${lessonDetail.contentRichtext() != null and !#strings.isEmpty(lessonDetail.contentRichtext())}"
+                 th:if="${lessonDetail.contentType() == 'RICHTEXT' and lessonDetail.contentRichtext() != null and !#strings.isEmpty(lessonDetail.contentRichtext())}"
                  th:utext="${lessonDetail.contentRichtext()}">
           Nội dung bài giảng
         </article>
         <p class="student-lesson-detail-empty"
-           th:if="${lessonDetail.contentRichtext() == null or #strings.isEmpty(lessonDetail.contentRichtext())}">
+           th:if="${lessonDetail.contentType() == 'RICHTEXT' and (lessonDetail.contentRichtext() == null or #strings.isEmpty(lessonDetail.contentRichtext()))}">
           Bài giảng này chưa có nội dung.
         </p>
+
+        <!-- PDF viewer — inline embed with a fallback link for browsers
+             without an inline PDF plugin (mobile, mostly). -->
+        <div class="lesson-pdf-viewer"
+             th:if="${lessonDetail.contentType() == 'PDF' and lessonDetail.pdfDownloadUrl() != null}">
+          <embed th:src="${lessonDetail.pdfDownloadUrl()}" type="application/pdf"
+                 class="lesson-pdf-embed">
+            <a th:href="${lessonDetail.pdfDownloadUrl()}" target="_blank" rel="noopener"
+               class="lesson-pdf-fallback">Mở PDF trong tab mới</a>
+          </embed>
+        </div>
+
+        <!-- VIDEO viewer — iframe for YouTube/Vimeo, HTML5 video for UPLOAD.
+             The 16:9 wrapper keeps both shapes responsive. -->
+        <div class="lesson-video-viewer"
+             th:if="${lessonDetail.contentType() == 'VIDEO' and lessonDetail.videoUrl() != null}">
+          <div class="lesson-video-aspect">
+            <iframe th:if="${lessonDetail.videoProvider() == 'YOUTUBE' or lessonDetail.videoProvider() == 'VIMEO'}"
+                    th:src="${lessonDetail.videoUrl()}"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen>
+            </iframe>
+            <video th:if="${lessonDetail.videoProvider() == 'UPLOAD'}"
+                   th:src="${lessonDetail.videoUrl()}"
+                   controls preload="metadata">
+              Trình duyệt không hỗ trợ thẻ video.
+            </video>
+          </div>
+        </div>
 
         <section class="student-lesson-detail-attachments"
                  th:unless="${#lists.isEmpty(lessonDetail.attachments())}">
@@ -84,7 +116,7 @@
           <ul class="student-lesson-detail-attachment-list">
             <li th:each="att : ${lessonDetail.attachments()}" class="student-lesson-detail-attachment-item">
               <span class="student-lesson-detail-attachment-ext"
-                    th:text="${#strings.substringAfter(att.filename(), '.')}">PDF</span>
+                    th:text="${att.extension()}">PDF</span>
               <a class="student-lesson-detail-attachment-name"
                  th:href="${att.downloadUrl()}"
                  th:text="${att.filename()}"
@@ -165,10 +197,31 @@
             <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${activeSectionId},lesson=${lesson.id()})}"
                class="student-lessons-lesson-link">
               <span class="student-lessons-lesson-thumb">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                <!-- Icon switches per contentType so the rail signals the
+                     viewer the student will land on. Defaults to the
+                     document icon when contentType is null (legacy rows). -->
+                <svg th:if="${lesson.contentType() == 'VIDEO'}"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                      stroke-linecap="round" stroke-linejoin="round">
                   <polygon points="23 7 16 12 23 17 23 7" fill="currentColor"/>
                   <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+                <svg th:if="${lesson.contentType() == 'PDF'}"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <text x="7" y="18" font-size="6" font-weight="700"
+                        fill="currentColor" stroke="none">PDF</text>
+                </svg>
+                <svg th:if="${lesson.contentType() == null or lesson.contentType() == 'RICHTEXT'}"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="8" y1="13" x2="16" y2="13"/>
+                  <line x1="8" y1="17" x2="16" y2="17"/>
+                  <line x1="8" y1="9" x2="10" y2="9"/>
                 </svg>
               </span>
               <span class="student-lessons-lesson-body">

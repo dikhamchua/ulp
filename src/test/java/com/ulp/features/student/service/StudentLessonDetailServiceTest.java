@@ -206,11 +206,103 @@ class StudentLessonDetailServiceTest {
                 .hasMessage(NF_MSG);
     }
 
+    // ── Content-type view-model coverage ────────────────────────────
+
+    @Test
+    void richtext_lesson_populates_content_type_richtext() {
+        Lesson lesson = persistLesson(section.getId(), "Bài VB", "<p>OK</p>", true);
+        enrollActive();
+
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId());
+
+        assertThat(view.contentType()).isEqualTo("RICHTEXT");
+        assertThat(view.pdfDownloadUrl()).isNull();
+        assertThat(view.videoUrl()).isNull();
+        assertThat(view.videoProvider()).isNull();
+    }
+
+    @Test
+    void pdf_lesson_returns_pdf_url_and_skips_main_attachment_from_accessory_list() {
+        Lesson lesson = persistLesson(section.getId(), "Bài PDF", null, true);
+        LessonAttachment main = persistAttachment(lesson.getId(), "main.pdf", "application/pdf", 4096L);
+        LessonAttachment extra = persistAttachment(lesson.getId(), "extra.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 2048L);
+        lesson.switchContentTypeTo("PDF");
+        lesson.setPdfAttachmentId(main.getId());
+        lessonRepository.saveAndFlush(lesson);
+        enrollActive();
+
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId());
+
+        assertThat(view.contentType()).isEqualTo("PDF");
+        assertThat(view.pdfDownloadUrl())
+                .isEqualTo("/api/lessons/" + lesson.getId() + "/attachments/"
+                        + main.getId() + "/download");
+        // Accessory list excludes the main PDF row.
+        assertThat(view.attachments())
+                .extracting(LessonAttachmentRow::id)
+                .containsExactly(extra.getId());
+    }
+
+    @Test
+    void video_youtube_lesson_returns_embed_url() {
+        Lesson lesson = persistLesson(section.getId(), "Bài YT", null, true);
+        lesson.switchContentTypeTo("VIDEO");
+        lesson.setVideoProvider("YOUTUBE");
+        lesson.setVideoUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+        lessonRepository.saveAndFlush(lesson);
+        enrollActive();
+
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId());
+
+        assertThat(view.contentType()).isEqualTo("VIDEO");
+        assertThat(view.videoProvider()).isEqualTo("YOUTUBE");
+        assertThat(view.videoUrl()).isEqualTo("https://www.youtube.com/embed/dQw4w9WgXcQ");
+    }
+
+    @Test
+    void video_vimeo_lesson_returns_player_url() {
+        Lesson lesson = persistLesson(section.getId(), "Bài Vimeo", null, true);
+        lesson.switchContentTypeTo("VIDEO");
+        lesson.setVideoProvider("VIMEO");
+        lesson.setVideoUrl("https://vimeo.com/123456789");
+        lessonRepository.saveAndFlush(lesson);
+        enrollActive();
+
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId());
+
+        assertThat(view.videoProvider()).isEqualTo("VIMEO");
+        assertThat(view.videoUrl()).isEqualTo("https://player.vimeo.com/video/123456789");
+    }
+
+    @Test
+    void video_uploaded_lesson_returns_stream_endpoint() {
+        Lesson lesson = persistLesson(section.getId(), "Bài MP4", null, true);
+        lesson.switchContentTypeTo("VIDEO");
+        lesson.setVideoProvider("UPLOAD");
+        lesson.setVideoUrl("lessons/" + lesson.getId() + "/video/abc.mp4");
+        lessonRepository.saveAndFlush(lesson);
+        enrollActive();
+
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId());
+
+        assertThat(view.videoProvider()).isEqualTo("UPLOAD");
+        assertThat(view.videoUrl()).isEqualTo("/api/lessons/" + lesson.getId() + "/video/stream");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────
 
     private Lesson persistLesson(Long sectionId, String title, String content, boolean published) {
         Lesson l = new Lesson(sectionId, title, (short) 0, lecturer.getId());
-        if (content != null) l.updateContent(content);
+        // CHECK constraint chk_lesson_content_shape requires content_richtext
+        // to be non-null when content_type=RICHTEXT (the default). Substitute
+        // empty string for null so the row passes the constraint.
+        l.updateContent(content == null ? "" : content);
         if (published) l.publish();
         return lessonRepository.saveAndFlush(l);
     }

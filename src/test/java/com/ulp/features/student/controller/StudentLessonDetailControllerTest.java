@@ -10,37 +10,36 @@ import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
-import com.ulp.features.student.dto.StudentLessonsDtos.LessonDetailView;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 /**
- * Integration tests for the student-facing lesson detail endpoint
+ * Integration tests for the legacy standalone lesson detail endpoint
  * {@code GET /my/classes/{classId}/lessons/{lessonId}} (ULP-4.2).
  *
- * <p>Exercises the Spring Security filter chain, the controller wiring,
- * template selection, and the {@code EntityNotFoundException} → 404
- * mapping end-to-end via MockMvc. Pre-seeded users from migrations are
- * used because {@code @WithUserDetails} resolves the principal before
- * {@code @BeforeEach}.
+ * <p>After the single-template refactor the route returns a permanent
+ * 301 redirect to the canonical query-param form
+ * ({@code /my/classes/{classId}/lessons?section=X&lesson=Y}); rendering
+ * happens inside the 3-column list view (see
+ * {@link StudentLessonsControllerTest} for the rendered-content
+ * assertions). These tests cover the redirect contract and the unchanged
+ * 404 gates (not enrolled / DRAFT lesson / anonymous).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -84,53 +83,20 @@ class StudentLessonDetailControllerTest {
                 student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
     }
 
+    /**
+     * Core contract: enrolled student hitting the legacy URL gets a
+     * permanent (301) redirect to the canonical query-param form.
+     */
     @Test
     @WithUserDetails(STUDENT_EMAIL)
-    void get_as_enrolled_returns_200_with_view_and_model() throws Exception {
-        var result = mockMvc.perform(get(url(clazz.getId(), published.getId())))
-                .andExpect(status().isOk())
-                .andExpect(view().name("student/lesson-detail"))
-                .andExpect(model().attributeExists("lessonDetail"))
-                // Back link must carry the section id so the list view re-opens the same section.
-                .andExpect(content().string(containsString("?section=" + section.getId())))
-                // Lesson title is rendered inside an <h1> wrapper.
-                .andExpect(content().string(containsString("<h1")))
-                .andExpect(content().string(containsString("Bài 1")))
-                // Rich-text body must be unescaped (th:utext), proven by the raw <p> tag.
-                .andExpect(content().string(containsString("<p>Body</p>")))
-                .andReturn();
+    void redirect_standalone_lesson_url_to_query_param_form() throws Exception {
+        String expectedLocation = "/my/classes/" + clazz.getId() + "/lessons"
+                + "?section=" + section.getId()
+                + "&lesson=" + published.getId();
 
-        LessonDetailView detail = (LessonDetailView) result.getModelAndView()
-                .getModel().get("lessonDetail");
-        assertThat(detail).isNotNull();
-        assertThat(detail.lessonId()).isEqualTo(published.getId());
-        assertThat(detail.classId()).isEqualTo(clazz.getId());
-        assertThat(detail.lessonTitle()).isEqualTo("Bài 1");
-    }
-
-    /** Empty rich-text content renders the Vietnamese placeholder paragraph. */
-    @Test
-    @WithUserDetails(STUDENT_EMAIL)
-    void get_as_enrolled_with_empty_content_renders_placeholder() throws Exception {
-        // Arrange a published lesson whose content_richtext is null.
-        Lesson empty = new Lesson(section.getId(), "Bài trống", (short) 2, lecturer.getId());
-        empty.publish();
-        empty = lessonRepository.saveAndFlush(empty);
-
-        mockMvc.perform(get(url(clazz.getId(), empty.getId())))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Bài giảng này chưa có nội dung")));
-    }
-
-    /** When the lesson has zero attachments the entire section block is omitted from the HTML. */
-    @Test
-    @WithUserDetails(STUDENT_EMAIL)
-    void get_as_enrolled_with_no_attachments_hides_attachments_section() throws Exception {
-        // The fixture's `published` lesson has no attachments by default.
         mockMvc.perform(get(url(clazz.getId(), published.getId())))
-                .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("student-lesson-detail-attachments"))))
-                .andExpect(content().string(not(containsString("Tệp đính kèm"))));
+                .andExpect(status().isMovedPermanently())
+                .andExpect(header().string(HttpHeaders.LOCATION, expectedLocation));
     }
 
     @Test
@@ -141,6 +107,7 @@ class StudentLessonDetailControllerTest {
                 .andExpect(content().string(containsString("Class not found or not accessible")));
     }
 
+    /** DRAFT lessons must 404 — never leak existence via redirect. */
     @Test
     @WithUserDetails(STUDENT_EMAIL)
     void get_draft_lesson_returns_404() throws Exception {

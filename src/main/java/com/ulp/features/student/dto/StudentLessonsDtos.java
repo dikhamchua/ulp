@@ -17,19 +17,21 @@ public class StudentLessonsDtos {
     /**
      * A single PUBLISHED lesson row rendered in the main panel.
      *
-     * @param id          lesson primary key (used in the placeholder href
-     *                    for ULP-4.2 lesson detail)
+     * @param id          lesson primary key (drives the detail link)
      * @param title       display title
      * @param sectionId   id of the owning section — kept on the row so the
      *                    template can build per-lesson links without a
      *                    second lookup
      * @param publishedAt when the lesson was published (display only)
+     * @param contentType RICHTEXT / PDF / VIDEO — lets the right-rail card
+     *                    pick the matching thumb icon without a service hop
      */
     public record StudentLessonRow(
             Long id,
             String title,
             Long sectionId,
-            LocalDateTime publishedAt
+            LocalDateTime publishedAt,
+            String contentType
     ) { }
 
     /**
@@ -59,9 +61,8 @@ public class StudentLessonsDtos {
      * One attachment row rendered on the student-facing lesson detail page.
      *
      * <p>The {@code downloadUrl} is built once by the service so the view
-     * stays free of URL string concatenation (see ULP-4.2 design D7). The
-     * URL targets the existing endpoint exposed by capability
-     * {@code lesson-attachments} (ULP-4.0c) — no new download route.
+     * stays free of URL string concatenation. The URL targets the existing
+     * attachment download endpoint — no new download route.
      *
      * @param id          attachment primary key
      * @param filename    original filename as uploaded by the lecturer
@@ -88,6 +89,20 @@ public class StudentLessonsDtos {
             }
             return String.format("%.1f MB", sizeBytes / (1024.0 * 1024.0));
         }
+
+        /**
+         * Uppercase file extension derived from the last dot in
+         * {@link #filename()}; empty string when the filename has no
+         * extension. Used by the student lesson-detail template; computed
+         * here because Thymeleaf 3 lacks a {@code substringAfterLast}
+         * utility on {@code #strings}.
+         */
+        public String extension() {
+            if (filename == null) return "";
+            int dot = filename.lastIndexOf('.');
+            if (dot < 0 || dot == filename.length() - 1) return "";
+            return filename.substring(dot + 1).toUpperCase();
+        }
     }
 
     /**
@@ -95,23 +110,29 @@ public class StudentLessonsDtos {
      * {@code /my/classes/{classId}/lessons/{lessonId}}.
      *
      * <p>Built entirely inside the service's read transaction so the
-     * template never touches a lazy collection (see ULP-4.2 design D9).
-     * All fields are nullable-safe for the template: empty content is
-     * allowed (template renders a placeholder) and empty attachments
-     * collapse to an absent section.
+     * template never touches a lazy collection. All fields are
+     * nullable-safe: empty content renders a placeholder and empty
+     * attachments collapse to an absent section.
+     *
+     * <p>The {@code contentType} discriminator selects the viewer;
+     * {@code pdfDownloadUrl} serves the embedded PDF path,
+     * {@code videoUrl} carries the embed URL (YOUTUBE/VIMEO) or stream
+     * endpoint (UPLOAD), and {@code videoProvider} identifies the source.
      *
      * @param classId         owning class id (used by the back link)
      * @param className       owning class display name (breadcrumb)
      * @param lessonId        lesson primary key
      * @param lessonTitle     lesson display title
-     * @param sectionId       owning section id (used by the back link
-     *                        to pre-select the section on the list page)
+     * @param sectionId       owning section id (pre-selects the section
+     *                        on the list page)
      * @param sectionTitle    owning section display title (breadcrumb)
      * @param contentRichtext sanitised rich-text HTML body; may be null
-     *                        or empty when the lecturer published an
-     *                        outline-only lesson
      * @param publishedAt     timestamp the lesson was published
      * @param attachments     attachment rows in upload order; may be empty
+     * @param contentType     RICHTEXT / PDF / VIDEO — selects the viewer
+     * @param pdfDownloadUrl  stream URL of the main PDF when type=PDF
+     * @param videoUrl        embed URL (YOUTUBE/VIMEO) or stream URL (UPLOAD)
+     * @param videoProvider   YOUTUBE / VIMEO / UPLOAD — null outside VIDEO
      */
     public record LessonDetailView(
             Long classId,
@@ -122,6 +143,10 @@ public class StudentLessonsDtos {
             String sectionTitle,
             String contentRichtext,
             LocalDateTime publishedAt,
-            List<LessonAttachmentRow> attachments
+            List<LessonAttachmentRow> attachments,
+            String contentType,
+            String pdfDownloadUrl,
+            String videoUrl,
+            String videoProvider
     ) { }
 }

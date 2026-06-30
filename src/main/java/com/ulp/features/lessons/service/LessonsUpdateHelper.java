@@ -34,6 +34,18 @@ public class LessonsUpdateHelper {
     public void writeUpdateActivity(Lesson saved, String oldTitle, String oldBody,
                                     String newBody, boolean titleChanged,
                                     boolean bodyChanged, Long userId) {
+        writeUpdateActivity(saved, oldTitle, oldBody, newBody,
+                titleChanged, bodyChanged, false, null, null, userId);
+    }
+
+    /**
+     * Overload that also records the content_type transition when the
+     * lecturer flipped between RICHTEXT / PDF / VIDEO.
+     */
+    public void writeUpdateActivity(Lesson saved, String oldTitle, String oldBody,
+                                    String newBody, boolean titleChanged,
+                                    boolean bodyChanged, boolean typeChanged,
+                                    String oldType, String newType, Long userId) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         if (titleChanged) {
             Map<String, Object> diff = new LinkedHashMap<>();
@@ -46,6 +58,12 @@ public class LessonsUpdateHelper {
             diff.put("old", oldBody);
             diff.put("new", newBody);
             metadata.put("body", diff);
+        }
+        if (typeChanged) {
+            Map<String, Object> diff = new LinkedHashMap<>();
+            diff.put("old", oldType);
+            diff.put("new", newType);
+            metadata.put("content_type", diff);
         }
         activityWriter.write(
                 saved.getId(),
