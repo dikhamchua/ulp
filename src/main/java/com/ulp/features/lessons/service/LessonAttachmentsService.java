@@ -31,16 +31,16 @@ import static com.ulp.common.IConstant.MSG_FORBIDDEN_FOR_CLASS;
 import static com.ulp.common.IConstant.MSG_LESSON_NOT_FOUND;
 
 /**
- * Business service for lesson attachments (ULP-4.0c).
+ * Business service for lesson attachments.
  *
  * <p>Three-layer auth on upload/delete/list: class-level edit via
  * {@link ClassesService#getEditable}, section↔class binding via
  * {@link LessonsReorderService#verifySectionBelongsToClass}, and
  * lesson↔section binding via {@link LessonRepository#findByIdAndSectionId}.
- * Download widens this: enrolled students may download but only when the
- * parent lesson is {@code PUBLISHED} (design D3). Cascade on lesson
- * soft-delete is application-level — {@link LessonsService#delete} calls
- * {@link #deleteAllByLesson(Long)} BEFORE markDeleted (design D2).
+ * Download widens this: enrolled students may download only when the
+ * parent lesson is {@code PUBLISHED}. Cascade on lesson soft-delete is
+ * application-level — {@link LessonsService#delete} calls
+ * {@link #deleteAllByLesson(Long)} BEFORE markDeleted.
  */
 @Service
 public class LessonAttachmentsService {
@@ -99,6 +99,48 @@ public class LessonAttachmentsService {
         return toRow(attachmentRepository.save(row));
     }
 
+    /**
+     * Uploads a PDF and binds it as the lesson's main PDF content body.
+     * When the lesson already has a main PDF the previous attachment row
+     * + on-disk file are deleted first so disk usage stays bounded and
+     * a single main PDF invariant holds.
+     *
+     * @throws IllegalArgumentException when the file is not a PDF or the
+     *                                  upload validation fails
+     */
+    @Transactional
+    public LessonAttachmentRow uploadMainPdf(Long classId, Long sectionId, Long lessonId,
+                                             MultipartFile file, Long userId, Role role)
+            throws IOException {
+        classesService.getEditable(classId, userId, role);
+        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        Lesson lesson = loadLesson(sectionId, lessonId);
+
+        if (file == null || !"application/pdf".equalsIgnoreCase(file.getContentType())) {
+            throw new IllegalArgumentException("Chỉ chấp nhận tệp PDF cho bài giảng dạng PDF");
+        }
+
+        // Replace any previous main PDF — delete its row + file first so
+        // the FK can rebind cleanly. We clear the FK before delete to keep
+        // the existing dangling-reference guard intact.
+        Long previousMainId = lesson.getPdfAttachmentId();
+        if (previousMainId != null) {
+            attachmentRepository.findById(previousMainId).ifPresent(prev -> {
+                lessonRepository.clearPdfAttachmentId(prev.getId());
+                storage.delete(prev.getStoredPath());
+                attachmentRepository.delete(prev);
+            });
+        }
+
+        StoredAttachment stored = storage.store(file, lessonId);
+        LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
+                stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
+        LessonAttachment saved = attachmentRepository.saveAndFlush(row);
+        lesson.setPdfAttachmentId(saved.getId());
+        lessonRepository.save(lesson);
+        return toRow(saved);
+    }
+
     /** Hard-deletes a single attachment (DB row + on-disk file). */
     @Transactional
     public void delete(Long classId, Long sectionId, Long lessonId, Long attachmentId,
@@ -108,6 +150,11 @@ public class LessonAttachmentsService {
         loadLesson(sectionId, lessonId);
         LessonAttachment att = attachmentRepository.findByIdAndLessonId(attachmentId, lessonId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ATTACHMENT_NOT_FOUND));
+        // Clear the FK first so the delete never leaves a dangling
+        // reference from lessons.pdf_attachment_id. Safe to call even
+        // when the attachment is not the lesson's main PDF — the
+        // UPDATE just affects 0 rows.
+        lessonRepository.clearPdfAttachmentId(attachmentId);
         // File-first: storage.delete swallows IO errors so the DB row removal
         // is the authoritative success signal for the caller.
         storage.delete(att.getStoredPath());
@@ -121,7 +168,14 @@ public class LessonAttachmentsService {
     @Transactional
     public void deleteAllByLesson(Long lessonId) {
         List<LessonAttachment> rows = attachmentRepository.findByLessonIdOrderByUploadedAtAsc(lessonId);
-        for (LessonAttachment att : rows) storage.delete(att.getStoredPath());
+        for (LessonAttachment att : rows) {
+            // Defense-in-depth: clear any FK pointing at this row before
+            // we drop it. The lesson itself is about to be soft-deleted so
+            // the FK would not really dangle long, but the cascade may run
+            // alongside other consistency checks.
+            lessonRepository.clearPdfAttachmentId(att.getId());
+            storage.delete(att.getStoredPath());
+        }
         if (!rows.isEmpty()) attachmentRepository.deleteByLessonId(lessonId);
     }
 

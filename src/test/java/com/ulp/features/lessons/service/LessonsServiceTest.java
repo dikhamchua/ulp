@@ -3,13 +3,16 @@ package com.ulp.features.lessons.service;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.LessonActivity;
+import com.ulp.entities.LessonAttachment;
 import com.ulp.entities.Section;
 import com.ulp.entities.User;
 import com.ulp.entities.UserFactory;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
+import com.ulp.features.lessons.dto.LessonDtos.LessonForm;
 import com.ulp.features.lessons.dto.LessonDtos.LessonRow;
 import com.ulp.features.lessons.repository.LessonActivityRepository;
+import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.security.Role;
@@ -41,6 +44,7 @@ class LessonsServiceTest {
     @Autowired private LessonsPublishService lessonsPublishService;
     @Autowired private LessonRepository lessonRepository;
     @Autowired private LessonActivityRepository activityRepository;
+    @Autowired private LessonAttachmentRepository attachmentRepository;
     @Autowired private SectionRepository sectionRepository;
     @Autowired private ClassRepository classRepository;
     @Autowired private UserRepository userRepository;
@@ -299,6 +303,208 @@ class LessonsServiceTest {
                 clazz.getId(), section.getId(), row.id(),
                 otherLecturer.getId(), Role.LECTURER))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // ── Content-type dispatch + cleanup coverage ──────────────────────
+
+    @Test
+    void create_richtext_persists_sanitised_body() {
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "RT", "DRAFT",
+                "<p>OK</p><script>x()</script>",
+                lecturer.getId(), Role.LECTURER);
+
+        Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo("RICHTEXT");
+        assertThat(reloaded.getContentRichtext()).contains("<p>OK</p>");
+        assertThat(reloaded.getContentRichtext()).doesNotContain("<script>");
+    }
+
+    @Test
+    void create_pdf_requires_pre_uploaded_attachment_id() {
+        // Creating a brand-new lesson always lands as RICHTEXT; switching
+        // to PDF on the next save requires the lecturer to upload first.
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "PDF lesson", "DRAFT", "",
+                lecturer.getId(), Role.LECTURER);
+        LessonForm form = new LessonForm(
+                "PDF lesson", "DRAFT", "", "PDF", null, null);
+
+        assertThatThrownBy(() -> lessonsService.update(
+                clazz.getId(), section.getId(), row.id(), form,
+                lecturer.getId(), Role.LECTURER))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PDF chưa được tải lên");
+    }
+
+    @Test
+    void create_video_youtube_validates_url() {
+        // The service-level switch requires non-blank URL + provider; the
+        // regex validation happens in the API controller layer.
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "VID lesson", "DRAFT", "",
+                lecturer.getId(), Role.LECTURER);
+        lessonsService.setExternalVideo(clazz.getId(), section.getId(), row.id(),
+                "YOUTUBE", "https://www.youtube.com/watch?v=abc123",
+                lecturer.getId(), Role.LECTURER);
+        LessonForm form = new LessonForm(
+                "VID lesson", "DRAFT", "", "VIDEO",
+                "https://www.youtube.com/watch?v=abc123", "YOUTUBE");
+
+        lessonsService.update(clazz.getId(), section.getId(), row.id(), form,
+                lecturer.getId(), Role.LECTURER);
+
+        Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo("VIDEO");
+        assertThat(reloaded.getVideoProvider()).isEqualTo("YOUTUBE");
+        assertThat(reloaded.getVideoUrl()).contains("youtube.com/watch?v=abc123");
+        assertThat(reloaded.getContentRichtext()).isNull();
+    }
+
+    @Test
+    void create_video_upload_stores_path() {
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "UPL lesson", "DRAFT", "",
+                lecturer.getId(), Role.LECTURER);
+        lessonsService.setUploadedVideo(clazz.getId(), section.getId(), row.id(),
+                "lessons/" + row.id() + "/video/abc.mp4",
+                lecturer.getId(), Role.LECTURER);
+        LessonForm form = new LessonForm(
+                "UPL lesson", "DRAFT", "", "VIDEO",
+                "lessons/" + row.id() + "/video/abc.mp4", "UPLOAD");
+
+        lessonsService.update(clazz.getId(), section.getId(), row.id(), form,
+                lecturer.getId(), Role.LECTURER);
+
+        Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
+        assertThat(reloaded.getVideoProvider()).isEqualTo("UPLOAD");
+        assertThat(reloaded.getVideoUrl()).startsWith("lessons/");
+    }
+
+    @Test
+    void update_switch_richtext_to_pdf_nulls_body() {
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "Mixed", "DRAFT", "<p>Body</p>",
+                lecturer.getId(), Role.LECTURER);
+        // Seed a PDF attachment row + bind as main PDF before switching.
+        Lesson lesson = lessonRepository.findById(row.id()).orElseThrow();
+        LessonAttachment att = attachmentRepository.saveAndFlush(new LessonAttachment(
+                lesson.getId(), "main.pdf", "stored/main.pdf",
+                "application/pdf", 512L, lecturer.getId()));
+        lesson.setPdfAttachmentId(att.getId());
+        lessonRepository.saveAndFlush(lesson);
+
+        LessonForm form = new LessonForm(
+                "Mixed", "DRAFT", "<p>Body</p>", "PDF", null, null);
+        lessonsService.update(clazz.getId(), section.getId(), row.id(), form,
+                lecturer.getId(), Role.LECTURER);
+
+        Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo("PDF");
+        assertThat(reloaded.getContentRichtext()).isNull();
+        assertThat(reloaded.getPdfAttachmentId()).isEqualTo(att.getId());
+    }
+
+    @Test
+    void update_switch_pdf_to_video_deletes_pdf_attachment_row() {
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "ToVideo", "DRAFT", "<p>Body</p>",
+                lecturer.getId(), Role.LECTURER);
+        Lesson lesson = lessonRepository.findById(row.id()).orElseThrow();
+        LessonAttachment att = attachmentRepository.saveAndFlush(new LessonAttachment(
+                lesson.getId(), "main.pdf", "stored/main.pdf",
+                "application/pdf", 512L, lecturer.getId()));
+        lesson.setPdfAttachmentId(att.getId());
+        lesson.switchContentTypeTo("PDF");
+        lessonRepository.saveAndFlush(lesson);
+
+        lessonsService.setExternalVideo(clazz.getId(), section.getId(), row.id(),
+                "YOUTUBE", "https://www.youtube.com/watch?v=abc123",
+                lecturer.getId(), Role.LECTURER);
+        LessonForm form = new LessonForm(
+                "ToVideo", "DRAFT", "", "VIDEO",
+                "https://www.youtube.com/watch?v=abc123", "YOUTUBE");
+        lessonsService.update(clazz.getId(), section.getId(), row.id(), form,
+                lecturer.getId(), Role.LECTURER);
+
+        Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo("VIDEO");
+        assertThat(reloaded.getPdfAttachmentId()).isNull();
+        // The attachment row should be gone — the switcher deleted it.
+        assertThat(attachmentRepository.findById(att.getId())).isEmpty();
+    }
+
+    @Test
+    void update_switch_video_upload_to_richtext_clears_video_fields() {
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "BackToRT", "DRAFT", "",
+                lecturer.getId(), Role.LECTURER);
+        lessonsService.setUploadedVideo(clazz.getId(), section.getId(), row.id(),
+                "lessons/" + row.id() + "/video/abc.mp4",
+                lecturer.getId(), Role.LECTURER);
+        // First switch the lesson INTO VIDEO so we can then switch BACK.
+        LessonForm toVideo = new LessonForm(
+                "BackToRT", "DRAFT", "", "VIDEO",
+                "lessons/" + row.id() + "/video/abc.mp4", "UPLOAD");
+        lessonsService.update(clazz.getId(), section.getId(), row.id(), toVideo,
+                lecturer.getId(), Role.LECTURER);
+
+        LessonForm backToRichtext = new LessonForm(
+                "BackToRT", "DRAFT", "<p>Hello</p>", "RICHTEXT", null, null);
+        lessonsService.update(clazz.getId(), section.getId(), row.id(), backToRichtext,
+                lecturer.getId(), Role.LECTURER);
+
+        Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo("RICHTEXT");
+        assertThat(reloaded.getVideoUrl()).isNull();
+        assertThat(reloaded.getVideoProvider()).isNull();
+        assertThat(reloaded.getContentRichtext()).contains("<p>Hello</p>");
+    }
+
+    @Test
+    void update_switch_to_video_without_data_rejects_and_preserves_old() {
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "RTKeeper", "DRAFT", "<p>Body</p>",
+                lecturer.getId(), Role.LECTURER);
+        LessonForm form = new LessonForm(
+                "RTKeeper", "DRAFT", "<p>Body</p>", "VIDEO", null, null);
+
+        assertThatThrownBy(() -> lessonsService.update(
+                clazz.getId(), section.getId(), row.id(), form,
+                lecturer.getId(), Role.LECTURER))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Chưa cấu hình video");
+
+        Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo("RICHTEXT");
+        assertThat(reloaded.getContentRichtext()).contains("<p>Body</p>");
+    }
+
+    @Test
+    void update_records_content_type_change_in_audit_metadata() {
+        LessonRow row = lessonsService.create(
+                clazz.getId(), section.getId(), "WillSwitch", "DRAFT", "<p>x</p>",
+                lecturer.getId(), Role.LECTURER);
+        Lesson lesson = lessonRepository.findById(row.id()).orElseThrow();
+        LessonAttachment att = attachmentRepository.saveAndFlush(new LessonAttachment(
+                lesson.getId(), "main.pdf", "stored/main.pdf",
+                "application/pdf", 512L, lecturer.getId()));
+        lesson.setPdfAttachmentId(att.getId());
+        lessonRepository.saveAndFlush(lesson);
+
+        LessonForm form = new LessonForm(
+                "WillSwitch", "DRAFT", "<p>x</p>", "PDF", null, null);
+        lessonsService.update(clazz.getId(), section.getId(), row.id(), form,
+                lecturer.getId(), Role.LECTURER);
+
+        var page = activityRepository.findByLessonIdOrderByCreatedAtDesc(
+                row.id(), PageRequest.of(0, 10));
+        assertThat(page.getContent().get(0).getType())
+                .isEqualTo(LessonActivity.TYPE_UPDATED);
+        assertThat(page.getContent().get(0).getMetadata())
+                .contains("\"content_type\"")
+                .contains("\"old\":\"RICHTEXT\"")
+                .contains("\"new\":\"PDF\"");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

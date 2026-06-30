@@ -7,12 +7,14 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.ulp.common.IConstant.CONTENT_TYPE_RICHTEXT;
+
 /**
- * DTOs for the lesson CRUD feature on the lessons tab (ULP-4.0b).
+ * DTOs for the lesson CRUD feature on the lessons tab.
  *
- * <p>The AJAX response envelope is reused from
- * {@link com.ulp.features.lessons.dto.SectionDtos.AjaxResult} to keep a
- * single transport contract across the entire lessons tab.
+ * <p>{@link LessonForm} carries the content-type discriminator + video
+ * fields alongside the classic rich-text path. {@link LessonRow} exposes
+ * the {@code contentType} badge for the lesson list.
  */
 public final class LessonDtos {
 
@@ -21,13 +23,20 @@ public final class LessonDtos {
     }
 
     /** A single lesson as rendered in the lessons-tab list. */
-    public record LessonRow(Long id, String title, String status, short displayOrder) {
+    public record LessonRow(Long id, String title, String status, short displayOrder,
+                            String contentType) {
     }
 
     /**
      * Form payload used by the create / edit endpoints. {@code contentHtml}
      * is the raw Quill output — the service runs it through
      * {@link com.ulp.common.HtmlSanitizer} before persistence.
+     *
+     * <p>{@code contentType} selects which body the lesson actually carries
+     * once persisted: RICHTEXT uses {@code contentHtml}; PDF expects a
+     * pre-uploaded {@code pdf_attachment_id} on the lesson (set by the
+     * dedicated content endpoint); VIDEO expects {@code videoProvider}
+     * plus {@code videoUrl} which the service stores verbatim.
      */
     public record LessonForm(
             @NotBlank(message = "Tiêu đề bài giảng không được để trống")
@@ -38,8 +47,23 @@ public final class LessonDtos {
                     message = "Trạng thái không hợp lệ")
             String status,
 
-            String contentHtml
+            String contentHtml,
+
+            @Pattern(regexp = "RICHTEXT|PDF|VIDEO",
+                    message = "Loại nội dung không hợp lệ")
+            String contentType,
+
+            String videoUrl,
+
+            @Pattern(regexp = "YOUTUBE|VIMEO|UPLOAD|",
+                    message = "Nhà cung cấp video không hợp lệ")
+            String videoProvider
     ) {
+        /** Convenience: defaults the type to RICHTEXT when the form omits it. */
+        public String effectiveContentType() {
+            return (contentType == null || contentType.isBlank())
+                    ? CONTENT_TYPE_RICHTEXT : contentType;
+        }
     }
 
     /** Payload for the reorder endpoint — full ordered id list. */
@@ -62,14 +86,14 @@ public final class LessonDtos {
 
     /**
      * One attachment row as rendered in the lesson edit page and returned by
-     * the upload / list endpoints (ULP-4.0c).
+     * the upload / list endpoints.
      *
      * @param id               attachment row id
      * @param originalFilename filename as the lecturer uploaded it
      * @param mimeType         resolved MIME type
      * @param sizeBytes        file size in bytes (JS formats to KB/MB)
      * @param uploadedAt       insert timestamp
-     * @param downloadUrl      canonical download URL (lecturer + student share it)
+     * @param downloadUrl      canonical download URL
      */
     public record LessonAttachmentRow(
             Long id,
@@ -78,6 +102,20 @@ public final class LessonDtos {
             long sizeBytes,
             LocalDateTime uploadedAt,
             String downloadUrl
+    ) {
+    }
+
+    /**
+     * JSON envelope returned by the three content endpoints (PDF / video /
+     * video-url). Carries the new persisted state so the lecturer-side JS
+     * can re-render the form without a full page reload.
+     */
+    public record LessonContentSummary(
+            String contentType,
+            Long pdfAttachmentId,
+            String pdfFilename,
+            String videoUrl,
+            String videoProvider
     ) {
     }
 }

@@ -4,6 +4,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/sections.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
@@ -216,6 +217,13 @@
                               ? 'Đã xuất bản'
                               : 'Bản nháp'}">Trạng thái</span>
           </div>
+          <!-- Content-type badge (Sprint 3) — shows whether the lesson is
+               a rich-text article, embedded PDF, or video. Scanning the
+               list reveals format mix without opening each lesson. -->
+          <span class="lesson-type-badge"
+                th:classappend="'lesson-type-' + ${#strings.toLowerCase(l.contentType() ?: 'richtext')}"
+                th:text="${l.contentType() == 'PDF' ? 'PDF'
+                        : (l.contentType() == 'VIDEO' ? 'Video' : 'Văn bản')}">Văn bản</span>
           <span class="lesson-status-pill"
                 th:classappend="${l.status() == 'PUBLISHED'
                                   ? 'is-published'

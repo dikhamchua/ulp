@@ -1,21 +1,20 @@
 package com.ulp.common;
 
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
 
 /**
  * Static helper that strips unsafe markup from HTML before it is persisted.
  *
- * <p>Lives in {@code common} on purpose: ULP-4.0b is the first feature to
- * accept user-authored HTML (Quill on the Lesson form), but ULP-4.6 (Q&A
- * comments) and the future board-post feature will reuse the exact same
- * policy. Keeping the sanitiser as a single static entry point makes it
- * trivial to share without dragging a bean dependency around.
+ * <p>Lives in {@code common} so every feature that accepts user-authored
+ * HTML (lesson body, comments, board posts) can reuse the same policy
+ * from a single entry point without dragging a bean dependency around.
  *
- * <p>Allowed tags (per design D2): {@code h1–h6}, {@code p}, {@code br},
- * {@code hr}, {@code strong}, {@code b}, {@code em}, {@code i}, {@code u},
- * {@code s}, {@code blockquote}, {@code pre}, {@code code}, {@code ol},
- * {@code ul}, {@code li}, {@code a}, {@code img}.
+ * <p>Allowed tags: {@code h1–h6}, {@code p}, {@code br}, {@code hr},
+ * {@code strong}, {@code b}, {@code em}, {@code i}, {@code u}, {@code s},
+ * {@code blockquote}, {@code pre}, {@code code}, {@code ol}, {@code ul},
+ * {@code li}, {@code a}, {@code img}.
  *
  * <p>Allowed attributes:
  * <ul>
@@ -23,7 +22,7 @@ import org.jsoup.safety.Safelist;
  *       {@code mailto}), {@code target}, {@code rel}.</li>
  *   <li>{@code img}: {@code src} (only {@code data:image/*}, {@code http},
  *       {@code https}), {@code alt}, {@code width}, {@code height}.</li>
- *   <li>Everything else stripped — including {@code onclick} and friends,
+ *   <li>Everything else is stripped — including {@code onclick},
  *       inline {@code style}, and any {@code javascript:} URL scheme.</li>
  * </ul>
  */
@@ -53,7 +52,13 @@ public final class HtmlSanitizer {
         if (html == null || html.isBlank()) {
             return "";
         }
-        return Jsoup.clean(html, SAFELIST);
+        // Disable pretty-print so sanitize() is idempotent. Default Jsoup
+        // output inserts \n + indentation between block elements, which Quill
+        // later re-parses as empty <p><br></p> paragraphs — see bug fix for
+        // lesson rich-text round-trip drift.
+        Document.OutputSettings settings = new Document.OutputSettings()
+                .prettyPrint(false);
+        return Jsoup.clean(html, "", SAFELIST, settings);
     }
 
     private static Safelist buildSafelist() {

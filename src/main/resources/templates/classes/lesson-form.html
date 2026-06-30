@@ -15,6 +15,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/sections.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-attachments.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
   <link class="page-css" rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
 </head>
@@ -131,6 +132,40 @@
         </section>
 
         <section class="detail-card">
+          <h2 class="detail-card-title">Loại nội dung</h2>
+          <p class="detail-field-help">
+            Chọn định dạng phù hợp với bài giảng. Khi đổi loại, dữ liệu của
+            loại trước đó sẽ được xoá vĩnh viễn.
+          </p>
+          <div class="lct-picker" role="radiogroup" aria-label="Loại nội dung">
+            <label class="lct-card">
+              <input type="radio" th:field="*{contentType}" value="RICHTEXT">
+              <span class="lct-card-body">
+                <span class="lct-card-title">Văn bản</span>
+                <span class="lct-card-desc">Soạn nội dung bằng trình soạn thảo</span>
+              </span>
+            </label>
+            <label class="lct-card">
+              <input type="radio" th:field="*{contentType}" value="PDF">
+              <span class="lct-card-body">
+                <span class="lct-card-title">PDF</span>
+                <span class="lct-card-desc">Tải tệp PDF chính cho học viên xem</span>
+              </span>
+            </label>
+            <label class="lct-card">
+              <input type="radio" th:field="*{contentType}" value="VIDEO">
+              <span class="lct-card-body">
+                <span class="lct-card-title">Video</span>
+                <span class="lct-card-desc">Dán URL YouTube/Vimeo hoặc tải MP4</span>
+              </span>
+            </label>
+          </div>
+          <p class="field-error" role="alert"
+             th:if="${#fields.hasErrors('contentType')}"
+             th:errors="*{contentType}">Lỗi loại nội dung</p>
+        </section>
+
+        <section class="detail-card" data-content-type-section="RICHTEXT">
           <h2 class="detail-card-title">Nội dung bài giảng</h2>
           <p class="detail-field-help">
             Sử dụng trình soạn thảo để định dạng văn bản, danh sách, liên kết
@@ -138,6 +173,91 @@
             trước khi lưu.
           </p>
           <div id="lessonContentEditor" class="lesson-editor"></div>
+        </section>
+
+        <section class="detail-card" data-content-type-section="PDF"
+                 th:if="${mode == 'edit' and lesson != null}"
+                 th:attr="data-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/pdf|}">
+          <h2 class="detail-card-title">PDF chính</h2>
+          <p class="detail-field-help"
+             th:if="${lesson.pdfAttachmentId != null}">
+            Đang dùng tệp PDF chính (id <span th:text="${lesson.pdfAttachmentId}">42</span>).
+            Tải lên tệp mới sẽ thay thế.
+          </p>
+          <p class="detail-field-help lct-warn"
+             th:if="${lesson.pdfAttachmentId == null}">
+            Bạn cần tải PDF lên trước khi lưu với loại PDF.
+          </p>
+          <div class="lct-pdf-upload">
+            <input id="lessonPdfInput" type="file" accept="application/pdf">
+            <button type="button" class="btn-secondary" id="lessonPdfUploadBtn">
+              Tải PDF lên
+            </button>
+            <span class="lct-pdf-status" id="lessonPdfStatus"></span>
+          </div>
+        </section>
+
+        <section class="detail-card" data-content-type-section="PDF"
+                 th:if="${mode == 'create'}">
+          <h2 class="detail-card-title">PDF chính</h2>
+          <p class="detail-field-help lct-warn">
+            Hãy tạo bài giảng dưới dạng nháp trước, sau đó tải PDF lên trong
+            chế độ chỉnh sửa.
+          </p>
+        </section>
+
+        <section class="detail-card" data-content-type-section="VIDEO"
+                 th:if="${mode == 'edit' and lesson != null}"
+                 th:attr="data-video-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/video|},
+                          data-video-url-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/video-url|}">
+          <h2 class="detail-card-title">Video bài giảng</h2>
+          <div class="lct-video-providers" role="radiogroup" aria-label="Nguồn video">
+            <label>
+              <input type="radio" name="videoProviderUi" value="YOUTUBE"
+                     th:checked="${form.videoProvider == 'YOUTUBE' or form.videoProvider == null}">
+              YouTube
+            </label>
+            <label>
+              <input type="radio" name="videoProviderUi" value="VIMEO"
+                     th:checked="${form.videoProvider == 'VIMEO'}">
+              Vimeo
+            </label>
+            <label>
+              <input type="radio" name="videoProviderUi" value="UPLOAD"
+                     th:checked="${form.videoProvider == 'UPLOAD'}">
+              Tải MP4 lên
+            </label>
+          </div>
+          <input type="hidden" th:field="*{videoProvider}">
+          <div class="lct-video-url-block">
+            <label for="lessonVideoUrlInput">URL video</label>
+            <input id="lessonVideoUrlInput" type="url" th:field="*{videoUrl}"
+                   placeholder="https://www.youtube.com/watch?v=..." maxlength="500">
+            <button type="button" class="btn-secondary" id="lessonVideoUrlSaveBtn">
+              Lưu URL
+            </button>
+          </div>
+          <div class="lct-video-upload-block">
+            <label for="lessonVideoInput">Tải MP4 lên (tối đa 200MB)</label>
+            <input id="lessonVideoInput" type="file" accept="video/mp4">
+            <button type="button" class="btn-secondary" id="lessonVideoUploadBtn">
+              Tải MP4
+            </button>
+            <progress id="lessonVideoProgress" max="100" value="0" hidden></progress>
+          </div>
+          <p class="lct-video-status" id="lessonVideoStatus"
+             th:if="${lesson.videoUrl != null}"
+             th:text="'Đã cấu hình: ' + ${lesson.videoProvider} + ' — ' + ${lesson.videoUrl}">
+          </p>
+        </section>
+
+        <section class="detail-card" data-content-type-section="VIDEO"
+                 th:if="${mode == 'create'}">
+          <h2 class="detail-card-title">Video bài giảng</h2>
+          <p class="detail-field-help lct-warn">
+            Hãy tạo bài giảng dưới dạng nháp trước, sau đó cấu hình video
+            trong chế độ chỉnh sửa.
+          </p>
         </section>
       </form>
 
@@ -322,6 +442,29 @@
 <script th:src="@{/js/class-detail.js}"></script>
 <!-- Lesson attachments uploader (ULP-4.0c) — only active in edit mode. -->
 <script th:if="${mode == 'edit'}" th:src="@{/js/lesson-attachments.js}" defer></script>
+<!-- Lesson content-type picker + sub-section toggling + confirm modal. -->
+<script th:src="@{/js/lesson-form-type.js}" defer
+        th:attr="data-original-type=${form.contentType ?: 'RICHTEXT'}"></script>
+
+<!-- Confirm modal — surfaces when the lecturer flips the type for a
+     persisted lesson. lesson-form-type.js binds the buttons. -->
+<div id="lessonTypeConfirmModal" class="lct-modal" hidden role="dialog"
+     aria-modal="true" aria-labelledby="lessonTypeConfirmTitle">
+  <div class="lct-modal-backdrop" data-modal-cancel></div>
+  <div class="lct-modal-panel">
+    <h3 id="lessonTypeConfirmTitle" class="lct-modal-title">
+      Đổi loại nội dung?
+    </h3>
+    <p class="lct-modal-body">
+      Khi đổi loại nội dung, dữ liệu của loại trước đó sẽ bị xoá vĩnh viễn
+      (bao gồm cả tệp đã tải lên trên máy chủ). Bạn có chắc muốn tiếp tục?
+    </p>
+    <div class="lct-modal-actions">
+      <button type="button" class="btn-secondary" data-modal-cancel>Huỷ</button>
+      <button type="button" class="btn-primary" data-modal-confirm>Đổi loại</button>
+    </div>
+  </div>
+</div>
 <!-- Quill 2.x from CDN — pinned to a minor version so the editor surface
      doesn't drift unannounced. -->
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>

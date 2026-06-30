@@ -85,20 +85,16 @@ public interface IConstant {
     String ATTR_FLASH_INFO    = "flashInfo";
     String ATTR_FLASH_WARNING = "flashWarning";
 
-    // Lesson-related model attribute keys (ULP-4.0b).
     String ATTR_LESSON          = "lesson";
     String ATTR_LESSONS         = "lessons";
     String ATTR_LESSON_ID       = "lessonId";
     String ATTR_SELECTED_LESSON = "selectedLesson";
 
-    // Lesson attachments (ULP-4.0c).
     String ATTR_ATTACHMENTS     = "attachments";
 
-    // Student class-lessons view (ULP-4.1).
     String ATTR_VIEW              = "view";
     String ATTR_ACTIVE_SECTION_ID = "activeSectionId";
 
-    // Student lesson detail view (ULP-4.2).
     String ATTR_LESSON_DETAIL     = "lessonDetail";
 
     // Lessons feature — shared cross-controller attrs
@@ -154,9 +150,23 @@ public interface IConstant {
     String MSG_OAUTH_SESSION_UNSUPPORTED =
             "Phiên đăng nhập của bạn không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email và mật khẩu.";
 
-    // ───────── Lesson status discriminators (ULP-4.0b) ───────────────
+    // ───────── Lesson status discriminators ─────────────────────────
     String LESSON_STATUS_DRAFT     = "DRAFT";
     String LESSON_STATUS_PUBLISHED = "PUBLISHED";
+
+    // ───────── Lesson content-type discriminators ──────────────────
+    String CONTENT_TYPE_RICHTEXT = "RICHTEXT";
+    String CONTENT_TYPE_PDF      = "PDF";
+    String CONTENT_TYPE_VIDEO    = "VIDEO";
+
+    // YOUTUBE / VIMEO point at an external embed; UPLOAD points at a
+    // server-relative MP4 path.
+    String VIDEO_PROVIDER_YOUTUBE = "YOUTUBE";
+    String VIDEO_PROVIDER_VIMEO   = "VIMEO";
+    String VIDEO_PROVIDER_UPLOAD  = "UPLOAD";
+
+    // Hard cap for uploaded MP4 size: 200 MB.
+    long MAX_VIDEO_SIZE_BYTES = 200L * 1024L * 1024L;
 
     // ───────── Lesson flash messages (Vietnamese UI text) ────────────
     String MSG_LESSON_CREATED      = "Đã tạo bài giảng";
@@ -172,7 +182,7 @@ public interface IConstant {
     String MSG_FORBIDDEN_FOR_CLASS = "Bạn không có quyền thao tác với lớp này.";
     String MSG_GENERIC_RETRY       = "Có lỗi xảy ra, vui lòng thử lại.";
 
-    // ───────── Lesson attachments (ULP-4.0c) Vietnamese UI text ──────
+    // ───────── Attachment messages (Vietnamese UI text) ──────────────
     String MSG_ATTACHMENT_UPLOADED       = "Đã tải lên tệp đính kèm";
     String MSG_ATTACHMENT_DELETED        = "Đã xoá tệp đính kèm";
     String MSG_ATTACHMENT_INVALID        = "Tệp đính kèm không hợp lệ";
@@ -183,7 +193,15 @@ public interface IConstant {
     String MSG_ATTACHMENT_NOT_FOUND      = "Không tìm thấy tệp đính kèm";
     String MSG_ATTACHMENT_EMPTY          = "Tệp đính kèm rỗng";
 
-    // ───────── Student class-lessons (ULP-4.1) Vietnamese UI text ────
+    // ───────── Content-type messages (Vietnamese UI text) ────────────
+    String MSG_LESSON_CONTENT_TYPE_REQUIRED = "Loại nội dung không hợp lệ";
+    String MSG_LESSON_PDF_NOT_UPLOADED      = "PDF chưa được tải lên";
+    String MSG_LESSON_VIDEO_NOT_CONFIGURED  = "Chưa cấu hình video";
+    String MSG_VIDEO_URL_INVALID            = "URL video không hợp lệ";
+    String MSG_VIDEO_FILE_TOO_LARGE         = "Video vượt quá giới hạn 200MB";
+    String MSG_VIDEO_FILE_NOT_MP4           = "Chỉ chấp nhận tệp MP4";
+
+    // ───────── Student-facing messages (Vietnamese UI text) ──────────
     String MSG_STUDENT_LESSONS_EMPTY_SECTION = "Chương này chưa có bài giảng";
     String MSG_STUDENT_LESSONS_EMPTY_CLASS   = "Lớp này chưa có chương";
 

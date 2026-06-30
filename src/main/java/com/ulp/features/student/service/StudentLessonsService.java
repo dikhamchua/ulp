@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.ulp.common.IConstant.CONTENT_TYPE_RICHTEXT;
+
 /**
  * Read service backing {@code GET /my/classes/{classId}/lessons}.
  *
@@ -98,9 +100,13 @@ public class StudentLessonsService {
         List<StudentLessonRow> lessons = new ArrayList<>(rawLessons.size());
         for (Lesson l : rawLessons) {
             if (Lesson.STATUS_PUBLISHED.equals(l.getStatus())) {
+                // Legacy rows pre-V16 may carry null content_type — default
+                // to RICHTEXT so the right-rail card still picks an icon.
+                String type = l.getContentType() == null
+                        ? CONTENT_TYPE_RICHTEXT : l.getContentType();
                 lessons.add(new StudentLessonRow(
                         l.getId(), l.getTitle(),
-                        l.getSectionId(), l.getPublishedAt()));
+                        l.getSectionId(), l.getPublishedAt(), type));
             }
         }
 
