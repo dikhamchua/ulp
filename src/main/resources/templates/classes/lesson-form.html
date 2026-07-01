@@ -101,7 +101,7 @@
         <section class="detail-card">
           <h2 class="detail-card-title">Thông tin bài giảng</h2>
           <div class="detail-form-grid">
-            <div class="form-row span-2">
+            <div class="form-row span-1">
               <label for="titleInput">
                 Tiêu đề bài giảng <span class="required" aria-hidden="true">*</span>
               </label>
@@ -128,41 +128,19 @@
                  th:if="${#fields.hasErrors('status')}"
                  th:errors="*{status}">Lỗi trạng thái</p>
             </div>
+            <div class="form-row span-1">
+              <label for="contentType">Loại tài liệu</label>
+              <select id="contentTypeSelect" th:field="*{contentType}"
+                      aria-label="Loại tài liệu">
+                <option value="RICHTEXT">Văn bản</option>
+                <option value="PDF">PDF</option>
+                <option value="VIDEO">Video</option>
+              </select>
+              <p class="field-error" role="alert"
+                 th:if="${#fields.hasErrors('contentType')}"
+                 th:errors="*{contentType}">Lỗi loại nội dung</p>
+            </div>
           </div>
-        </section>
-
-        <section class="detail-card">
-          <h2 class="detail-card-title">Loại nội dung</h2>
-          <p class="detail-field-help">
-            Chọn định dạng phù hợp với bài giảng. Khi đổi loại, dữ liệu của
-            loại trước đó sẽ được xoá vĩnh viễn.
-          </p>
-          <div class="lct-picker" role="radiogroup" aria-label="Loại nội dung">
-            <label class="lct-card">
-              <input type="radio" th:field="*{contentType}" value="RICHTEXT">
-              <span class="lct-card-body">
-                <span class="lct-card-title">Văn bản</span>
-                <span class="lct-card-desc">Soạn nội dung bằng trình soạn thảo</span>
-              </span>
-            </label>
-            <label class="lct-card">
-              <input type="radio" th:field="*{contentType}" value="PDF">
-              <span class="lct-card-body">
-                <span class="lct-card-title">PDF</span>
-                <span class="lct-card-desc">Tải tệp PDF chính cho học viên xem</span>
-              </span>
-            </label>
-            <label class="lct-card">
-              <input type="radio" th:field="*{contentType}" value="VIDEO">
-              <span class="lct-card-body">
-                <span class="lct-card-title">Video</span>
-                <span class="lct-card-desc">Dán URL YouTube/Vimeo hoặc tải MP4</span>
-              </span>
-            </label>
-          </div>
-          <p class="field-error" role="alert"
-             th:if="${#fields.hasErrors('contentType')}"
-             th:errors="*{contentType}">Lỗi loại nội dung</p>
         </section>
 
         <section class="detail-card" data-content-type-section="RICHTEXT">
@@ -175,41 +153,8 @@
           <div id="lessonContentEditor" class="lesson-editor"></div>
         </section>
 
-        <section class="detail-card" data-content-type-section="PDF"
-                 th:if="${mode == 'edit' and lesson != null}"
-                 th:attr="data-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/pdf|}">
-          <h2 class="detail-card-title">PDF chính</h2>
-          <p class="detail-field-help"
-             th:if="${lesson.pdfAttachmentId != null}">
-            Đang dùng tệp PDF chính (id <span th:text="${lesson.pdfAttachmentId}">42</span>).
-            Tải lên tệp mới sẽ thay thế.
-          </p>
-          <p class="detail-field-help lct-warn"
-             th:if="${lesson.pdfAttachmentId == null}">
-            Bạn cần tải PDF lên trước khi lưu với loại PDF.
-          </p>
-          <div class="lct-pdf-upload">
-            <input id="lessonPdfInput" type="file" accept="application/pdf">
-            <button type="button" class="btn-secondary" id="lessonPdfUploadBtn">
-              Tải PDF lên
-            </button>
-            <span class="lct-pdf-status" id="lessonPdfStatus"></span>
-          </div>
-        </section>
-
-        <section class="detail-card" data-content-type-section="PDF"
-                 th:if="${mode == 'create'}">
-          <h2 class="detail-card-title">PDF chính</h2>
-          <p class="detail-field-help lct-warn">
-            Hãy tạo bài giảng dưới dạng nháp trước, sau đó tải PDF lên trong
-            chế độ chỉnh sửa.
-          </p>
-        </section>
-
         <section class="detail-card" data-content-type-section="VIDEO"
-                 th:if="${mode == 'edit' and lesson != null}"
-                 th:attr="data-video-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/video|},
-                          data-video-url-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/video-url|}">
+                 th:if="${mode == 'edit' and lesson != null}">
           <h2 class="detail-card-title">Video bài giảng</h2>
           <div class="lct-video-providers" role="radiogroup" aria-label="Nguồn video">
             <label>
@@ -233,17 +178,28 @@
             <label for="lessonVideoUrlInput">URL video</label>
             <input id="lessonVideoUrlInput" type="url" th:field="*{videoUrl}"
                    placeholder="https://www.youtube.com/watch?v=..." maxlength="500">
-            <button type="button" class="btn-secondary" id="lessonVideoUrlSaveBtn">
-              Lưu URL
-            </button>
           </div>
           <div class="lct-video-upload-block">
             <label for="lessonVideoInput">Tải MP4 lên (tối đa 200MB)</label>
-            <input id="lessonVideoInput" type="file" accept="video/mp4">
-            <button type="button" class="btn-secondary" id="lessonVideoUploadBtn">
-              Tải MP4
-            </button>
+            <div class="lvid-drop" id="lessonVideoDrop" tabindex="0" role="button"
+                 aria-label="Kéo thả tệp MP4 vào đây hoặc bấm để chọn"
+                 th:attr="data-video-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/video|}">
+              <span class="lvid-drop-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </span>
+              <span class="lvid-drop-text">
+                <strong>Kéo &amp; thả</strong> hoặc <span class="lvid-drop-cta">chọn MP4</span>
+              </span>
+              <input id="lessonVideoInput" type="file" accept="video/mp4"
+                     style="display:none;">
+            </div>
             <progress id="lessonVideoProgress" max="100" value="0" hidden></progress>
+            <p class="lvid-selected" id="lessonVideoSelected" hidden></p>
           </div>
           <p class="lct-video-status" id="lessonVideoStatus"
              th:if="${lesson.videoUrl != null}"
@@ -259,7 +215,14 @@
             trong chế độ chỉnh sửa.
           </p>
         </section>
-      </form>
+
+        <!-- ═══ Bottom row: attachments (left) + main PDF (right) ═════════
+             pdfId is the lesson's main-PDF attachment id; the two cards filter
+             the shared attachments list per-row (top-level th:if) so the PDF
+             never duplicates. otherCount = total minus the one main-PDF row. -->
+        <div class="lesson-form-bottom-row"
+             th:with="pdfId=${lesson != null ? lesson.pdfAttachmentId : null},
+                      otherCount=${(attachments == null ? 0 : #lists.size(attachments)) - (pdfId != null ? 1 : 0)}">
 
       <!-- ═══ Attachments — edit-mode only (ULP-4.0c) ═══════════════════ -->
       <section class="detail-card latt-card" th:if="${mode == 'edit' and lesson != null}"
@@ -281,8 +244,6 @@
             <h2 class="latt-title">Tệp đính kèm</h2>
             <p class="latt-subtitle">Tài liệu, slide, đề bài dành cho học viên</p>
           </div>
-          <span class="latt-count" id="lessonAttachCount"
-                th:text="${attachments == null ? 0 : #lists.size(attachments)}">0</span>
         </header>
 
         <!-- Format chips: visual whitelist of supported types -->
@@ -322,12 +283,12 @@
 
         <!-- File list section header (only visible when at least 1 file). -->
         <h3 class="latt-list-title"
-            th:unless="${attachments == null or #lists.isEmpty(attachments)}">
+            th:unless="${otherCount == 0}">
           Tệp đã tải lên
         </h3>
 
         <p class="latt-empty" id="lessonAttachEmpty"
-           th:if="${attachments == null or #lists.isEmpty(attachments)}">
+           th:if="${otherCount == 0}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                class="latt-empty-icon" aria-hidden="true">
@@ -338,9 +299,10 @@
         </p>
 
         <ul class="latt-list" id="lessonAttachList"
-            th:attr="hidden=${attachments == null or #lists.isEmpty(attachments)} ? 'hidden' : null">
+            th:attr="hidden=${otherCount == 0} ? 'hidden' : null">
           <li class="latt-item"
               th:each="att : ${attachments}"
+              th:if="${pdfId == null or att.id() != pdfId}"
               th:attr="data-attachment-id=${att.id()},
                        data-delete-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/attachments/${att.id()}|}">
             <th:block
@@ -383,6 +345,112 @@
           </li>
         </ul>
       </section>
+
+      <!-- ═══ Main PDF — edit mode, styled like the attachments drop zone ═══ -->
+      <section class="detail-card lpdf-card" data-content-type-section="PDF"
+               th:if="${mode == 'edit' and lesson != null}"
+               th:attr="data-lesson-id=${lesson.id},
+                        data-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/pdf|}">
+        <header class="latt-header">
+          <span class="latt-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </span>
+          <div class="latt-header-text">
+            <h2 class="latt-title">PDF chính</h2>
+            <p class="latt-subtitle">Tệp PDF học viên xem trực tiếp trong bài giảng</p>
+          </div>
+        </header>
+
+        <p class="detail-field-help"
+           th:if="${lesson.pdfAttachmentId != null}">
+          Đang dùng tệp PDF chính (id <span th:text="${lesson.pdfAttachmentId}">42</span>).
+          Tải lên tệp mới sẽ thay thế.
+        </p>
+        <p class="detail-field-help lct-warn"
+           th:if="${lesson.pdfAttachmentId == null}">
+          Bạn cần tải PDF lên trước khi lưu với loại PDF.
+        </p>
+
+        <!-- Drop-zone styled to match #lessonAttachmentsCard .latt-drop.
+             Click anywhere to open the picker; the file is only queued —
+             it uploads when the main form is saved (deferred-upload rule). -->
+        <div class="lpdf-drop" id="lessonPdfDrop" tabindex="0" role="button"
+             aria-label="Kéo thả tệp PDF vào đây hoặc bấm để chọn">
+          <span class="latt-drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </span>
+          <p class="latt-drop-title">
+            <strong>Kéo &amp; thả</strong> hoặc <span class="latt-drop-cta">chọn tệp</span> PDF từ máy
+          </p>
+          <p class="latt-drop-hint">Chỉ chấp nhận định dạng .pdf — bấm "Lưu thay đổi" để tải lên</p>
+          <p class="lct-pdf-status" id="lessonPdfStatus"></p>
+          <input id="lessonPdfInput" type="file" accept="application/pdf"
+                 style="display:none;">
+        </div>
+        <progress id="lessonPdfProgress" max="100" value="0" hidden></progress>
+        <p class="lpdf-selected" id="lessonPdfSelected" hidden></p>
+
+        <!-- Uploaded main PDF — server-renders the row bound to this lesson
+             (filtered from the shared attachments list by pdfId);
+             lesson-form-type.js rebuilds it after an AJAX upload. -->
+        <ul class="lpdf-file" id="lessonPdfFile"
+            th:attr="hidden=${pdfId == null} ? 'hidden' : null">
+          <li class="lpdf-file-item"
+              th:each="pdf : ${attachments}"
+              th:if="${pdfId != null and pdf.id() == pdfId}">
+            <span class="latt-ext ext-pdf" aria-hidden="true">PDF</span>
+            <span class="latt-meta">
+              <a class="latt-name" th:href="@{${pdf.downloadUrl()}}"
+                 th:text="${pdf.originalFilename()}"
+                 th:title="${pdf.originalFilename()}">tệp.pdf</a>
+              <span class="latt-sub">Tệp PDF chính của bài giảng</span>
+            </span>
+            <a class="latt-action latt-download" th:href="@{${pdf.downloadUrl()}}"
+               aria-label="Tải tệp PDF" title="Tải tệp PDF">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Main PDF — create mode placeholder -->
+      <section class="detail-card lpdf-card" data-content-type-section="PDF"
+               th:if="${mode == 'create'}">
+        <header class="latt-header">
+          <span class="latt-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </span>
+          <div class="latt-header-text">
+            <h2 class="latt-title">PDF chính</h2>
+            <p class="latt-subtitle">Tệp PDF học viên xem trực tiếp trong bài giảng</p>
+          </div>
+        </header>
+        <p class="detail-field-help lct-warn">
+          Hãy tạo bài giảng dưới dạng nháp trước, sau đó tải PDF lên trong
+          chế độ chỉnh sửa.
+        </p>
+      </section>
+
+        </div><!-- /.lesson-form-bottom-row -->
+      </form>
     </div>
 
     <!-- ═══ History panel — paginated audit log ═════════════════════════ -->

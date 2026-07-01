@@ -69,13 +69,16 @@ public class StudentLessonsDtos {
      * @param sizeBytes   file size in bytes
      * @param mimeType    resolved MIME type (from the extension whitelist)
      * @param downloadUrl absolute path to the existing download endpoint
+     * @param viewUrl     inline viewer URL, or null if the format is not
+     *                    supported (PDF → PDF.js; DOCX/PPTX/XLSX → MS Office)
      */
     public record LessonAttachmentRow(
             Long id,
             String filename,
             long sizeBytes,
             String mimeType,
-            String downloadUrl
+            String downloadUrl,
+            String viewUrl
     ) {
         /**
          * Human-readable size string (B / KB / MB). Mirrors the
@@ -130,7 +133,8 @@ public class StudentLessonsDtos {
      * @param publishedAt     timestamp the lesson was published
      * @param attachments     attachment rows in upload order; may be empty
      * @param contentType     RICHTEXT / PDF / VIDEO — selects the viewer
-     * @param pdfDownloadUrl  stream URL of the main PDF when type=PDF
+     * @param pdfDownloadUrl  download URL of the main PDF when type=PDF
+     * @param pdfViewerUrl    PDF.js iframe URL when type=PDF; null otherwise
      * @param videoUrl        embed URL (YOUTUBE/VIMEO) or stream URL (UPLOAD)
      * @param videoProvider   YOUTUBE / VIMEO / UPLOAD — null outside VIDEO
      */
@@ -146,6 +150,7 @@ public class StudentLessonsDtos {
             List<LessonAttachmentRow> attachments,
             String contentType,
             String pdfDownloadUrl,
+            String pdfViewerUrl,
             String videoUrl,
             String videoProvider
     ) { }

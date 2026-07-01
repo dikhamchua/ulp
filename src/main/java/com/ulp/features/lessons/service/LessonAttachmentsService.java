@@ -2,6 +2,7 @@ package com.ulp.features.lessons.service;
 
 import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
+import com.ulp.entities.LessonActivity;
 import com.ulp.entities.LessonAttachment;
 import com.ulp.entities.Section;
 import com.ulp.features.classes.repository.EnrollmentRepository;
@@ -52,6 +53,7 @@ public class LessonAttachmentsService {
     private final ClassesService classesService;
     private final LessonsReorderService reorderService;
     private final EnrollmentRepository enrollmentRepository;
+    private final LessonActivityWriter activityWriter;
 
     public LessonAttachmentsService(LessonAttachmentRepository attachmentRepository,
                                     LessonRepository lessonRepository,
@@ -59,7 +61,8 @@ public class LessonAttachmentsService {
                                     LessonAttachmentStorageService storage,
                                     ClassesService classesService,
                                     LessonsReorderService reorderService,
-                                    EnrollmentRepository enrollmentRepository) {
+                                    EnrollmentRepository enrollmentRepository,
+                                    LessonActivityWriter activityWriter) {
         this.attachmentRepository = attachmentRepository;
         this.lessonRepository = lessonRepository;
         this.sectionRepository = sectionRepository;
@@ -67,6 +70,7 @@ public class LessonAttachmentsService {
         this.classesService = classesService;
         this.reorderService = reorderService;
         this.enrollmentRepository = enrollmentRepository;
+        this.activityWriter = activityWriter;
     }
 
     /** Lists attachments of a lesson — used to preload the edit page. */
@@ -96,7 +100,10 @@ public class LessonAttachmentsService {
         StoredAttachment stored = storage.store(file, lessonId);
         LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
                 stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
-        return toRow(attachmentRepository.save(row));
+        LessonAttachment saved = attachmentRepository.save(row);
+        activityWriter.write(lessonId, LessonActivity.TYPE_ATTACHMENT_ADDED,
+                "Thêm tệp đính kèm: " + saved.getOriginalFilename(), userId);
+        return toRow(saved);
     }
 
     /**
@@ -120,24 +127,26 @@ public class LessonAttachmentsService {
             throw new IllegalArgumentException("Chỉ chấp nhận tệp PDF cho bài giảng dạng PDF");
         }
 
-        // Replace any previous main PDF — delete its row + file first so
-        // the FK can rebind cleanly. We clear the FK before delete to keep
-        // the existing dangling-reference guard intact.
         Long previousMainId = lesson.getPdfAttachmentId();
-        if (previousMainId != null) {
-            attachmentRepository.findById(previousMainId).ifPresent(prev -> {
-                lessonRepository.clearPdfAttachmentId(prev.getId());
-                storage.delete(prev.getStoredPath());
-                attachmentRepository.delete(prev);
-            });
-        }
 
+        // Save new PDF first so the CHECK constraint (content_type=PDF
+        // requires pdf_attachment_id NOT NULL) is never violated.
         StoredAttachment stored = storage.store(file, lessonId);
         LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
                 stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
         LessonAttachment saved = attachmentRepository.saveAndFlush(row);
         lesson.setPdfAttachmentId(saved.getId());
-        lessonRepository.save(lesson);
+        lessonRepository.saveAndFlush(lesson);
+
+        // Clean up old main PDF now that the new one is in place.
+        if (previousMainId != null && !previousMainId.equals(saved.getId())) {
+            attachmentRepository.findById(previousMainId).ifPresent(prev -> {
+                storage.delete(prev.getStoredPath());
+                attachmentRepository.delete(prev);
+            });
+        }
+        activityWriter.write(lessonId, LessonActivity.TYPE_PDF_UPLOADED,
+                "Tải lên PDF chính: " + saved.getOriginalFilename(), userId);
         return toRow(saved);
     }
 
@@ -147,18 +156,23 @@ public class LessonAttachmentsService {
                        Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
-        loadLesson(sectionId, lessonId);
+        Lesson lesson = loadLesson(sectionId, lessonId);
         LessonAttachment att = attachmentRepository.findByIdAndLessonId(attachmentId, lessonId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ATTACHMENT_NOT_FOUND));
-        // Clear the FK first so the delete never leaves a dangling
-        // reference from lessons.pdf_attachment_id. Safe to call even
-        // when the attachment is not the lesson's main PDF — the
-        // UPDATE just affects 0 rows.
-        lessonRepository.clearPdfAttachmentId(attachmentId);
-        // File-first: storage.delete swallows IO errors so the DB row removal
-        // is the authoritative success signal for the caller.
+        // If this is the main PDF, switch the lesson to RICHTEXT first
+        // so clearing pdf_attachment_id doesn't violate the CHECK constraint.
+        if (attachmentId.equals(lesson.getPdfAttachmentId())) {
+            lesson.updateContent("");
+            lesson.switchContentTypeTo(Lesson.CONTENT_TYPE_RICHTEXT);
+            lessonRepository.saveAndFlush(lesson);
+        } else {
+            lessonRepository.clearPdfAttachmentId(attachmentId);
+        }
+        String removedName = att.getOriginalFilename();
         storage.delete(att.getStoredPath());
         attachmentRepository.delete(att);
+        activityWriter.write(lessonId, LessonActivity.TYPE_ATTACHMENT_REMOVED,
+                "Xoá tệp đính kèm: " + removedName, userId);
     }
 
     /**
@@ -169,10 +183,7 @@ public class LessonAttachmentsService {
     public void deleteAllByLesson(Long lessonId) {
         List<LessonAttachment> rows = attachmentRepository.findByLessonIdOrderByUploadedAtAsc(lessonId);
         for (LessonAttachment att : rows) {
-            // Defense-in-depth: clear any FK pointing at this row before
-            // we drop it. The lesson itself is about to be soft-deleted so
-            // the FK would not really dangle long, but the cascade may run
-            // alongside other consistency checks.
+            // Clear FK before delete — lessons.pdf_attachment_id is RESTRICT with no ON DELETE clause.
             lessonRepository.clearPdfAttachmentId(att.getId());
             storage.delete(att.getStoredPath());
         }

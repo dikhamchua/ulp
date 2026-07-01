@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DOCX Viewer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f5f5f5; font-family: system-ui, sans-serif; }
+    #toolbar {
+      display: flex; align-items: center; gap: 8px;
+      background: #323639; color: #eee; padding: 8px 14px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    #toolbar button {
+      background: #565a5e; color: #eee; border: none; padding: 5px 14px;
+      border-radius: 3px; cursor: pointer; font-size: 13px;
+    }
+    #toolbar button:hover { background: #787c81; }
+    #toolbar .spacer { flex: 1; }
+    #toolbar #filename { font-size: 13px; }
+    #container {
+      max-width: 900px; margin: 20px auto; padding: 40px 60px;
+      background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.12);
+      min-height: 60vh; border-radius: 4px;
+    }
+    #loading { text-align: center; padding: 60px 20px; color: #666; font-size: 15px; }
+    #error-msg { text-align: center; padding: 60px 20px; color: #c33; display: none; }
+    #error-msg a { color: #2563eb; }
+
+    /* Fullscreen overlay */
+    #fs-overlay { display: none; position: fixed; inset: 0; z-index: 999;
+      background: rgba(0,0,0,.92); flex-direction: column; }
+    #fs-overlay.active { display: flex; }
+    #fs-toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+      background: #1a1a1a; color: #eee; flex-shrink: 0; }
+    #fs-toolbar button { background: #444; color: #eee; border: none; padding: 6px 16px;
+      border-radius: 3px; cursor: pointer; font-size: 14px; }
+    #fs-toolbar button:hover { background: #666; }
+    #fs-toolbar .spacer { flex: 1; }
+    #fs-container { flex: 1; overflow: auto; padding: 20px; display: flex; justify-content: center; }
+    #fs-container .docx-content { max-width: 900px; background: #fff; padding: 40px 60px;
+      border-radius: 4px; box-shadow: 0 4px 24px rgba(0,0,0,.6); width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <span id="filename">Tài liệu DOCX</span>
+    <span class="spacer"></span>
+    <button id="fullscreen" title="Toàn màn hình">⛶</button>
+    <button id="download" title="Tải xuống">⬇</button>
+  </div>
+  <div id="container">
+    <div id="loading">Đang tải tài liệu...</div>
+    <div id="error-msg"><p>Không thể tải tài liệu DOCX.</p><p><a id="fallback-link" href="#">Tải xuống để xem</a></p></div>
+  </div>
+
+  <!-- Fullscreen overlay -->
+  <div id="fs-overlay">
+    <div id="fs-toolbar">
+      <span>Tài liệu DOCX</span>
+      <span class="spacer"></span>
+      <button id="fs-close">✕ Đóng</button>
+    </div>
+    <div id="fs-container"></div>
+  </div>
+
+  <script type="module" th:inline="javascript">
+    /*<![CDATA[*/
+    import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+    // docx-preview is a UMD module; load as script then access global
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/docx-preview@0.1.20/dist/docx-preview.min.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    const docx = window.docx;
+
+    const downloadUrl = /*[[${downloadUrl}]]*/ '';
+    const filename = /*[[${filename}]]*/ 'Tài liệu';
+
+    document.getElementById('filename').textContent = filename;
+    document.getElementById('download').onclick = () => window.open(downloadUrl, '_blank');
+    document.getElementById('fallback-link').href = downloadUrl;
+
+    const container = document.getElementById('container');
+    const loading = document.getElementById('loading');
+    const errorDiv = document.getElementById('error-msg');
+
+    function renderDocx(buffer, targetEl) {
+      const options = {
+        breakPages: true,
+        renderHeaders: true,
+        renderFooters: true,
+        ignoreHeight: true,
+        className: 'docx-content'
+      };
+      return docx.renderAsync(buffer, targetEl, null, options);
+    }
+
+    // Fetched once and reused for fullscreen. fetch() is not a navigation,
+    // so download managers (IDM) do not intercept it — no base64 embedding.
+    let docBuffer = null;
+
+    try {
+      const resp = await fetch(downloadUrl, { credentials: 'include' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      docBuffer = await resp.arrayBuffer();
+      loading.style.display = 'none';
+      await renderDocx(docBuffer.slice(0), container);
+    } catch (err) {
+      loading.style.display = 'none';
+      errorDiv.style.display = 'block';
+      console.error('DOCX load error:', err);
+    }
+
+    // ── Fullscreen ────────────────────────────────────────────────────
+    const fsOverlay = document.getElementById('fs-overlay');
+    document.getElementById('fullscreen').onclick = async () => {
+      fsOverlay.classList.add('active');
+      const fsContainer = document.getElementById('fs-container');
+      if (!fsContainer.querySelector('.docx-content') && docBuffer) {
+        try {
+          // docx-preview consumes the buffer, so pass a fresh copy.
+          await renderDocx(docBuffer.slice(0), fsContainer);
+        } catch (e) {
+          fsContainer.innerHTML = '<p style="color:#ccc;text-align:center;padding:40px">Không thể tải tài liệu.</p>';
+        }
+      }
+    };
+    document.getElementById('fs-close').onclick = () => fsOverlay.classList.remove('active');
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && fsOverlay.classList.contains('active')) {
+        fsOverlay.classList.remove('active');
+      }
+    });
+  </script>
+</body>
+</html>

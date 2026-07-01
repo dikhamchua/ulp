@@ -39,6 +39,9 @@ public final class ActivityRowMapper {
             case LessonActivity.TYPE_UNPUBLISHED -> "Chuyển nháp";
             case LessonActivity.TYPE_REORDERED -> "Sắp xếp lại";
             case LessonActivity.TYPE_DELETED -> "Xoá";
+            case LessonActivity.TYPE_PDF_UPLOADED -> "Tải PDF";
+            case LessonActivity.TYPE_ATTACHMENT_ADDED -> "Thêm tệp";
+            case LessonActivity.TYPE_ATTACHMENT_REMOVED -> "Xoá tệp";
             // Fallback so future activity types render their raw key until labelled.
             default -> type;
         };

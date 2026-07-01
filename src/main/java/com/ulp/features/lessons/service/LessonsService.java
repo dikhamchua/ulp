@@ -23,6 +23,8 @@ import static com.ulp.common.IConstant.CONTENT_TYPE_VIDEO;
 import static com.ulp.common.IConstant.LESSON_STATUS_PUBLISHED;
 import static com.ulp.common.IConstant.MSG_LESSON_NOT_FOUND;
 import static com.ulp.common.IConstant.VIDEO_PROVIDER_UPLOAD;
+import static com.ulp.common.IConstant.VIDEO_PROVIDER_VIMEO;
+import static com.ulp.common.IConstant.VIDEO_PROVIDER_YOUTUBE;
 
 /**
  * Lesson CRUD service for the lessons tab.
@@ -156,6 +158,18 @@ public class LessonsService {
         String oldBody = nullToEmpty(lesson.getContentRichtext());
         String requestedType = form.effectiveContentType();
         boolean typeChanged = !Objects.equals(oldType, requestedType);
+
+        // The "Lưu URL" AJAX button is gone — the main form save now owns
+        // external video URLs. Persist them BEFORE the type-switch so the
+        // switcher's "video configured?" check sees the fresh values.
+        // UPLOAD keeps the stored MP4 path the upload endpoint wrote, so
+        // only YouTube/Vimeo URLs flow in from the form.
+        if (CONTENT_TYPE_VIDEO.equals(requestedType)
+                && (VIDEO_PROVIDER_YOUTUBE.equals(form.videoProvider())
+                    || VIDEO_PROVIDER_VIMEO.equals(form.videoProvider()))) {
+            lesson.setVideoProvider(form.videoProvider());
+            lesson.setVideoUrl(form.videoUrl());
+        }
 
         if (typeChanged) {
             // Cross-type updates delegate to the switcher which validates,

@@ -149,7 +149,7 @@ class StudentLessonsControllerTest {
                 .andExpect(content().string(containsString("<p>Body</p>")));
     }
 
-    /** PDF lessons render an &lt;embed&gt; pointing at the stream URL. */
+    /** PDF lessons render a PDF.js &lt;iframe&gt; plus a download fallback link. */
     @Test
     @WithUserDetails(STUDENT_EMAIL)
     void class_lessons_renders_pdf_viewer_when_type_is_PDF() throws Exception {
@@ -163,13 +163,17 @@ class StudentLessonsControllerTest {
         pdfLesson.setPdfAttachmentId(main.getId());
         pdfLesson = lessonRepository.saveAndFlush(pdfLesson);
 
-        String expectedPdfUrl = "/api/lessons/" + pdfLesson.getId()
+        // Fallback download link still points at the raw stream endpoint.
+        String expectedDownloadUrl = "/api/lessons/" + pdfLesson.getId()
                 + "/attachments/" + main.getId() + "/download";
         mockMvc.perform(get(urlWithLesson(clazz.getId(), section1.getId(), pdfLesson.getId())))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("<embed")))
-                .andExpect(content().string(containsString("type=\"application/pdf\"")))
-                .andExpect(content().string(containsString(expectedPdfUrl)));
+                // Viewer is now a PDF.js iframe, not a browser-native <embed>.
+                .andExpect(content().string(containsString("class=\"lesson-pdf-iframe\"")))
+                // iframe src is the file-viewer page carrying the real PDF filename.
+                .andExpect(content().string(containsString("/file-viewer?type=pdf")))
+                .andExpect(content().string(containsString("main.pdf")))
+                .andExpect(content().string(containsString(expectedDownloadUrl)));
     }
 
     /** VIDEO/YOUTUBE lessons render an iframe pointing at the embed URL. */

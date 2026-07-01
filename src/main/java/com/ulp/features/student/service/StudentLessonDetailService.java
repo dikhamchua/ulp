@@ -18,8 +18,12 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 import static com.ulp.common.IConstant.CONTENT_TYPE_PDF;
 import static com.ulp.common.IConstant.CONTENT_TYPE_RICHTEXT;
@@ -53,13 +57,21 @@ import static com.ulp.common.IConstant.VIDEO_PROVIDER_YOUTUBE;
 @Service
 public class StudentLessonDetailService {
 
-    /** Path template for the attachment download endpoint. */
     private static final String ATTACHMENT_DOWNLOAD_URL_FMT =
             "/api/lessons/%d/attachments/%d/download";
-
-    /** Path template for the MP4 video stream endpoint. */
     private static final String VIDEO_STREAM_URL_FMT =
             "/api/lessons/%d/video/stream";
+    private static final String FILE_VIEWER_URL_FMT =
+            "/file-viewer?type=%s&lessonId=%d&attachmentId=%d&filename=%s";
+    /** Lazy MS Office viewer redirect — mints the public token only on click. */
+    private static final String OFFICE_VIEWER_URL_FMT =
+            "/file-viewer/office?lessonId=%d&attachmentId=%d";
+
+    /** Extensions supported by the internal DOCX viewer (JSZip + docx-preview). */
+    private static final Set<String> DOCX_EXTENSIONS = Set.of("docx", "doc");
+    /** Extensions that still need MS Office Viewer (no client-side renderer). */
+    private static final Set<String> OFFICE_EXTENSIONS =
+            Set.of("pptx", "ppt", "xlsx", "xls");
 
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
@@ -137,12 +149,14 @@ public class StudentLessonDetailService {
                     a.getOriginalFilename(),
                     a.getSizeBytes(),
                     a.getMimeType(),
-                    attachmentDownloadUrl(lessonId, a.getId())));
+                    attachmentDownloadUrl(lessonId, a.getId()),
+                    buildAttachmentViewUrl(lessonId, a)));
         }
 
         String contentType = lesson.getContentType() == null
                 ? CONTENT_TYPE_RICHTEXT : lesson.getContentType();
         String pdfDownloadUrl = buildPdfDownloadUrl(lesson);
+        String pdfViewerUrl = buildPdfViewerUrl(lesson);
         String videoUrl = buildStudentVideoUrl(lesson);
 
         return new LessonDetailView(
@@ -157,6 +171,7 @@ public class StudentLessonDetailService {
                 attachments,
                 contentType,
                 pdfDownloadUrl,
+                pdfViewerUrl,
                 videoUrl,
                 lesson.getVideoProvider());
     }
@@ -168,6 +183,49 @@ public class StudentLessonDetailService {
             return null;
         }
         return attachmentDownloadUrl(lesson.getId(), lesson.getPdfAttachmentId());
+    }
+
+    /**
+     * Returns the PDF.js viewer page URL when type=PDF; null otherwise.
+     */
+    private String buildPdfViewerUrl(Lesson lesson) {
+        if (!CONTENT_TYPE_PDF.equals(lesson.getContentType())
+                || lesson.getPdfAttachmentId() == null) {
+            return null;
+        }
+        String pdfFilename = lessonAttachmentRepository.findById(lesson.getPdfAttachmentId())
+                .map(LessonAttachment::getOriginalFilename)
+                .orElse("tai-lieu.pdf");
+        return fileViewerUrl("pdf", lesson.getId(),
+                lesson.getPdfAttachmentId(), pdfFilename);
+    }
+
+    /**
+     * Builds an inline viewer URL for an accessory attachment.
+     * PDF → PDF.js; DOCX → JSZip + docx-preview; PPTX/XLSX → MS Office.
+     * The MS Office path routes through a lazy endpoint that mints the
+     * public token only when the student actually opens the file, so
+     * merely rendering the list has no write side-effect.
+     */
+    private String buildAttachmentViewUrl(Long lessonId, LessonAttachment a) {
+        String ext = extractExtension(a.getOriginalFilename());
+        String fname = a.getOriginalFilename();
+        if ("pdf".equals(ext)) {
+            return fileViewerUrl("pdf", lessonId, a.getId(), fname);
+        }
+        if (DOCX_EXTENSIONS.contains(ext)) {
+            return fileViewerUrl("docx", lessonId, a.getId(), fname);
+        }
+        if (OFFICE_EXTENSIONS.contains(ext)) {
+            return String.format(OFFICE_VIEWER_URL_FMT, lessonId, a.getId());
+        }
+        return null;
+    }
+
+    private static String fileViewerUrl(String type, Long lessonId,
+                                         Long attachmentId, String filename) {
+        return String.format(FILE_VIEWER_URL_FMT, type, lessonId, attachmentId,
+                URLEncoder.encode(filename != null ? filename : "tai-lieu", StandardCharsets.UTF_8));
     }
 
     /** Returns the iframe-embed URL or MP4 stream URL when type=VIDEO; null otherwise. */
@@ -192,6 +250,14 @@ public class StudentLessonDetailService {
     /** Builds the canonical download URL for an attachment row. */
     private static String attachmentDownloadUrl(Long lessonId, Long attachmentId) {
         return String.format(ATTACHMENT_DOWNLOAD_URL_FMT, lessonId, attachmentId);
+    }
+
+    /** Extracts the lowercase file extension from a filename. */
+    private static String extractExtension(String filename) {
+        if (filename == null) return "";
+        int dot = filename.lastIndexOf('.');
+        if (dot < 0 || dot == filename.length() - 1) return "";
+        return filename.substring(dot + 1).toLowerCase(Locale.ROOT);
     }
 }
 
