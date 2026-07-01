@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
 /**
  * JPA entity mapped to the {@code activity_lessons} table.
  * Represents an immutable audit-log entry for every mutation performed on a
- * {@link Lesson}: CREATED, UPDATED, PUBLISHED, UNPUBLISHED, DELETED, REORDERED.
+ * {@link Lesson}: CREATED, UPDATED, PUBLISHED, UNPUBLISHED, DELETED, REORDERED,
+ * PDF_UPLOADED, ATTACHMENT_ADDED, ATTACHMENT_REMOVED.
  *
  * <p><b>Important:</b> {@code lessonId} is stored as a plain {@code Long}
  * rather than a {@code @ManyToOne} association to {@link Lesson}. This
@@ -36,6 +37,9 @@ public class LessonActivity {
     public static final String TYPE_UNPUBLISHED = "UNPUBLISHED";
     public static final String TYPE_DELETED = "DELETED";
     public static final String TYPE_REORDERED = "REORDERED";
+    public static final String TYPE_PDF_UPLOADED = "PDF_UPLOADED";
+    public static final String TYPE_ATTACHMENT_ADDED = "ATTACHMENT_ADDED";
+    public static final String TYPE_ATTACHMENT_REMOVED = "ATTACHMENT_REMOVED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

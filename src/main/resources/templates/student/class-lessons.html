@@ -80,15 +80,16 @@
           Bài giảng này chưa có nội dung.
         </p>
 
-        <!-- PDF viewer — inline embed with a fallback link for browsers
-             without an inline PDF plugin (mobile, mostly). -->
+        <!-- PDF viewer — browser-native inline view + download fallback. -->
         <div class="lesson-pdf-viewer"
-             th:if="${lessonDetail.contentType() == 'PDF' and lessonDetail.pdfDownloadUrl() != null}">
-          <embed th:src="${lessonDetail.pdfDownloadUrl()}" type="application/pdf"
-                 class="lesson-pdf-embed">
-            <a th:href="${lessonDetail.pdfDownloadUrl()}" target="_blank" rel="noopener"
-               class="lesson-pdf-fallback">Mở PDF trong tab mới</a>
-          </embed>
+             th:if="${lessonDetail.contentType() == 'PDF' and lessonDetail.pdfViewerUrl() != null}">
+          <iframe th:src="${lessonDetail.pdfViewerUrl()}"
+                  class="lesson-pdf-iframe"
+                  frameborder="0"
+                  allowfullscreen>
+          </iframe>
+          <a th:href="${lessonDetail.pdfDownloadUrl()}" target="_blank" rel="noopener"
+             class="lesson-pdf-fallback">Tải PDF xuống</a>
         </div>
 
         <!-- VIDEO viewer — iframe for YouTube/Vimeo, HTML5 video for UPLOAD.
@@ -123,6 +124,10 @@
                  th:title="${att.filename()}">tệp.pdf</a>
               <span class="student-lesson-detail-attachment-size"
                     th:text="${att.formattedSize()}">— KB</span>
+              <a th:if="${att.viewUrl() != null}"
+                 th:href="${att.viewUrl()}"
+                 class="student-lesson-detail-attachment-view"
+                 target="_blank" rel="noopener">Xem</a>
             </li>
           </ul>
         </section>

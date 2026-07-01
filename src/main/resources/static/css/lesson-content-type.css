@@ -89,6 +89,110 @@
     margin-bottom: 4px;
 }
 
+/* URL video input redesign — fills the row, blue focus ring, button aligned. */
+.lct-video-url-block input[type="url"] {
+    flex: 1 1 240px;
+    min-width: 0;
+    height: 42px;
+    padding: 9px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    color: #1e293b;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.lct-video-url-block input[type="url"]::placeholder {
+    color: #94a3b8;
+}
+.lct-video-url-block input[type="url"]:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Small MP4 drag-drop zone — compact (icon + text inline), keeps the
+   progress bar below. Mirrors .lpdf-drop / .latt-drop interactions but
+   deliberately smaller per the lecturer's request. */
+.lvid-drop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px 16px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+.lvid-drop:hover {
+    border-color: #94a3b8;
+    background: #f1f5f9;
+}
+.lvid-drop:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+.lvid-drop.is-dragover {
+    background: #eff6ff;
+    border-color: #3b82f6;
+}
+.lvid-drop-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: #e2e8f0;
+    color: #475569;
+}
+.lvid-drop-icon svg { width: 18px; height: 18px; }
+.lvid-drop-text {
+    font-size: 0.875rem;
+    color: #475569;
+}
+.lvid-drop-cta {
+    color: #1d4ed8;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* Picked-but-not-yet-uploaded MP4 filename — shown until the form is saved. */
+.lvid-selected {
+    margin: 8px 0 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    font-size: 0.85rem;
+}
+.lvid-selected[hidden] { display: none; }
+
+/* Picked-but-not-yet-uploaded PDF filename — mirrors .lvid-selected. */
+.lpdf-selected {
+    margin: 8px 0 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    font-size: 0.85rem;
+}
+.lpdf-selected[hidden] { display: none; }
+
+/* Video provider sub-blocks toggle via .is-hidden but lack the
+   [data-content-type-section] attribute, so they need their own hide rule —
+   otherwise the MP4 upload block stays visible while YouTube/Vimeo is picked. */
+.lct-video-url-block.is-hidden,
+.lct-video-upload-block.is-hidden {
+    display: none !important;
+}
+
 .lct-pdf-status,
 .lct-video-status {
     color: #475569;
@@ -194,7 +298,7 @@
     margin-top: 12px;
 }
 
-.lesson-pdf-embed {
+.lesson-pdf-iframe {
     width: 100%;
     height: 75vh;
     min-height: 480px;
@@ -205,8 +309,27 @@
 .lesson-pdf-fallback {
     display: inline-block;
     margin-top: 8px;
+    font-size: 0.875rem;
     color: #2563eb;
     text-decoration: underline;
+}
+
+/* View button for inline-viewable attachments (PDF/DOCX/PPTX/XLSX). */
+.student-lesson-detail-attachment-view {
+    margin-left: auto;
+    font-size: 0.8125rem;
+    color: #2563eb;
+    text-decoration: none;
+    padding: 2px 10px;
+    border: 1px solid #2563eb;
+    border-radius: 4px;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+
+.student-lesson-detail-attachment-view:hover {
+    background: #2563eb;
+    color: #fff;
 }
 
 .lesson-video-viewer {
@@ -272,7 +395,7 @@
     max-width: 100%;
 }
 
-.student-lessons-main .lesson-pdf-embed {
+.student-lessons-main .lesson-pdf-iframe {
     max-width: 100%;
     display: block;
 }
@@ -280,3 +403,225 @@
 .student-lessons-main .lesson-video-aspect {
     max-width: 100%;
 }
+
+/* ═══ Single-column lesson form layout (1A redesign) ═══════════════════
+   Title / status / content-type sit in the info card's 3-col .detail-form-grid.
+   The bottom row places attachments + main PDF side by side; when the lesson
+   is not a PDF type the PDF card is hidden and attachments fill the row. */
+.lesson-form-bottom-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: start;
+}
+
+.lesson-form-bottom-row > .detail-card {
+    flex: 1 1 360px;
+    min-width: 0;
+    margin-bottom: 16px;
+}
+
+/* ── Main PDF card — mirrors the attachments drop-zone look ───────────
+   The .latt-* helpers are scoped to #lessonAttachmentsCard, so the PDF
+   card re-declares the same visual treatment under its own .lpdf-card. */
+.lpdf-card.detail-card {
+    background: linear-gradient(180deg, #fafbff 0%, #ffffff 100%);
+    border-radius: 14px;
+}
+
+.lpdf-card .latt-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.lpdf-card .latt-header-icon {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #b91c1c;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.lpdf-card .latt-header-icon svg { width: 22px; height: 22px; }
+
+.lpdf-card .latt-header-text { flex: 1 1 auto; min-width: 0; }
+
+.lpdf-card .latt-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 2px;
+    line-height: 1.3;
+}
+
+.lpdf-card .latt-subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* Drop zone: dashed hero matching #lessonAttachmentsCard .latt-drop.
+   Click-to-pick + drag-drop, so it carries the same interactive states. */
+.lpdf-drop {
+    margin-top: 4px;
+    border: 2px dashed #fecaca;
+    border-radius: 14px;
+    padding: 28px 20px;
+    text-align: center;
+    background:
+        radial-gradient(circle at top, rgba(239, 68, 68, 0.05), transparent 60%),
+        #ffffff;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.lpdf-drop:hover {
+    border-color: #f87171;
+    background:
+        radial-gradient(circle at top, rgba(239, 68, 68, 0.09), transparent 60%),
+        #fffafa;
+}
+.lpdf-drop:focus-visible {
+    outline: 2px solid #ef4444;
+    outline-offset: 2px;
+}
+.lpdf-drop.is-dragover {
+    background: #fef2f2;
+    border-color: #ef4444;
+    transform: scale(1.01);
+}
+
+.lpdf-drop .latt-drop-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #b91c1c;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.15);
+}
+.lpdf-drop .latt-drop-icon svg { width: 30px; height: 30px; }
+
+.lpdf-drop .latt-drop-title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+}
+.lpdf-drop .latt-drop-cta {
+    color: #b91c1c;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.lpdf-drop .latt-drop-hint {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.lpdf-card .lct-pdf-status {
+    display: block;
+    margin: 12px 0 0;
+    color: #475569;
+    font-size: 0.85rem;
+}
+
+/* ── Uploaded main-PDF row — mirrors #lessonAttachmentsCard .latt-item ──
+   The .latt-* item helpers are scoped to the attachments card, so the PDF
+   card re-declares the row styling under its own .lpdf-file list. */
+.lpdf-file {
+    list-style: none;
+    padding: 0;
+    margin: 14px 0 0;
+}
+.lpdf-file[hidden] { display: none; }
+
+.lpdf-file-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    transition: border-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.lpdf-file-item:hover {
+    border-color: #fecaca;
+    background: #fffafa;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.lpdf-file-item .latt-ext {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-align: center;
+    text-transform: uppercase;
+    background: #fee2e2;
+    color: #991b1b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lpdf-file-item .latt-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.lpdf-file-item .latt-name {
+    color: #0f172a;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lpdf-file-item .latt-name:hover { color: #b91c1c; text-decoration: underline; }
+.lpdf-file-item .latt-sub {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.lpdf-file-item .latt-action {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #475569;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    text-decoration: none;
+    transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.lpdf-file-item .latt-action svg { width: 16px; height: 16px; }
+.lpdf-file-item .latt-download:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+
+

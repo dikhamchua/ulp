@@ -51,6 +51,7 @@ scripts/bin/harness-cli.exe
 
 # Agent skill files (per-developer)
 .claude/
+.playwright-mcp/
 
 # E2E test fixtures (regenerable via scripts/build_e2e_sample.py)
 tmp/
@@ -60,3 +61,6 @@ app*.log
 rev*.log
 rev*.err.log
 *.log
+
+# Playwright MCP screenshots (scoped so project image assets are unaffected)
+.playwright-mcp/*.png

@@ -167,7 +167,7 @@ class Sprint3LessonContentTypesIntegrationTest {
                         + "?section=" + section.getId() + "&lesson=" + row.id()))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("lesson-pdf-viewer")))
-                .andExpect(content().string(containsString("Mở PDF trong tab mới")));
+                .andExpect(content().string(containsString("Tải PDF xuống")));
     }
 
     @Test

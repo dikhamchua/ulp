@@ -11,6 +11,8 @@ import com.ulp.features.lessons.dto.LessonDtos.LessonForm;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.service.LessonAttachmentsService;
 import com.ulp.features.lessons.service.LessonsService;
+import com.ulp.features.lessons.support.VimeoEmbedUrl;
+import com.ulp.features.lessons.support.YouTubeEmbedUrl;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -182,6 +184,22 @@ public class LessonsController {
                              @AuthenticationPrincipal UlpUserDetails user,
                              Model model,
                              RedirectAttributes ra) {
+        // External video URL is now saved by this form (the "Lưu URL" AJAX
+        // button is gone), so validate it here the same way the old endpoint
+        // did. UPLOAD keeps its stored MP4 path, so only YouTube/Vimeo check.
+        String videoProvider = form.videoProvider();
+        if (CONTENT_TYPE_VIDEO.equals(form.effectiveContentType())
+                && (VIDEO_PROVIDER_YOUTUBE.equals(videoProvider)
+                    || VIDEO_PROVIDER_VIMEO.equals(videoProvider))) {
+            String videoUrl = form.videoUrl();
+            boolean validUrl = videoUrl != null
+                    && (VIDEO_PROVIDER_YOUTUBE.equals(videoProvider)
+                        ? YouTubeEmbedUrl.matches(videoUrl)
+                        : VimeoEmbedUrl.matches(videoUrl));
+            if (!validUrl) {
+                result.rejectValue("videoUrl", "video.url.invalid", MSG_VIDEO_URL_INVALID);
+            }
+        }
         if (result.hasErrors()) {
             // Reload section + lesson so the form template can render header context.
             Section section = formSupport.loadSection(classId, sectionId);
