@@ -7,7 +7,7 @@ import com.ulp.features.classes.dto.ProgressDtos.ProgressPageView;
 import com.ulp.features.classes.dto.ProgressDtos.ProgressSummary;
 import com.ulp.features.classes.dto.ProgressDtos.StudentProgressRow;
 import com.ulp.features.classes.repository.EnrollmentRepository;
-import com.ulp.features.classes.service.support.AvatarStyles;
+import com.ulp.utils.AvatarStyles;
 import com.ulp.features.classes.service.support.ProgressMath;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.progress.repository.LearningProgressRepository;
@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.ulp.common.IConstant.DEFAULT_PROGRESS_PAGE_SIZE;
+import static com.ulp.common.IConstant.MAX_PROGRESS_PAGE_SIZE;
 
 /**
  * Read service for the lecturer progress dashboard table + summary cards
@@ -153,7 +154,8 @@ public class LecturerProgressService {
 
     private Page<StudentProgressRow> paginate(List<StudentProgressRow> rows,
                                               int page, int size) {
-        int safeSize = size <= 0 ? DEFAULT_PROGRESS_PAGE_SIZE : size;
+        int safeSize = size <= 0 ? DEFAULT_PROGRESS_PAGE_SIZE
+                : Math.min(size, MAX_PROGRESS_PAGE_SIZE);
         int safePage = Math.max(page, 0);
         int total = rows.size();
         // Compute the offset in long so an absurd page never overflows int

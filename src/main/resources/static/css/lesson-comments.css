@@ -1,9 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Lesson comments panel (ULP-4.6)
+   ULP — Lesson comments panel chrome (ULP-4.6)
    ----------------------------------------------------------------------------
-   Styles the "Thảo luận" panel rendered below the inlined lesson detail on the
-   student lessons page. Content is injected via textContent (XSS-safe) with
-   white-space: pre-wrap so author newlines survive.
+   Panel container, composer (textarea + round Telegram-style send button) and
+   status/empty line. The threaded rows themselves live in
+   lesson-comment-thread.css; both are loaded by the student lessons page.
    ══════════════════════════════════════════════════════════════════════════ */
 
 .lesson-comments {
@@ -20,18 +20,23 @@
 }
 
 /* ── Composer ─────────────────────────────────────────────────────────── */
+/* Single row: textarea grows, the round send button sits at its trailing edge. */
 .lesson-comments-composer {
   margin-bottom: var(--space-4, 16px);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2, 8px);
 }
 
 .lesson-comments-input {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   box-sizing: border-box;
   resize: vertical;
-  min-height: 64px;
-  padding: 10px 12px;
+  min-height: 44px;
+  padding: 10px 14px;
   border: 1px solid var(--shub-border, #e6e8eb);
-  border-radius: 8px;
+  border-radius: 22px;
   font: inherit;
   font-size: 14px;
   color: var(--shub-text, #202227);
@@ -49,7 +54,7 @@
   gap: var(--space-2, 8px);
 }
 
-.lesson-comments-submit,
+/* Reply submit stays a labelled pill; only the main composer became an icon. */
 .lesson-comments-reply-submit {
   padding: 7px 16px;
   border: none;
@@ -61,10 +66,42 @@
   cursor: pointer;
 }
 
-.lesson-comments-submit:disabled,
 .lesson-comments-reply-submit:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* Main composer send: circular Telegram-style icon button. */
+.lesson-comments-submit {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--shub-primary, #1e88e5);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lesson-comments-submit:hover {
+  background: var(--shub-primary-dark, #1565c0);
+}
+
+.lesson-comments-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Nudge the paper-plane so it reads visually centred in the circle. */
+.lesson-comments-submit .ico {
+  width: 18px;
+  height: 18px;
+  transform: translate(1px, -1px);
 }
 
 /* ── Status / empty / error state ─────────────────────────────────────── */
@@ -72,97 +109,4 @@
   margin: var(--space-3, 12px) 0;
   font-size: 14px;
   color: var(--shub-text-muted, #6b7280);
-}
-
-/* ── Comment rows ─────────────────────────────────────────────────────── */
-.lesson-comments-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4, 16px);
-}
-
-.lesson-comment {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.lesson-comment-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
-  flex-wrap: wrap;
-}
-
-.lesson-comment-author {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--shub-text, #202227);
-}
-
-.lesson-comment-badge {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--shub-primary-soft, #e8f3fd);
-  color: var(--shub-primary, #1e88e5);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.lesson-comment-time,
-.lesson-comment-edited {
-  font-size: 12px;
-  color: var(--shub-text-muted, #6b7280);
-}
-
-.lesson-comment-body {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--shub-text, #202227);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.lesson-comment-body.is-deleted {
-  font-style: italic;
-  color: var(--shub-text-muted, #6b7280);
-}
-
-.lesson-comment-actions {
-  display: flex;
-  gap: var(--space-3, 12px);
-  margin-top: 2px;
-}
-
-.lesson-comment-action {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--shub-primary, #1e88e5);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.lesson-comment-action.is-danger {
-  color: #d14343;
-}
-
-/* ── Replies ──────────────────────────────────────────────────────────── */
-.lesson-comment-replies {
-  margin-top: var(--space-3, 12px);
-  padding-left: var(--space-4, 16px);
-  border-left: 2px solid var(--shub-border, #e6e8eb);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3, 12px);
-}
-
-.lesson-comment-reply-box {
-  margin-top: var(--space-2, 8px);
-}
-
-.lesson-comment-reply-box .lesson-comments-input {
-  min-height: 48px;
 }

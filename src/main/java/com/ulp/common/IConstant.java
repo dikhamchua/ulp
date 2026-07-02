@@ -233,6 +233,12 @@ public interface IConstant {
     // Lessons feature — shared paging (history tab page size).
     int DEFAULT_HISTORY_PAGE_SIZE = 20;
 
-    // Lecturer progress dashboard — table page size.
+    // Lecturer progress dashboard — table page size (default + upper bound).
     int DEFAULT_PROGRESS_PAGE_SIZE = 10;
+    int MAX_PROGRESS_PAGE_SIZE = 100;
+
+    // Lesson comments — root comments per "load more" page (default + upper bound).
+    // MAX caps a client-supplied ?size so a huge value can't force an oversized query.
+    int DEFAULT_COMMENT_PAGE_SIZE = 10;
+    int MAX_COMMENT_PAGE_SIZE = 50;
 }

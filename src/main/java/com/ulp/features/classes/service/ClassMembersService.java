@@ -6,7 +6,7 @@ import com.ulp.features.classes.dto.MemberDtos.MemberRow;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Enrollment;
 import com.ulp.features.classes.repository.EnrollmentRepository;
-import com.ulp.features.classes.service.support.AvatarStyles;
+import com.ulp.utils.AvatarStyles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

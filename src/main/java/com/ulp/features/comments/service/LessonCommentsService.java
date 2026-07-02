@@ -4,16 +4,23 @@ import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Comment;
 import com.ulp.entities.Enrollment;
 import com.ulp.features.classes.repository.EnrollmentRepository;
+import com.ulp.features.comments.dto.LessonCommentsDtos.CommentPageView;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CommentRow;
 import com.ulp.features.comments.repository.LessonCommentRepository;
 import com.ulp.features.lessons.support.LessonAccessResolver;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import static com.ulp.common.IConstant.DEFAULT_COMMENT_PAGE_SIZE;
+import static com.ulp.common.IConstant.MAX_COMMENT_PAGE_SIZE;
 import static com.ulp.common.IConstant.MSG_COMMENT_BLANK;
 import static com.ulp.common.IConstant.MSG_COMMENT_NOT_FOUND;
 import static com.ulp.common.IConstant.MSG_COMMENT_PARENT_INVALID;
@@ -33,6 +40,8 @@ public class LessonCommentsService {
 
     private static final String NF_MSG = "Class not found or not accessible";
     private static final int MAX_CONTENT = 2000;
+    private static final int MAX_DEPTH = 3;
+    private static final int DEPTH_WALK_LIMIT = 5;
 
     private final EnrollmentRepository enrollmentRepository;
     private final LessonCommentRepository commentRepository;
@@ -49,14 +58,44 @@ public class LessonCommentsService {
         this.lessonAccessResolver = lessonAccessResolver;
     }
 
-    /** Returns the lesson's threaded comment list for the caller. */
+    /**
+     * Returns one "load more" page of ROOT comments (newest-first) with their
+     * full reply trees. Only non-deleted roots are paginated and counted; each
+     * root drags along its entire descendant tree, loaded via two batched
+     * IN-queries (levels 2 & 3). A deleted mid-thread node still renders as a
+     * placeholder, but a deleted ROOT drops its whole thread from the list.
+     */
     @Transactional(readOnly = true)
-    public List<CommentRow> list(Long lessonId, Long userId) {
+    public CommentPageView listPage(Long lessonId, Long userId, int page, int size) {
         ClassEntity clazz = authorize(lessonId, userId);
-        List<Comment> all = commentRepository
-                .findByLessonIdAndModerationStatusOrderByCreatedAtAsc(
-                        lessonId, Comment.MODERATION_APPROVED);
-        return assembler.assemble(all, clazz.getLecturerId(), userId);
+
+        // Clamp the client-supplied size: default when unset, capped so a huge
+        // ?size can't force an oversized root page + IN () reply queries.
+        int safeSize = size <= 0 ? DEFAULT_COMMENT_PAGE_SIZE
+                : Math.min(size, MAX_COMMENT_PAGE_SIZE);
+        int safePage = Math.max(page, 0);
+        Page<Comment> rootPage = commentRepository
+                .findByLessonIdAndParentIdIsNullAndDeletedFalseAndModerationStatus(
+                        lessonId, Comment.MODERATION_APPROVED,
+                        // id is a monotonic tiebreaker so same-second roots keep a
+                        // stable order and never drift between pages.
+                        PageRequest.of(safePage, safeSize,
+                                Sort.by(Sort.Direction.DESC, "createdAt", "id")));
+
+        List<Comment> roots = rootPage.getContent();       // newest-first
+        List<Comment> level2 = repliesOf(idsOf(roots));    // depth-2 replies
+        List<Comment> level3 = repliesOf(idsOf(level2));   // depth-3 replies
+
+        // Keep roots first (in DESC page order) so the assembler renders them
+        // newest-first; replies follow and are re-sorted ASC per thread there.
+        List<Comment> combined = new ArrayList<>(roots.size() + level2.size() + level3.size());
+        combined.addAll(roots);
+        combined.addAll(level2);
+        combined.addAll(level3);
+
+        List<CommentRow> rows = assembler.assemble(combined, clazz.getLecturerId(), userId);
+        return new CommentPageView(rows, safePage, safeSize,
+                rootPage.getTotalElements(), rootPage.hasNext());
     }
 
     /** Creates a root comment or a reply and returns it. */
@@ -74,8 +113,10 @@ public class LessonCommentsService {
             if (!valid) {
                 throw new IllegalArgumentException(MSG_COMMENT_PARENT_INVALID);
             }
-            // Reply-to-reply flattens to the reply's root (1-level threading).
-            effectiveParent = parent.isRoot() ? parent.getId() : parent.getParentId();
+            // Clamp thread depth to 3 (Facebook-style): a reply to a depth-3
+            // node re-parents to its grandparent so nesting never exceeds 3.
+            int depth = depthOf(parent);
+            effectiveParent = depth < MAX_DEPTH ? parent.getId() : parent.getParentId();
         }
 
         Comment saved = commentRepository.saveAndFlush(
@@ -110,6 +151,22 @@ public class LessonCommentsService {
         commentRepository.saveAndFlush(comment);
     }
 
+    /** Collects the ids of a comment list (helper for the level-by-level load). */
+    private static List<Long> idsOf(List<Comment> comments) {
+        List<Long> ids = new ArrayList<>(comments.size());
+        for (Comment c : comments) {
+            ids.add(c.getId());
+        }
+        return ids;
+    }
+
+    /** Batch-loads APPROVED replies of the given parents; guards empty IN (). */
+    private List<Comment> repliesOf(List<Long> parentIds) {
+        if (parentIds.isEmpty()) return List.of(); // MySQL IN () is invalid SQL
+        return commentRepository.findByParentIdInAndModerationStatus(
+                parentIds, Comment.MODERATION_APPROVED);
+    }
+
     // ── Authorization ──────────────────────────────────────────────────
 
     /**
@@ -135,6 +192,23 @@ public class LessonCommentsService {
                 .filter(c -> !c.isDeleted() && lessonId.equals(c.getLessonId()))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_COMMENT_NOT_FOUND));
         return comment;
+    }
+
+    /**
+     * Counts a comment's depth by walking parent links up to the root (root=1).
+     * Bounded by {@link #DEPTH_WALK_LIMIT} to stay safe against malformed cycles.
+     */
+    private int depthOf(Comment comment) {
+        int depth = 1;
+        Long parentId = comment.getParentId();
+        int guard = 0;
+        while (parentId != null && guard++ < DEPTH_WALK_LIMIT) {
+            depth++;
+            Comment parent = commentRepository.findById(parentId).orElse(null);
+            if (parent == null) break;
+            parentId = parent.getParentId();
+        }
+        return depth;
     }
 
     /** Trims then enforces 1..2000 chars; throws 400-mapped IllegalArgumentException. */

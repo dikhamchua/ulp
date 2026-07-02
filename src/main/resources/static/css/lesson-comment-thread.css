@@ -1,0 +1,212 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Lesson comment thread (ULP-4.6)
+   ----------------------------------------------------------------------------
+   Facebook-style threaded rows rendered by lesson-comments-render.js: avatar +
+   rounded bubble, collapsible replies (up to 3 levels), and the "load more"
+   button. Panel chrome (composer, status) lives in lesson-comments.css.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.lesson-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+}
+
+/* Each node is [ avatar | content column ]; nested replies indent naturally
+   because they live inside the parent's content column, past its avatar. */
+.lesson-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2, 8px);
+}
+
+.lesson-comment-avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--shub-text-muted, #6b7280);
+  user-select: none;
+}
+
+/* Root avatars read a touch larger, like the FB top-level comment. */
+.lesson-comment[data-depth="1"] > .lesson-comment-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+
+.lesson-comment-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lesson-comment-col {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lesson-comment-bubble {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: var(--shub-surface-muted, #f0f2f5);
+  box-sizing: border-box;
+}
+
+.lesson-comment-author {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--shub-text, #202227);
+}
+
+.lesson-comment-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--shub-primary-soft, #e8f3fd);
+  color: var(--shub-primary, #1e88e5);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.lesson-comment-body {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--shub-text, #202227);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.lesson-comment-bubble.is-deleted .lesson-comment-body {
+  font-style: italic;
+  color: var(--shub-text-muted, #6b7280);
+}
+
+.lesson-comment-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3, 12px);
+  padding: 2px 12px;
+}
+
+.lesson-comment-action {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--shub-text-muted, #6b7280);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lesson-comment-action:hover {
+  text-decoration: underline;
+}
+
+.lesson-comment-action.is-danger {
+  color: #d14343;
+}
+
+.lesson-comment-time {
+  font-size: 12px;
+  color: var(--shub-text-muted, #6b7280);
+}
+
+/* ── Toggle + nested replies ──────────────────────────────────────────── */
+.lesson-comment-toggle {
+  align-self: flex-start;
+  margin: 2px 0 4px 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--shub-text-muted, #6b7280);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lesson-comment-toggle:hover {
+  text-decoration: underline;
+}
+
+.lesson-comment-replies {
+  margin-top: var(--space-2, 8px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.lesson-comment-reply-mount:empty {
+  display: none;
+}
+
+.lesson-comment-reply-box {
+  margin: var(--space-2, 8px) 0;
+}
+
+/* Reply mini-composer keeps its own full-width, softer-corner textarea. */
+.lesson-comment-reply-box .lesson-comments-input {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 8px;
+}
+
+/* ── Load-more ("Xem thêm bình luận") ─────────────────────────────────── */
+.lesson-comments-loadmore {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-4, 16px);
+  padding: 10px 16px;
+  border: 1px solid var(--shub-border, #e6e8eb);
+  border-radius: 8px;
+  background: var(--shub-surface-muted, #f0f2f5);
+  color: var(--shub-text, #202227);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lesson-comments-loadmore:hover {
+  background: var(--shub-surface-hover, #e6e8eb);
+}
+
+.lesson-comments-loadmore:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* The base rule's display:block overrides the [hidden] UA style, so restore it
+   explicitly — otherwise setting .hidden=true (last page) leaves the button visible. */
+.lesson-comments-loadmore[hidden] {
+  display: none;
+}
+
+/* ── Responsive: tighten indentation on small screens ─────────────────── */
+@media (max-width: 640px) {
+  .lesson-comment {
+    gap: 6px;
+  }
+
+  .lesson-comment-avatar,
+  .lesson-comment[data-depth="1"] > .lesson-comment-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+}

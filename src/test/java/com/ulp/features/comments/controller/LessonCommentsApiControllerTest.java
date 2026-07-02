@@ -79,10 +79,29 @@ class LessonCommentsApiControllerTest {
     @Test
     @WithUserDetails(AUTHOR_EMAIL)
     void list_returns_ok_envelope() throws Exception {
-        mockMvc.perform(get(url()))
+        mockMvc.perform(get(url()).param("page", "0"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(true))
-                .andExpect(jsonPath("$.data.comments").isArray());
+                .andExpect(jsonPath("$.data.comments").isArray())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.hasNext").exists())
+                .andExpect(jsonPath("$.data.totalRoots").exists());
+    }
+
+    @Test
+    @WithUserDetails(AUTHOR_EMAIL)
+    void list_paginates_roots_newest_first() throws Exception {
+        for (int i = 0; i < 12; i++) {
+            service.create(lesson.getId(), author.getId(), "Gốc " + i, null);
+        }
+
+        mockMvc.perform(get(url()).param("page", "0").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.comments.length()").value(5))
+                .andExpect(jsonPath("$.data.totalRoots").value(12))
+                .andExpect(jsonPath("$.data.hasNext").value(true))
+                // Newest-first: last-created root leads the first page.
+                .andExpect(jsonPath("$.data.comments[0].content").value("Gốc 11"));
     }
 
     @Test
@@ -110,6 +129,19 @@ class LessonCommentsApiControllerTest {
                 .andExpect(jsonPath("$.ok").value(true))
                 .andExpect(jsonPath("$.data.canEdit").value(true))
                 .andExpect(jsonPath("$.data.canDelete").value(true));
+    }
+
+    @Test
+    @WithUserDetails(AUTHOR_EMAIL)
+    void create_reply_echoes_parent_and_avatar() throws Exception {
+        CommentRow root = service.create(lesson.getId(), author.getId(), "Gốc", null);
+
+        mockMvc.perform(post(url()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"Trả lời\",\"parentId\":" + root.id() + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.parentId").value(root.id()))
+                .andExpect(jsonPath("$.data.avatarGradient").exists());
     }
 
     @Test

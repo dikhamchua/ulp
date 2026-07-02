@@ -1,6 +1,6 @@
 package com.ulp.features.comments.controller;
 
-import com.ulp.features.comments.dto.LessonCommentsDtos.CommentListResponse;
+import com.ulp.features.comments.dto.LessonCommentsDtos.CommentPageView;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CommentRow;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CreateRequest;
 import com.ulp.features.comments.dto.LessonCommentsDtos.EditRequest;
@@ -22,9 +22,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 import static com.ulp.features.lessons.controller.support.AjaxResponses.badRequest;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.forbidden;
@@ -57,10 +56,13 @@ public class LessonCommentsApiController {
 
     @GetMapping
     public ResponseEntity<?> list(@PathVariable Long lessonId,
+                                  @RequestParam(defaultValue = "0") int page,
+                                  @RequestParam(defaultValue = "0") int size,
                                   @AuthenticationPrincipal UlpUserDetails user) {
         try {
-            List<CommentRow> rows = commentsService.list(lessonId, user.getId());
-            return ResponseEntity.ok(AjaxResult.success(new CommentListResponse(rows)));
+            // size 0 lets the service fall back to DEFAULT_COMMENT_PAGE_SIZE.
+            CommentPageView data = commentsService.listPage(lessonId, user.getId(), page, size);
+            return ResponseEntity.ok(AjaxResult.success(data));
         } catch (EntityNotFoundException ex) {
             return notFound(ex.getMessage());
         } catch (RuntimeException ex) {

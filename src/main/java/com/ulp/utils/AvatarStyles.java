@@ -1,10 +1,12 @@
-package com.ulp.features.classes.service.support;
+package com.ulp.utils;
 
 /**
  * Avatar initials + gradient helper for member-style rows.
  *
- * <p>Single source of the avatar look shared by the class members list and the
- * lecturer progress dashboard. Change the palette here and both surfaces follow.
+ * <p>Single source of the avatar look shared across features (class members
+ * list, lecturer progress dashboard, lesson comments). Lives in {@code utils}
+ * so consuming features don't depend on one another. Change the palette here
+ * and every surface follows.
  */
 public final class AvatarStyles {
 

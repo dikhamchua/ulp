@@ -19,19 +19,22 @@ public final class LessonCommentsDtos {
     }
 
     /**
-     * One comment (root or reply) as returned to the client.
+     * One comment node (any depth) as returned to the client.
      *
-     * @param id         comment primary key
-     * @param parentId   root comment id for a reply; null for a root
-     * @param authorName author display name (null on a placeholder)
-     * @param lecturer   true when the author is the class's owning lecturer
-     * @param content    plain-text body; null on a deleted-root placeholder
-     * @param edited     true when the author edited the comment
-     * @param deleted    true for a soft-deleted root kept as a placeholder
-     * @param createdAt  creation timestamp (ISO-8601 when serialized)
-     * @param canEdit    true when the caller may edit this comment
-     * @param canDelete  true when the caller may delete this comment
-     * @param replies    nested replies oldest-first (empty for a reply row)
+     * @param id              comment primary key
+     * @param parentId        parent comment id; null for a root
+     * @param authorName      author display name (null on a placeholder)
+     * @param lecturer        true when the author is the class's owning lecturer
+     * @param content         plain-text body; null on a deleted placeholder
+     * @param edited          true when the author edited the comment
+     * @param deleted         true for a soft-deleted node kept as a placeholder
+     * @param createdAt       creation timestamp (ISO-8601 when serialized)
+     * @param canEdit         true when the caller may edit this comment
+     * @param canDelete       true when the caller may delete this comment
+     * @param authorAvatarUrl author avatar image URL; null when none / placeholder
+     * @param avatarLabel     initials fallback for a missing avatar; null on placeholder
+     * @param avatarGradient  CSS gradient backing the initials; null on placeholder
+     * @param replies         nested replies oldest-first (empty when none)
      */
     public record CommentRow(
             Long id,
@@ -44,11 +47,28 @@ public final class LessonCommentsDtos {
             LocalDateTime createdAt,
             boolean canEdit,
             boolean canDelete,
+            String authorAvatarUrl,
+            String avatarLabel,
+            String avatarGradient,
             List<CommentRow> replies
     ) { }
 
-    /** List response kept as an object so fields can be added without a break. */
-    public record CommentListResponse(List<CommentRow> comments) { }
+    /**
+     * One "load more" page of ROOT comments plus their full reply trees.
+     *
+     * @param comments   assembled root rows for this page, newest-first
+     * @param page       zero-based page index served
+     * @param size       page size used (roots per page)
+     * @param totalRoots total APPROVED root comments across all pages
+     * @param hasNext    true when a further page of roots exists
+     */
+    public record CommentPageView(
+            List<CommentRow> comments,
+            int page,
+            int size,
+            long totalRoots,
+            boolean hasNext
+    ) { }
 
     /**
      * Create payload. Content is trim-then-validated in the service to reject

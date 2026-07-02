@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Lesson comments panel (ULP-4.6)
+   ULP — Lesson comments orchestrator (ULP-4.6)
    ----------------------------------------------------------------------------
-   Loads and mutates the "Thảo luận" panel for the inlined lesson. All user
-   content is injected via textContent (never innerHTML) so a comment holding
-   <script> renders as literal text. CSRF token from <meta> tags; feedback via
-   window.UlpToast. Mutations reload the list to refresh canEdit/canDelete.
+   Owns the "Thảo luận" panel's data flow: CSRF-guarded fetch, load-more root
+   pagination, the composer, and mutation → reload. DOM tree building is
+   delegated to window.UlpCommentThread (lesson-comments-render.js), which must
+   load first. Feedback via window.UlpToast.
    ══════════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -13,6 +13,11 @@
 
   var panel = document.querySelector('.lesson-comments[data-lesson-id]');
   if (!panel) return;
+  if (typeof window.UlpCommentThread !== 'function') {
+    // Renderer script missing/mis-ordered — fail loud rather than silently blank.
+    console.error('lesson-comments: UlpCommentThread renderer not loaded');
+    return;
+  }
 
   var lessonId = panel.getAttribute('data-lesson-id');
   var base = '/api/lessons/' + lessonId + '/comments';
@@ -20,6 +25,11 @@
   var statusEl = panel.querySelector('[data-role="status"]');
   var composer = panel.querySelector('[data-role="composer"]');
   var composerInput = panel.querySelector('[data-role="input"]');
+
+  // Load-more pagination state: current root page + whether more roots exist.
+  var currentPage = 0;
+  var hasNext = false;
+  var loadMoreBtn = null;
 
   function meta(name) {
     var el = document.querySelector('meta[name="' + name + '"]');
@@ -51,152 +61,83 @@
     });
   }
 
-  function pad(n) { return n < 10 ? '0' + n : '' + n; }
-
-  function formatTime(iso) {
-    if (!iso) return '';
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear()
-      + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-  }
-
   function setStatus(msg) {
     if (msg) { statusEl.textContent = msg; statusEl.hidden = false; }
     else { statusEl.textContent = ''; statusEl.hidden = true; }
   }
 
-  function el(tag, cls, text) {
-    var node = document.createElement(tag);
-    if (cls) node.className = cls;
-    if (text != null) node.textContent = text;
-    return node;
-  }
-
-  function actionButton(label, danger, onClick) {
-    var b = el('button', 'lesson-comment-action' + (danger ? ' is-danger' : ''), label);
-    b.type = 'button';
-    b.addEventListener('click', onClick);
-    return b;
-  }
-
-  // Builds an inline textarea + submit/cancel used by reply and edit flows.
-  function miniComposer(initial, submitLabel, onSubmit, onCancel) {
-    var wrap = el('div', 'lesson-comment-reply-box');
-    var ta = el('textarea', 'lesson-comments-input');
-    ta.rows = 2; ta.maxLength = 2000; ta.value = initial || '';
-    var actions = el('div', 'lesson-comments-composer-actions');
-    var submit = el('button', 'lesson-comments-reply-submit', submitLabel);
-    submit.type = 'button';
-    submit.addEventListener('click', function () {
-      var val = ta.value.trim();
-      if (!val) { if (window.UlpToast) window.UlpToast.error(MSG_CONTENT_REQUIRED); return; }
-      submit.disabled = true;
-      onSubmit(val).catch(function () { submit.disabled = false; });
-    });
-    var cancel = actionButton('Huỷ', false, onCancel);
-    actions.appendChild(submit);
-    actions.appendChild(cancel);
-    wrap.appendChild(ta);
-    wrap.appendChild(actions);
-    return wrap;
-  }
-
   function mutate(promise, okMsg) {
     return promise.then(function () {
       if (okMsg && window.UlpToast) window.UlpToast.success(okMsg);
-      load();
+      // Reset to the first page: newest-first means new comments appear on top.
+      // Trade-off: editing/deleting a comment on a deep page also resets to top.
+      load(0, false);
     }).catch(function (err) {
       if (window.UlpToast) window.UlpToast.error(err.message || 'Thao tác thất bại');
       throw err;
     });
   }
 
-  function head(c) {
-    var wrap = el('div', 'lesson-comment-head');
-    wrap.appendChild(el('span', 'lesson-comment-author', c.deleted ? 'Ẩn danh' : (c.authorName || 'Người dùng')));
-    if (c.lecturer) wrap.appendChild(el('span', 'lesson-comment-badge', 'GV'));
-    wrap.appendChild(el('span', 'lesson-comment-time', formatTime(c.createdAt)));
-    if (c.edited) wrap.appendChild(el('span', 'lesson-comment-edited', '(đã chỉnh sửa)'));
-    return wrap;
+  // Presentational tree builder; data flow (fetch/pagination/toasts) stays here.
+  var thread = window.UlpCommentThread({
+    api: api,
+    base: base,
+    mutate: mutate,
+    reload: function () { return load(0, false); },
+    contentRequiredMsg: MSG_CONTENT_REQUIRED
+  });
+
+  // Renders a page of roots; append=false clears first, true concatenates.
+  function renderInto(comments, append) {
+    if (!append) listEl.textContent = '';
+    comments.forEach(function (c) { listEl.appendChild(thread.node(c, 1)); });
   }
 
-  function commentNode(c, isReply) {
-    var node = el('div', 'lesson-comment');
-    node.appendChild(head(c));
-
-    var body = el('p', 'lesson-comment-body' + (c.deleted ? ' is-deleted' : ''),
-      c.deleted ? '[Bình luận đã bị xoá]' : c.content);
-    node.appendChild(body);
-
-    if (!c.deleted) node.appendChild(actions(c, node, body, isReply));
-
-    if (!isReply && c.replies && c.replies.length) {
-      var replies = el('div', 'lesson-comment-replies');
-      c.replies.forEach(function (r) { replies.appendChild(commentNode(r, true)); });
-      node.appendChild(replies);
-    }
-    return node;
-  }
-
-  function actions(c, node, body, isReply) {
-    var row = el('div', 'lesson-comment-actions');
-    if (!isReply) {
-      row.appendChild(actionButton('Trả lời', false, function () {
-        if (node.querySelector('.lesson-comment-reply-box')) return;
-        node.insertBefore(replyBox(c, node), node.querySelector('.lesson-comment-replies'));
-      }));
-    }
-    if (c.canEdit) {
-      row.appendChild(actionButton('Sửa', false, function () { startEdit(c, body); }));
-    }
-    if (c.canDelete) {
-      row.appendChild(actionButton('Xoá', true, function () { confirmDelete(c, row); }));
-    }
-    return row;
-  }
-
-  function replyBox(c, node) {
-    return miniComposer('', 'Gửi', function (val) {
-      return mutate(api('POST', base, { content: val, parentId: c.id }), 'Đã gửi trả lời');
-    }, function () {
-      var box = node.querySelector('.lesson-comment-reply-box');
-      if (box) box.remove();
+  // Lazily creates the "Xem thêm" button once, placed right after the list.
+  function ensureLoadMoreBtn() {
+    if (loadMoreBtn) return loadMoreBtn;
+    loadMoreBtn = document.createElement('button');
+    loadMoreBtn.className = 'lesson-comments-loadmore';
+    loadMoreBtn.type = 'button';
+    loadMoreBtn.textContent = 'Xem thêm bình luận';
+    loadMoreBtn.addEventListener('click', function () {
+      loadMoreBtn.disabled = true; // guard against double-tap while loading
+      load(currentPage + 1, true).catch(function () { loadMoreBtn.disabled = false; });
     });
+    if (listEl.parentNode) listEl.parentNode.insertBefore(loadMoreBtn, listEl.nextSibling);
+    return loadMoreBtn;
   }
 
-  function startEdit(c, body) {
-    var box = miniComposer(c.content, 'Lưu', function (val) {
-      return mutate(api('PUT', base + '/' + c.id, { content: val }), 'Đã cập nhật bình luận');
-    }, function () { load(); });
-    body.replaceWith(box);
-  }
-
-  // Inline confirm (house rule bans native confirm/alert).
-  function confirmDelete(c, row) {
-    row.textContent = '';
-    row.appendChild(el('span', 'lesson-comment-time', 'Xoá bình luận này?'));
-    row.appendChild(actionButton('Xoá', true, function () {
-      mutate(api('DELETE', base + '/' + c.id), 'Đã xoá bình luận');
-    }));
-    row.appendChild(actionButton('Huỷ', false, function () { load(); }));
-  }
-
-  function render(comments) {
-    listEl.textContent = '';
-    if (!comments.length) {
-      setStatus('Chưa có thảo luận nào. Hãy là người đầu tiên đặt câu hỏi.');
-      return;
+  function updateLoadMore() {
+    if (hasNext) {
+      var btn = ensureLoadMoreBtn();
+      btn.hidden = false;
+      btn.disabled = false;
+    } else if (loadMoreBtn) {
+      loadMoreBtn.hidden = true;
     }
-    setStatus(null);
-    comments.forEach(function (c) { listEl.appendChild(commentNode(c, false)); });
   }
 
-  function load() {
-    api('GET', base).then(function (data) {
-      render((data && data.comments) || []);
-    }).catch(function () {
-      setStatus('Không tải được thảo luận. Vui lòng thử lại.');
+  // Loads one root page. append=true keeps prior pages (load-more); false resets.
+  function load(page, append) {
+    return api('GET', base + '?page=' + page).then(function (data) {
+      data = data || {};
+      var comments = data.comments || [];
+      currentPage = typeof data.page === 'number' ? data.page : page;
+      hasNext = !!data.hasNext;
+      // Empty state only applies to the fresh first page.
+      if (!append && data.totalRoots === 0) {
+        listEl.textContent = '';
+        setStatus('Chưa có thảo luận nào. Hãy là người đầu tiên đặt câu hỏi.');
+        updateLoadMore();
+        return;
+      }
+      setStatus(null);
+      renderInto(comments, append);
+      updateLoadMore();
+    }).catch(function (err) {
+      if (!append) setStatus('Không tải được thảo luận. Vui lòng thử lại.');
+      throw err;
     });
   }
 
@@ -211,5 +152,5 @@
     });
   }
 
-  load();
+  load(0, false);
 })();
