@@ -3,10 +3,13 @@ package com.ulp.features.student.controller;
 import com.ulp.features.student.dto.StudentLessonsDtos.ClassLessonsView;
 import com.ulp.features.student.dto.StudentLessonsDtos.LessonDetailView;
 import com.ulp.features.student.dto.StudentLessonsDtos.SectionWithLessons;
+import com.ulp.features.progress.service.LearningProgressService;
 import com.ulp.features.student.service.StudentLessonDetailService;
 import com.ulp.features.student.service.StudentLessonsService;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,13 +52,18 @@ import static com.ulp.common.IConstant.VIEW_STUDENT_CLASS_LESSONS;
 @PreAuthorize("isAuthenticated()")
 public class StudentLessonsController {
 
+    private static final Logger log = LoggerFactory.getLogger(StudentLessonsController.class);
+
     private final StudentLessonsService studentLessonsService;
     private final StudentLessonDetailService studentLessonDetailService;
+    private final LearningProgressService learningProgressService;
 
     public StudentLessonsController(StudentLessonsService studentLessonsService,
-                                    StudentLessonDetailService studentLessonDetailService) {
+                                    StudentLessonDetailService studentLessonDetailService,
+                                    LearningProgressService learningProgressService) {
         this.studentLessonsService = studentLessonsService;
         this.studentLessonDetailService = studentLessonDetailService;
+        this.learningProgressService = learningProgressService;
     }
 
     /** Renders the class's sections + PUBLISHED lessons for the student. */
@@ -81,12 +89,28 @@ public class StudentLessonsController {
                 LessonDetailView detail = studentLessonDetailService
                         .getLessonDetail(classId, lessonParam, user.getId());
                 model.addAttribute(ATTR_LESSON_DETAIL, detail);
+                // Auto-record IN_PROGRESS only after the detail gates pass;
+                // isolated so a progress write failure never breaks rendering.
+                recordOpenedQuietly(classId, lessonParam, user.getId());
             } catch (EntityNotFoundException ignored) {
                 // Silently fall back to hero placeholder — caller's enrollment
                 // was already validated by listClassLessons() above.
             }
         }
         return VIEW_STUDENT_CLASS_LESSONS;
+    }
+
+    /**
+     * Records the open as IN_PROGRESS, swallowing and logging any failure so
+     * a progress write problem can never break lesson rendering (design D3).
+     */
+    private void recordOpenedQuietly(Long classId, Long lessonId, Long userId) {
+        try {
+            learningProgressService.recordOpened(classId, lessonId, userId);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record open progress for lesson {} (user {})",
+                    lessonId, userId, ex);
+        }
     }
 
     /** True when {@code lessonId} appears in the active section's lesson list. */

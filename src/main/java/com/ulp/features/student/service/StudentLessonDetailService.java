@@ -5,11 +5,9 @@ import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.LessonAttachment;
 import com.ulp.entities.Section;
-import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.lessons.repository.LessonAttachmentRepository;
-import com.ulp.features.lessons.repository.LessonRepository;
-import com.ulp.features.lessons.repository.SectionRepository;
+import com.ulp.features.lessons.support.LessonAccessResolver;
 import com.ulp.features.lessons.support.VimeoEmbedUrl;
 import com.ulp.features.lessons.support.YouTubeEmbedUrl;
 import com.ulp.features.student.dto.StudentLessonsDtos.LessonAttachmentRow;
@@ -74,21 +72,15 @@ public class StudentLessonDetailService {
             Set.of("pptx", "ppt", "xlsx", "xls");
 
     private final EnrollmentRepository enrollmentRepository;
-    private final ClassRepository classRepository;
-    private final SectionRepository sectionRepository;
-    private final LessonRepository lessonRepository;
     private final LessonAttachmentRepository lessonAttachmentRepository;
+    private final LessonAccessResolver lessonAccessResolver;
 
     public StudentLessonDetailService(EnrollmentRepository enrollmentRepository,
-                                      ClassRepository classRepository,
-                                      SectionRepository sectionRepository,
-                                      LessonRepository lessonRepository,
-                                      LessonAttachmentRepository lessonAttachmentRepository) {
+                                      LessonAttachmentRepository lessonAttachmentRepository,
+                                      LessonAccessResolver lessonAccessResolver) {
         this.enrollmentRepository = enrollmentRepository;
-        this.classRepository = classRepository;
-        this.sectionRepository = sectionRepository;
-        this.lessonRepository = lessonRepository;
         this.lessonAttachmentRepository = lessonAttachmentRepository;
+        this.lessonAccessResolver = lessonAccessResolver;
     }
 
     /**
@@ -111,28 +103,13 @@ public class StudentLessonDetailService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Class not found or not accessible"));
 
-        // Gate 2: class must be live. @SQLRestriction filters soft-deletes.
-        ClassEntity clazz = classRepository.findById(classId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Class not found or not accessible"));
-
-        // Gate 3: lesson + section lookup. SQLRestriction filters
-        // soft-deleted lessons; missing → 404.
-        Lesson lesson = lessonRepository.findById(lessonId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Class not found or not accessible"));
-        Section section = sectionRepository.findById(lesson.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Class not found or not accessible"));
-        // Cross-class guard: deny if the lesson lives in another class.
-        if (!classId.equals(section.getClassId())) {
-            throw new EntityNotFoundException("Class not found or not accessible");
-        }
-
-        // Gate 4: DRAFT lessons are lecturer-private — never visible here.
-        if (!Lesson.STATUS_PUBLISHED.equals(lesson.getStatus())) {
-            throw new EntityNotFoundException("Class not found or not accessible");
-        }
+        // Gates 2-4 (live class, section-belongs-to-class, PUBLISHED) resolve
+        // the trio via the shared resolver; failures collapse to 404.
+        LessonAccessResolver.ResolvedLesson resolved =
+                lessonAccessResolver.resolveInClass(classId, lessonId);
+        ClassEntity clazz = resolved.clazz();
+        Section section = resolved.section();
+        Lesson lesson = resolved.lesson();
 
         List<LessonAttachment> rawAttachments = lessonAttachmentRepository
                 .findByLessonIdOrderByUploadedAtAsc(lessonId);

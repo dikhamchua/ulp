@@ -20,6 +20,28 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     /** Returns the live lessons of a section ordered by {@code display_order}. */
     List<Lesson> findBySectionIdOrderByDisplayOrderAsc(Long sectionId);
 
+    /**
+     * Returns a section's live lessons in the given status, ordered by
+     * {@code display_order}. Single source for the "PUBLISHED lessons of a
+     * section" projection shared by the student lesson list and the lecturer
+     * drill-down; {@code @SQLRestriction} still filters soft-deleted rows.
+     */
+    List<Lesson> findBySectionIdAndStatusOrderByDisplayOrderAsc(Long sectionId, String status);
+
+    /**
+     * Returns the ids of every PUBLISHED, non-soft-deleted lesson belonging to
+     * a class (via its sections). Used by the lecturer progress dashboard as the
+     * denominator + the scoped id-list for the single grouped aggregate query,
+     * avoiding a per-student query (ULP lecturer-student-progress, design D2).
+     *
+     * <p>The {@code @SQLRestriction} on both {@link Lesson} and {@code Section}
+     * transparently excludes soft-deleted rows; the status filter keeps DRAFT
+     * lessons out of the denominator.
+     */
+    @Query("SELECT l.id FROM Lesson l WHERE l.status = 'PUBLISHED' AND l.sectionId IN "
+            + "(SELECT s.id FROM Section s WHERE s.classId = :classId)")
+    List<Long> findPublishedLessonIdsByClassId(@Param("classId") Long classId);
+
     /** Loads a lesson scoped by section to harden the URL hierarchy. */
     Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);
 

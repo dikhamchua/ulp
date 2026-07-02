@@ -9,6 +9,16 @@
 (function () {
   'use strict';
 
+  // Drain flash payload (e.g. progress-toggle result) into a toast.
+  document.addEventListener('DOMContentLoaded', function () {
+    var flash = document.getElementById('flash-data');
+    if (!flash || !window.UlpToast) return;
+    var ok = flash.getAttribute('data-flash-success');
+    var err = flash.getAttribute('data-flash-error');
+    if (ok) window.UlpToast.success(ok);
+    if (err) window.UlpToast.error(err);
+  });
+
   document.addEventListener('click', function (e) {
     var trigger = e.target.closest('[data-action="leave-class"]');
     if (!trigger) return;
