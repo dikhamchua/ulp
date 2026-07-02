@@ -4,10 +4,14 @@ import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.Section;
+import com.ulp.entities.User;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
+import com.ulp.features.classes.service.support.ProgressMath;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
+import com.ulp.features.progress.repository.LearningProgressRepository;
 import com.ulp.features.student.dto.StudentLessonsDtos.ClassLessonsView;
 import com.ulp.features.student.dto.StudentLessonsDtos.SectionWithLessons;
 import com.ulp.features.student.dto.StudentLessonsDtos.StudentLessonRow;
@@ -16,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static com.ulp.common.IConstant.CONTENT_TYPE_RICHTEXT;
 
@@ -44,15 +50,21 @@ public class StudentLessonsService {
     private final ClassRepository classRepository;
     private final SectionRepository sectionRepository;
     private final LessonRepository lessonRepository;
+    private final UserRepository userRepository;
+    private final LearningProgressRepository progressRepository;
 
     public StudentLessonsService(EnrollmentRepository enrollmentRepository,
                                  ClassRepository classRepository,
                                  SectionRepository sectionRepository,
-                                 LessonRepository lessonRepository) {
+                                 LessonRepository lessonRepository,
+                                 UserRepository userRepository,
+                                 LearningProgressRepository progressRepository) {
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.sectionRepository = sectionRepository;
         this.lessonRepository = lessonRepository;
+        this.userRepository = userRepository;
+        this.progressRepository = progressRepository;
     }
 
     /**
@@ -83,36 +95,76 @@ public class StudentLessonsService {
         List<Section> sections = sectionRepository
                 .findByClassIdOrderByDisplayOrderAsc(classId);
 
-        List<SectionWithLessons> sectionRows = new ArrayList<>(sections.size());
-        for (Section section : sections) {
-            sectionRows.add(buildSectionRow(section));
+        // First pass: collect each section's PUBLISHED lessons so we know the
+        // full published-id set before a single progress query.
+        List<Section> orderedSections = new ArrayList<>(sections);
+        List<List<Lesson>> publishedPerSection = new ArrayList<>(sections.size());
+        List<Long> publishedIds = new ArrayList<>();
+        for (Section section : orderedSections) {
+            List<Lesson> published = publishedLessonsOf(section);
+            publishedPerSection.add(published);
+            for (Lesson l : published) {
+                publishedIds.add(l.getId());
+            }
         }
-        return new ClassLessonsView(clazz.getId(), clazz.getName(), sectionRows);
+
+        // Single progress query for the whole page — avoids N+1 (design D4).
+        Set<Long> completedIds = publishedIds.isEmpty()
+                ? Set.of()
+                : new HashSet<>(progressRepository
+                        .findCompletedLessonIds(userId, publishedIds));
+
+        List<SectionWithLessons> sectionRows = new ArrayList<>(orderedSections.size());
+        int completedTotal = 0;
+        for (int i = 0; i < orderedSections.size(); i++) {
+            SectionWithLessons row = buildSectionRow(
+                    orderedSections.get(i), publishedPerSection.get(i), completedIds);
+            completedTotal += row.completedCount();
+            sectionRows.add(row);
+        }
+
+        int publishedTotal = publishedIds.size();
+        // Single source of the percent formula (shared with the lecturer view).
+        int percent = ProgressMath.percent(completedTotal, publishedTotal);
+
+        // Resolve lecturer name for the sidebar; a deleted lecturer maps to
+        // null so the template renders a graceful fallback.
+        String lecturerName = userRepository.findById(clazz.getLecturerId())
+                .map(User::getFullName)
+                .orElse(null);
+
+        return new ClassLessonsView(clazz.getId(), clazz.getName(),
+                clazz.getCode(), lecturerName, sectionRows,
+                completedTotal, publishedTotal, percent);
     }
 
-    /** Builds a sidebar row + its PUBLISHED-only lesson list. */
-    private SectionWithLessons buildSectionRow(Section section) {
-        // Repo returns live lessons (SQLRestriction); we still filter
-        // by status so DRAFT never reaches the view.
-        List<Lesson> rawLessons = lessonRepository
-                .findBySectionIdOrderByDisplayOrderAsc(section.getId());
+    /** Returns a section's live, PUBLISHED lessons in display order. */
+    private List<Lesson> publishedLessonsOf(Section section) {
+        return lessonRepository.findBySectionIdAndStatusOrderByDisplayOrderAsc(
+                section.getId(), Lesson.STATUS_PUBLISHED);
+    }
 
-        List<StudentLessonRow> lessons = new ArrayList<>(rawLessons.size());
-        for (Lesson l : rawLessons) {
-            if (Lesson.STATUS_PUBLISHED.equals(l.getStatus())) {
-                // Legacy rows pre-V16 may carry null content_type — default
-                // to RICHTEXT so the right-rail card still picks an icon.
-                String type = l.getContentType() == null
-                        ? CONTENT_TYPE_RICHTEXT : l.getContentType();
-                lessons.add(new StudentLessonRow(
-                        l.getId(), l.getTitle(),
-                        l.getSectionId(), l.getPublishedAt(), type));
-            }
+    /** Builds a sidebar row + its PUBLISHED-only lesson list with progress flags. */
+    private SectionWithLessons buildSectionRow(Section section,
+                                               List<Lesson> published,
+                                               Set<Long> completedIds) {
+        List<StudentLessonRow> lessons = new ArrayList<>(published.size());
+        int completedCount = 0;
+        for (Lesson l : published) {
+            // Legacy rows pre-V16 may carry null content_type — default
+            // to RICHTEXT so the right-rail card still picks an icon.
+            String type = l.getContentType() == null
+                    ? CONTENT_TYPE_RICHTEXT : l.getContentType();
+            boolean completed = completedIds.contains(l.getId());
+            if (completed) completedCount++;
+            lessons.add(new StudentLessonRow(
+                    l.getId(), l.getTitle(),
+                    l.getSectionId(), l.getPublishedAt(), type, completed));
         }
 
         short order = section.getDisplayOrder() == null
                 ? 0 : section.getDisplayOrder();
         return new SectionWithLessons(
-                section.getId(), section.getTitle(), order, lessons);
+                section.getId(), section.getTitle(), order, lessons, completedCount);
     }
 }

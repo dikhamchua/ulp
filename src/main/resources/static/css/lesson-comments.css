@@ -1,0 +1,112 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Lesson comments panel chrome (ULP-4.6)
+   ----------------------------------------------------------------------------
+   Panel container, composer (textarea + round Telegram-style send button) and
+   status/empty line. The threaded rows themselves live in
+   lesson-comment-thread.css; both are loaded by the student lessons page.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.lesson-comments {
+  margin-top: var(--space-6, 24px);
+  padding-top: var(--space-5, 20px);
+  border-top: 1px solid var(--shub-border, #e6e8eb);
+}
+
+.lesson-comments-title {
+  margin: 0 0 var(--space-4, 16px);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--shub-text, #202227);
+}
+
+/* ── Composer ─────────────────────────────────────────────────────────── */
+/* Single row: textarea grows, the round send button sits at its trailing edge. */
+.lesson-comments-composer {
+  margin-bottom: var(--space-4, 16px);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2, 8px);
+}
+
+.lesson-comments-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--shub-border, #e6e8eb);
+  border-radius: 22px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--shub-text, #202227);
+}
+
+.lesson-comments-input:focus {
+  outline: none;
+  border-color: var(--shub-primary, #1e88e5);
+}
+
+.lesson-comments-composer-actions {
+  margin-top: var(--space-2, 8px);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2, 8px);
+}
+
+/* Reply submit stays a labelled pill; only the main composer became an icon. */
+.lesson-comments-reply-submit {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--shub-primary, #1e88e5);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lesson-comments-reply-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Main composer send: circular Telegram-style icon button. */
+.lesson-comments-submit {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--shub-primary, #1e88e5);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lesson-comments-submit:hover {
+  background: var(--shub-primary-dark, #1565c0);
+}
+
+.lesson-comments-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Nudge the paper-plane so it reads visually centred in the circle. */
+.lesson-comments-submit .ico {
+  width: 18px;
+  height: 18px;
+  transform: translate(1px, -1px);
+}
+
+/* ── Status / empty / error state ─────────────────────────────────────── */
+.lesson-comments-status {
+  margin: var(--space-3, 12px) 0;
+  font-size: 14px;
+  color: var(--shub-text-muted, #6b7280);
+}

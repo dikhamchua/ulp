@@ -6,11 +6,19 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lesson-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-comments.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-comment-thread.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <main class="student-lessons-shell">
+  <!-- Flash payload drained into UlpToast by student-lesson-nav.js. -->
+  <div id="flash-data"
+       th:if="${flashSuccess != null or flashError != null}"
+       th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+       style="display:none;"></div>
+
   <!-- Top bar with back link + class name -->
   <div class="student-lessons-header">
     <a th:href="@{/my/classes}" class="student-lessons-back">
@@ -38,23 +46,113 @@
   <div class="student-lessons-grid"
        th:unless="${#lists.isEmpty(view.sections())}">
 
-    <!-- LEFT SIDEBAR: class info + sections nav -->
+    <!-- LEFT SIDEBAR: class info card + class-level nav (mirrors SHub) -->
     <aside class="student-lessons-sidebar">
       <div class="student-lessons-class-card">
         <p class="student-lessons-class-name" th:text="${view.className()}">Tên lớp</p>
-        <p class="student-lessons-class-code">Danh sách chương</p>
+        <p class="student-lessons-class-code">
+          Mã lớp: <b th:text="${view.classCode()}">NILXM</b>
+        </p>
+        <p class="student-lessons-class-lecturer"
+           th:if="${view.lecturerName() != null}">
+          Giảng viên: <b th:text="${view.lecturerName()}">Giảng viên</b>
+        </p>
+
+        <!-- Overall class progress (ULP-4.5). Hidden when no published lessons. -->
+        <div class="student-lessons-progress" th:if="${view.publishedTotal() > 0}">
+          <div class="student-lessons-progress-track">
+            <div class="student-lessons-progress-fill"
+                 th:style="'width:' + ${view.percent()} + '%'"></div>
+          </div>
+          <p class="student-lessons-progress-text">
+            <span th:text="${view.completedTotal()}">0</span>/<span
+                th:text="${view.publishedTotal()}">0</span> bài giảng ·
+            <b th:text="${view.percent()} + '%'">0%</b>
+          </p>
+        </div>
       </div>
 
+      <!-- Class-level nav. Only "Bài giảng" is wired to a student page today;
+           the remaining tabs render disabled until their student views ship. -->
       <div>
+        <p class="student-lessons-sidebar-title">Danh mục</p>
+        <ul class="student-lessons-nav">
+          <li>
+            <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Bảng tin
+            </span>
+          </li>
+          <li>
+            <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Lịch học
+            </span>
+          </li>
+          <li>
+            <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Thành viên
+            </span>
+          </li>
+          <li>
+            <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+              Nhóm học tập
+            </span>
+          </li>
+          <li>
+            <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Bài tập
+            </span>
+          </li>
+          <li>
+            <a class="student-lessons-nav-item is-active"
+               th:href="@{|/my/classes/${view.classId()}/lessons|}" aria-current="page">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              Bài giảng
+            </a>
+          </li>
+          <li>
+            <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Tài liệu
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Chapter switcher kept in the sidebar: the right rail is
+           section-scoped, so students still need to pick a chapter here. -->
+      <div th:if="${#lists.size(view.sections()) > 1}">
         <p class="student-lessons-sidebar-title">Chương</p>
         <ul class="student-lessons-section-list">
           <li th:each="section : ${view.sections()}"
               th:classappend="${section.sectionId() == activeSectionId} ? ' active' : ''"
               class="student-lessons-section-item">
             <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()})}"
-               th:text="${section.title()}">Chương 1</a>
+               class="student-lessons-section-link">
+              <span th:text="${section.title()}">Chương 1</span>
+              <span class="student-lessons-section-count"
+                    th:text="${section.completedCount()} + '/' + ${section.publishedCount()}">0/0</span>
+            </a>
           </li>
         </ul>
+      </div>
+
+      <!-- Leave class — reuses the confirm-modal + hidden-form pattern. -->
+      <div class="student-lessons-sidebar-foot">
+        <button type="button" class="student-lessons-leave"
+                data-action="leave-class"
+                th:attr="data-class-id=${view.classId()},data-class-name=${view.className()}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Rời khỏi lớp này
+        </button>
+        <form th:id="'leave-form-' + ${view.classId()}"
+              th:action="@{|/my/classes/${view.classId()}/leave|}"
+              method="post" class="leave-form" style="display:none;">
+        </form>
       </div>
     </aside>
 
@@ -62,6 +160,7 @@
     <section class="student-lessons-main">
       <!-- Inlined lesson detail (ULP-4.2) — renders when controller resolves ?lesson=X. -->
       <th:block th:if="${lessonDetail != null}">
+        <p class="student-lessons-eyebrow">Bài giảng</p>
         <h2 class="student-lessons-main-title" th:text="${lessonDetail.lessonTitle()}">Tên bài giảng</h2>
         <p class="student-lessons-main-subtitle"
            th:if="${lessonDetail.publishedAt() != null}"
@@ -111,6 +210,13 @@
           </div>
         </div>
 
+        <!-- Description block. Lessons have no description column yet, so
+             this always renders the empty-state copy (matches SHub). -->
+        <section class="student-lessons-desc">
+          <h3 class="student-lessons-desc-title">Mô tả</h3>
+          <p class="student-lessons-desc-empty">Bài giảng không có mô tả nào</p>
+        </section>
+
         <section class="student-lesson-detail-attachments"
                  th:unless="${#lists.isEmpty(lessonDetail.attachments())}">
           <h3 class="student-lesson-detail-attachments-title">Tệp đính kèm</h3>
@@ -130,6 +236,24 @@
                  target="_blank" rel="noopener">Xem</a>
             </li>
           </ul>
+        </section>
+
+        <!-- Discussion panel (ULP-4.6). Shell only — lesson-comments.js loads
+             the list via AJAX and renders every row with textContent (XSS-safe). -->
+        <section class="lesson-comments" th:attr="data-lesson-id=${lessonDetail.lessonId()}">
+          <h3 class="lesson-comments-title">Thảo luận</h3>
+
+          <form class="lesson-comments-composer" data-role="composer">
+            <textarea class="lesson-comments-input" data-role="input" rows="1"
+                      maxlength="2000" placeholder="Đặt câu hỏi hoặc thảo luận về bài giảng..."></textarea>
+            <button type="submit" class="lesson-comments-submit" aria-label="Gửi" title="Gửi">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </form>
+
+          <p class="lesson-comments-status" data-role="status" hidden></p>
+          <div class="lesson-comments-list" data-role="list"></div>
         </section>
       </th:block>
 
@@ -162,44 +286,59 @@
       </th:block>
     </section>
 
-    <!-- RIGHT RAIL: list of PUBLISHED lessons of the active section -->
+    <!-- RIGHT RAIL: accordion of ALL chapters. Native <details> keeps it
+         JS-free; the chapter holding the currently-viewed lesson starts open,
+         the rest collapse until the student clicks their header. -->
     <aside class="student-lessons-rail">
-      <th:block th:each="section : ${view.sections()}"
-                th:if="${section.sectionId() == activeSectionId}">
-        <div class="student-lessons-rail-header">
-          <svg class="student-lessons-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6"/>
-            <line x1="8" y1="12" x2="21" y2="12"/>
-            <line x1="8" y1="18" x2="21" y2="18"/>
-            <line x1="3" y1="6" x2="3.01" y2="6"/>
-            <line x1="3" y1="12" x2="3.01" y2="12"/>
-            <line x1="3" y1="18" x2="3.01" y2="18"/>
-          </svg>
-          <p class="student-lessons-rail-title">Bài giảng</p>
-          <span class="student-lessons-rail-count" th:text="${#lists.size(section.lessons())}">0</span>
-        </div>
+      <div class="student-lessons-rail-header">
+        <svg class="student-lessons-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <p class="student-lessons-rail-title">Nội dung khoá học</p>
+        <span class="student-lessons-rail-count"
+              th:text="${#lists.size(view.sections())} + ' chương'">0 chương</span>
+      </div>
 
-        <!-- Empty-section state -->
-        <div class="student-lessons-empty-rail"
-             th:if="${#lists.isEmpty(section.lessons())}">
-          <svg class="student-lessons-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="16" rx="2" ry="2"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
-          <p th:text="${T(com.ulp.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_SECTION}">Chương này chưa có bài giảng</p>
-        </div>
+      <div class="student-lessons-acc-scroll">
+        <details th:each="section : ${view.sections()}"
+                 class="student-lessons-acc"
+                 th:open="${section.sectionId() == activeSectionId}">
+          <summary class="student-lessons-acc-head">
+            <svg class="student-lessons-acc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <span class="student-lessons-acc-title" th:text="${section.title()}">Chương 1</span>
+            <span class="student-lessons-acc-count"
+                  th:text="${section.completedCount()} + '/' + ${section.publishedCount()}">0/0</span>
+          </summary>
 
-        <!-- Lesson cards -->
-        <ul class="student-lessons-lesson-list"
-            th:unless="${#lists.isEmpty(section.lessons())}">
-          <li th:each="lesson : ${section.lessons()}"
-              th:classappend="${lessonDetail != null and lesson.id() == lessonDetail.lessonId()} ? ' active' : ''"
-              class="student-lessons-lesson-card">
-            <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${activeSectionId},lesson=${lesson.id()})}"
+          <!-- Empty-section state -->
+          <div class="student-lessons-empty-rail"
+               th:if="${#lists.isEmpty(section.lessons())}">
+            <svg class="student-lessons-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2" ry="2"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <p th:text="${T(com.ulp.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_SECTION}">Chương này chưa có bài giảng</p>
+          </div>
+
+          <!-- Lesson cards -->
+          <ul class="student-lessons-lesson-list"
+              th:unless="${#lists.isEmpty(section.lessons())}">
+            <li th:each="lesson : ${section.lessons()}"
+                th:classappend="${lessonDetail != null and lesson.id() == lessonDetail.lessonId()} ? ' active' : ''"
+                class="student-lessons-lesson-card">
+            <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()},lesson=${lesson.id()})}"
                class="student-lessons-lesson-link">
               <span class="student-lessons-lesson-thumb">
                 <!-- Icon switches per contentType so the rail signals the
@@ -238,13 +377,32 @@
                 </span>
               </span>
             </a>
+            <!-- Completion toggle (ULP-4.5) — a POST form sibling of the link
+                 (a form/button cannot be nested inside the anchor). Always
+                 shown: empty circle = not done → click to complete; filled ✓
+                 = done → click to un-complete. Backend toggles either way. -->
+            <form method="post"
+                  th:action="@{|/my/classes/${view.classId()}/lessons/${lesson.id()}/progress/toggle|}"
+                  class="student-lessons-lesson-check-form">
+              <input type="hidden" name="section" th:value="${section.sectionId()}"/>
+              <button type="submit" class="student-lessons-lesson-check"
+                      th:classappend="${lesson.completed()} ? ' is-done' : ''"
+                      th:title="${lesson.completed()} ? 'Bỏ đánh dấu hoàn thành' : 'Đánh dấu hoàn thành'"
+                      th:aria-label="${lesson.completed()} ? 'Bỏ đánh dấu hoàn thành' : 'Đánh dấu hoàn thành'">
+                <span th:if="${lesson.completed()}">✓</span>
+              </button>
+            </form>
           </li>
-        </ul>
-      </th:block>
+          </ul>
+        </details>
+      </div>
     </aside>
   </div>
 </main>
 
 <script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/student-lesson-nav.js}"></script>
+<script th:src="@{/js/lesson-comments-render.js}"></script>
+<script th:src="@{/js/lesson-comments.js}"></script>
 </body>
 </html>

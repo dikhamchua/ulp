@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${clazz.name} + ' | Tiến độ', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-progress.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'progress')}"></aside>
+
+  <main class="col">
+    <h1 class="detail-title">Tiến độ học tập</h1>
+
+    <!-- ── Summary cards (whole cohort, ignore filter/search/page) ── -->
+    <section class="pg-cards">
+      <div class="pg-card">
+        <span class="pg-card-label">Tổng sinh viên</span>
+        <span class="pg-card-value" th:text="${progressSummary.totalStudents()}">0</span>
+      </div>
+      <div class="pg-card">
+        <span class="pg-card-label">Hoàn thành trung bình</span>
+        <span class="pg-card-value" th:text="${progressSummary.avgPercent()} + '%'">0%</span>
+      </div>
+      <div class="pg-card">
+        <span class="pg-card-label">Chưa bắt đầu</span>
+        <span class="pg-card-value" th:text="${progressSummary.notStartedCount()}">0</span>
+      </div>
+      <div class="pg-card">
+        <span class="pg-card-label">Hoàn thành 100%</span>
+        <span class="pg-card-value" th:text="${progressSummary.completedCount()}">0</span>
+      </div>
+    </section>
+
+    <section class="detail-panel" th:attr="data-class-id=${clazz.id}">
+      <!-- ── Filter tabs + search ── -->
+      <div class="pg-toolbar">
+        <div class="pg-filters">
+          <a class="pg-filter"
+             th:classappend="${progressStatus == 'all'} ? 'is-active' : ''"
+             th:href="@{|/lecturer/classes/${clazz.id}/progress|(status='all',q=${progressQuery},size=${progressSize})}">Tất cả</a>
+          <a class="pg-filter"
+             th:classappend="${progressStatus == 'completed'} ? 'is-active' : ''"
+             th:href="@{|/lecturer/classes/${clazz.id}/progress|(status='completed',q=${progressQuery},size=${progressSize})}">Hoàn thành</a>
+          <a class="pg-filter"
+             th:classappend="${progressStatus == 'in-progress'} ? 'is-active' : ''"
+             th:href="@{|/lecturer/classes/${clazz.id}/progress|(status='in-progress',q=${progressQuery},size=${progressSize})}">Đang học</a>
+          <a class="pg-filter"
+             th:classappend="${progressStatus == 'not-started'} ? 'is-active' : ''"
+             th:href="@{|/lecturer/classes/${clazz.id}/progress|(status='not-started',q=${progressQuery},size=${progressSize})}">Chưa bắt đầu</a>
+        </div>
+        <form class="pg-search" method="get"
+              th:action="@{|/lecturer/classes/${clazz.id}/progress|}">
+          <input type="hidden" name="status" th:value="${progressStatus}">
+          <input type="hidden" name="size" th:value="${progressSize}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" name="q" th:value="${progressQuery}"
+                 placeholder="Tìm theo tên hoặc email" aria-label="Tìm kiếm sinh viên">
+        </form>
+      </div>
+
+      <!-- ── Table ── -->
+      <table class="m-table pg-table" th:if="${progressPage.totalElements > 0}">
+        <thead>
+          <tr>
+            <th>Sinh viên</th>
+            <th class="pg-col-progress">Tiến độ</th>
+            <th class="pg-col-lessons td-center">Bài học</th>
+            <th class="pg-col-date">Ngày tham gia</th>
+            <th class="pg-col-date">Hoạt động gần nhất</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="r : ${progressPage.content}" class="pg-row"
+              th:attr="data-student-id=${r.userId},data-student-name=${r.fullName}">
+            <td>
+              <div class="stu">
+                <div class="avatar" th:style="'background:' + ${r.avatarGradient}"
+                     th:text="${r.avatarLabel}">??</div>
+                <div>
+                  <div class="stu-name" th:text="${r.fullName}">Họ tên</div>
+                  <div class="stu-sub" th:text="${r.email}">email</div>
+                </div>
+              </div>
+            </td>
+            <td class="pg-col-progress">
+              <div class="pg-bar">
+                <div class="pg-bar-fill" th:style="'width:' + ${r.percent} + '%'"
+                     th:classappend="'pg-bar-' + ${r.status}"></div>
+              </div>
+              <span class="pg-pct" th:text="${r.percent} + '%'">0%</span>
+            </td>
+            <td class="pg-col-lessons td-center"
+                th:text="${r.completed} + '/' + ${r.total}">0/0</td>
+            <td class="pg-col-date"
+                th:text="${r.joinedAt != null} ? ${#temporals.format(r.joinedAt, 'dd/MM/yyyy')} : '—'">—</td>
+            <td class="pg-col-date">
+              <span th:if="${r.lastActivity != null}"
+                    th:text="${#temporals.format(r.lastActivity, 'dd/MM/yyyy')}">—</span>
+              <span th:unless="${r.lastActivity != null}" class="pg-muted">Chưa bắt đầu</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Empty state -->
+      <div class="m-empty" th:if="${progressPage.totalElements == 0}">
+        <span th:if="${progressSummary.totalStudents() == 0}">
+          Lớp chưa có sinh viên nào. Chia sẻ mã mời ở thanh bên để sinh viên tham gia.
+        </span>
+        <span th:unless="${progressSummary.totalStudents() == 0}">
+          Không có sinh viên nào khớp với bộ lọc hoặc từ khoá hiện tại.
+        </span>
+      </div>
+
+      <!-- ── Pager ── -->
+      <nav class="pg-pager" th:if="${progressPage.totalPages > 1}" aria-label="Phân trang">
+        <a class="pg-page"
+           th:classappend="${progressPage.first} ? 'is-disabled' : ''"
+           th:href="@{|/lecturer/classes/${clazz.id}/progress|(status=${progressStatus},q=${progressQuery},size=${progressSize},page=${progressPage.number - 1})}">Trước</a>
+        <span class="pg-page-info"
+              th:text="'Trang ' + (${progressPage.number} + 1) + '/' + ${progressPage.totalPages}">Trang 1/1</span>
+        <a class="pg-page"
+           th:classappend="${progressPage.last} ? 'is-disabled' : ''"
+           th:href="@{|/lecturer/classes/${clazz.id}/progress|(status=${progressStatus},q=${progressQuery},size=${progressSize},page=${progressPage.number + 1})}">Sau</a>
+      </nav>
+    </section>
+  </main>
+
+  <!-- ── Drill-down side panel (populated by class-progress.js) ── -->
+  <aside id="progressPanel" class="pg-panel" hidden aria-hidden="true">
+    <div class="pg-panel-head">
+      <h2 id="progressPanelTitle" class="pg-panel-title">Chi tiết tiến độ</h2>
+      <button type="button" id="progressPanelClose" class="pg-panel-close"
+              aria-label="Đóng">&times;</button>
+    </div>
+    <div id="progressPanelBody" class="pg-panel-body"></div>
+  </aside>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<script th:src="@{/js/class-progress.js}"></script>
+</body>
+</html>

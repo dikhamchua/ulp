@@ -81,6 +81,7 @@ public class ClassDetailModelSupport {
             case TAB_GROUPS      -> "Nhóm học tập";
             case TAB_ASSIGNMENTS -> "Bài tập";
             case TAB_SCORES      -> "Bảng điểm";
+            case TAB_PROGRESS    -> "Tiến độ";
             case TAB_LESSONS     -> "Bài giảng";
             case TAB_MATERIALS   -> "Tài liệu";
             case TAB_SETTINGS    -> "Cài đặt lớp học";

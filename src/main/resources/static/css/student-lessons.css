@@ -118,7 +118,66 @@
 .student-lessons-class-code {
   font-size: 13px;
   color: var(--shub-text-muted);
+  margin: 0 0 2px;
+}
+
+.student-lessons-class-code b,
+.student-lessons-class-lecturer b {
+  color: var(--shub-text);
+  font-weight: 600;
+}
+
+.student-lessons-class-lecturer {
+  font-size: 13px;
+  color: var(--shub-text-muted);
   margin: 0;
+}
+
+/* ── Class-level nav (Danh mục) ──────────────────────────────────────── */
+.student-lessons-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.student-lessons-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  border-radius: 8px;
+  color: var(--shub-text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.student-lessons-nav-item .ico {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+a.student-lessons-nav-item:hover {
+  background: var(--shub-active-bg);
+}
+
+.student-lessons-nav-item.is-active {
+  background: var(--shub-primary-soft);
+  color: var(--shub-primary);
+  font-weight: 600;
+}
+
+/* Not-yet-shipped tabs: visible but inert to avoid dead 404 links. */
+.student-lessons-nav-item.is-disabled {
+  color: var(--shub-text-muted);
+  opacity: 0.55;
+  cursor: default;
 }
 
 .student-lessons-sidebar-title {
@@ -179,7 +238,48 @@
   opacity: 1;
 }
 
-/* ── Main center: hero / section banner ──────────────────────────────── */
+/* ── Sidebar footer: leave class ─────────────────────────────────────── */
+.student-lessons-sidebar-foot {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--shub-border);
+}
+
+.student-lessons-leave {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 10px var(--space-3);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.student-lessons-leave .ico {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.student-lessons-leave:hover {
+  background: #fdeaea;
+}
+
+/* ── Main center: eyebrow + hero / section banner ────────────────────── */
+.student-lessons-eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--shub-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
 .student-lessons-main {
   min-width: 0;
   padding: var(--space-6);
@@ -256,6 +356,26 @@
   margin: 0;
 }
 
+/* ── Lesson description block ────────────────────────────────────────── */
+.student-lessons-desc {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--shub-border);
+}
+
+.student-lessons-desc-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--shub-text);
+  margin: 0 0 var(--space-2);
+}
+
+.student-lessons-desc-empty {
+  font-size: 14px;
+  color: var(--shub-text-muted);
+  margin: 0;
+}
+
 /* ── Right rail: list of lessons in the active section ───────────────── */
 .student-lessons-rail {
   background: var(--shub-surface);
@@ -298,16 +418,75 @@
   border-radius: 10px;
 }
 
+/* Accordion of chapters in the right rail. Native <details> per chapter;
+   the whole rail scrolls via .student-lessons-acc-scroll, not each list. */
+.student-lessons-acc-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.student-lessons-acc {
+  border-bottom: 1px solid var(--shub-border);
+}
+
+.student-lessons-acc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 14px var(--space-5);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.student-lessons-acc-head::-webkit-details-marker {
+  display: none;
+}
+
+.student-lessons-acc-head:hover {
+  background: var(--shub-active-bg);
+}
+
+.student-lessons-acc-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--shub-text-muted);
+  transition: transform 0.15s ease;
+}
+
+.student-lessons-acc[open] .student-lessons-acc-chevron {
+  transform: rotate(90deg);
+}
+
+.student-lessons-acc-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--shub-text);
+}
+
+.student-lessons-acc-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--shub-text-muted);
+  background: var(--shub-active-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
 .student-lessons-lesson-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
 }
 
 .student-lessons-lesson-card {
+  position: relative;
   border-bottom: 1px solid var(--shub-border);
 }
 
@@ -315,7 +494,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 16px 24px;
+  padding: 16px 52px 16px 24px;
   text-decoration: none;
   color: inherit;
   transition: background 0.12s ease;
@@ -401,4 +580,91 @@
 .student-lessons-empty-section p,
 .student-lessons-empty-rail p {
   margin: 0;
+}
+
+/* ── Learning progress (ULP-4.5) ─────────────────────────────────────── */
+
+/* Overall class progress bar inside the sidebar class card. */
+.student-lessons-progress {
+  margin-top: var(--space-3);
+}
+
+.student-lessons-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--shub-active-bg);
+  overflow: hidden;
+}
+
+.student-lessons-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--shub-primary);
+  transition: width 0.25s ease;
+}
+
+.student-lessons-progress-text {
+  margin: var(--space-2) 0 0;
+  font-size: 12px;
+  color: var(--shub-text-muted);
+}
+
+.student-lessons-progress-text b {
+  color: var(--shub-primary);
+}
+
+/* Per-section "x/y" badge in the chapter switcher. */
+.student-lessons-section-count {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--shub-text-muted);
+}
+
+.student-lessons-section-item.active .student-lessons-section-count {
+  color: var(--shub-primary);
+}
+
+/* Completion toggle on a rail lesson card. Always visible: empty outline
+   circle = not done (click to complete); filled green ✓ = done (click to
+   un-complete). The backend /progress/toggle flips either direction. */
+.student-lessons-lesson-check-form {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  margin: 0;
+}
+
+.student-lessons-lesson-check {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid #2e9e5b;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.student-lessons-lesson-check:not(.is-done):hover {
+  background: rgba(46, 158, 91, 0.12);
+}
+
+.student-lessons-lesson-check.is-done {
+  border-color: #2e9e5b;
+  background: #2e9e5b;
+}
+
+.student-lessons-lesson-check.is-done:hover {
+  filter: brightness(0.9);
 }

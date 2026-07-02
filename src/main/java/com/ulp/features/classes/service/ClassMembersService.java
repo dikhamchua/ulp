@@ -6,6 +6,7 @@ import com.ulp.features.classes.dto.MemberDtos.MemberRow;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Enrollment;
 import com.ulp.features.classes.repository.EnrollmentRepository;
+import com.ulp.utils.AvatarStyles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,15 +28,6 @@ import java.util.stream.IntStream;
  */
 @Service
 public class ClassMembersService {
-
-    private static final int AVATAR_HUE_COUNT = 5;
-    private static final String[][] AVATAR_GRADIENTS = {
-            {"#5E92F3", "#1E88E5"},
-            {"#EC407A", "#D81B60"},
-            {"#26A69A", "#00897B"},
-            {"#FFA726", "#FB8C00"},
-            {"#7E57C2", "#5E35B1"}
-    };
 
     private final ClassesService classesService;
     private final EnrollmentRepository enrollmentRepository;
@@ -71,28 +63,15 @@ public class ClassMembersService {
 
     private static MemberRow toRow(Enrollment e, int index) {
         User u = e.getUser();
-        String[] colors = AVATAR_GRADIENTS[Math.floorMod(index, AVATAR_HUE_COUNT)];
-        String gradient = "linear-gradient(135deg," + colors[0] + "," + colors[1] + ")";
         return new MemberRow(
                 u.getId(),
                 u.getFullName(),
-                avatarLabel(u.getFullName()),
-                gradient,
+                AvatarStyles.label(u.getFullName()),
+                AvatarStyles.gradient(index),
                 u.getEmail(),
                 u.getPhone(),
                 e.getJoinedVia()
         );
-    }
-
-    private static String avatarLabel(String fullName) {
-        if (fullName == null || fullName.isBlank()) return "?";
-        String[] parts = fullName.trim().split("\\s+");
-        if (parts.length == 1) {
-            return parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
-        }
-        String first = parts[0].substring(0, 1);
-        String last = parts[parts.length - 1].substring(0, 1);
-        return (first + last).toUpperCase();
     }
 
     /**
