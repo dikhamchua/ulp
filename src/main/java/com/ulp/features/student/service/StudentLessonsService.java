@@ -4,6 +4,8 @@ import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.Section;
+import com.ulp.entities.User;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
@@ -44,15 +46,18 @@ public class StudentLessonsService {
     private final ClassRepository classRepository;
     private final SectionRepository sectionRepository;
     private final LessonRepository lessonRepository;
+    private final UserRepository userRepository;
 
     public StudentLessonsService(EnrollmentRepository enrollmentRepository,
                                  ClassRepository classRepository,
                                  SectionRepository sectionRepository,
-                                 LessonRepository lessonRepository) {
+                                 LessonRepository lessonRepository,
+                                 UserRepository userRepository) {
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.sectionRepository = sectionRepository;
         this.lessonRepository = lessonRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -87,7 +92,15 @@ public class StudentLessonsService {
         for (Section section : sections) {
             sectionRows.add(buildSectionRow(section));
         }
-        return new ClassLessonsView(clazz.getId(), clazz.getName(), sectionRows);
+
+        // Resolve lecturer name for the sidebar; a deleted lecturer maps to
+        // null so the template renders a graceful fallback.
+        String lecturerName = userRepository.findById(clazz.getLecturerId())
+                .map(User::getFullName)
+                .orElse(null);
+
+        return new ClassLessonsView(clazz.getId(), clazz.getName(),
+                clazz.getCode(), lecturerName, sectionRows);
     }
 
     /** Builds a sidebar row + its PUBLISHED-only lesson list. */

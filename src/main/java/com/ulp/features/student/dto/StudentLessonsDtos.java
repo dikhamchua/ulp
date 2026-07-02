@@ -49,11 +49,21 @@ public class StudentLessonsDtos {
 
     /**
      * Top-level view model for the page. Includes the class id (used to
-     * build per-lesson hrefs) and class name (rendered in the header).
+     * build per-lesson hrefs), class name, class join code and the owning
+     * lecturer's display name — all rendered in the left class-nav sidebar.
+     *
+     * @param classId      owning class id
+     * @param className    class display name
+     * @param classCode    class join code (shown as "Mã lớp")
+     * @param lecturerName owning lecturer's full name; null when the
+     *                     lecturer account is missing/deleted
+     * @param sections     ordered sections with their PUBLISHED lessons
      */
     public record ClassLessonsView(
             Long classId,
             String className,
+            String classCode,
+            String lecturerName,
             List<SectionWithLessons> sections
     ) { }
 

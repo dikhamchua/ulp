@@ -118,7 +118,66 @@
 .student-lessons-class-code {
   font-size: 13px;
   color: var(--shub-text-muted);
+  margin: 0 0 2px;
+}
+
+.student-lessons-class-code b,
+.student-lessons-class-lecturer b {
+  color: var(--shub-text);
+  font-weight: 600;
+}
+
+.student-lessons-class-lecturer {
+  font-size: 13px;
+  color: var(--shub-text-muted);
   margin: 0;
+}
+
+/* ── Class-level nav (Danh mục) ──────────────────────────────────────── */
+.student-lessons-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.student-lessons-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  border-radius: 8px;
+  color: var(--shub-text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.student-lessons-nav-item .ico {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+a.student-lessons-nav-item:hover {
+  background: var(--shub-active-bg);
+}
+
+.student-lessons-nav-item.is-active {
+  background: var(--shub-primary-soft);
+  color: var(--shub-primary);
+  font-weight: 600;
+}
+
+/* Not-yet-shipped tabs: visible but inert to avoid dead 404 links. */
+.student-lessons-nav-item.is-disabled {
+  color: var(--shub-text-muted);
+  opacity: 0.55;
+  cursor: default;
 }
 
 .student-lessons-sidebar-title {
@@ -179,7 +238,48 @@
   opacity: 1;
 }
 
-/* ── Main center: hero / section banner ──────────────────────────────── */
+/* ── Sidebar footer: leave class ─────────────────────────────────────── */
+.student-lessons-sidebar-foot {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--shub-border);
+}
+
+.student-lessons-leave {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 10px var(--space-3);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.student-lessons-leave .ico {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.student-lessons-leave:hover {
+  background: #fdeaea;
+}
+
+/* ── Main center: eyebrow + hero / section banner ────────────────────── */
+.student-lessons-eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--shub-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
 .student-lessons-main {
   min-width: 0;
   padding: var(--space-6);
@@ -253,6 +353,26 @@
 .student-lessons-meta-value {
   font-size: 14px;
   color: var(--shub-text);
+  margin: 0;
+}
+
+/* ── Lesson description block ────────────────────────────────────────── */
+.student-lessons-desc {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--shub-border);
+}
+
+.student-lessons-desc-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--shub-text);
+  margin: 0 0 var(--space-2);
+}
+
+.student-lessons-desc-empty {
+  font-size: 14px;
+  color: var(--shub-text-muted);
   margin: 0;
 }
 
