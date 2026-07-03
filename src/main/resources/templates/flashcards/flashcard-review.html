@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${deck.title()} + ' — Ôn tập', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-flip.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-review.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('flashcards')}"></header>
+
+<main class="fc-page fc-study-page">
+  <div class="fc-form-head">
+    <a class="fc-back" th:href="@{|/my/flashcards/${deck.id()}|}">&larr; Quay lại bộ thẻ</a>
+    <h1 class="fc-page-title" th:text="${deck.title()}">Tên bộ thẻ</h1>
+  </div>
+
+  <div class="fc-due-progress">
+    <span id="fcDueBadge" th:text="'Còn ' + ${dueCount} + ' thẻ đến hạn'">Còn 0 thẻ đến hạn</span>
+  </div>
+
+  <div id="fcStudy" th:attr="data-cards=${cardsJson}"></div>
+
+  <!-- Empty / done state -->
+  <div class="fc-empty fc-study-empty" id="fcEmpty" th:classappend="${dueCount == 0} ? '' : 'is-hidden'">
+    Không có thẻ nào đến hạn. Quay lại sau nhé!
+  </div>
+
+  <!-- Card viewer -->
+  <div class="fc-study" id="fcViewer" th:classappend="${dueCount == 0} ? 'is-hidden' : ''">
+    <div class="fc-flip-card" id="fcFlipCard" tabindex="0" role="button"
+         aria-label="Nhấn để lật thẻ">
+      <div class="fc-flip-inner">
+        <div class="fc-flip-face fc-flip-front">
+          <div class="fc-face-text" id="fcFrontText"></div>
+        </div>
+        <div class="fc-flip-face fc-flip-back">
+          <div class="fc-face-text" id="fcBackText"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="fc-review-hint" id="fcHint">Nhấn vào thẻ để xem mặt sau, rồi tự đánh giá.</p>
+
+    <!-- Rating buttons (revealed after flip) -->
+    <div class="fc-ratings" id="fcRatings" hidden>
+      <button type="button" class="fc-rate fc-rate-1" data-quality="1">Không nhớ</button>
+      <button type="button" class="fc-rate fc-rate-3" data-quality="3">Khó</button>
+      <button type="button" class="fc-rate fc-rate-4" data-quality="4">Tốt</button>
+      <button type="button" class="fc-rate fc-rate-5" data-quality="5">Dễ</button>
+    </div>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/flashcard-review.js}"></script>
+</body>
+</html>

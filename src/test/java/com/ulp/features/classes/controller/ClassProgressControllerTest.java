@@ -23,8 +23,12 @@ import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -83,6 +87,33 @@ class ClassProgressControllerTest {
                 .andExpect(model().attribute("progressStatus", "in-progress"))
                 .andExpect(model().attribute("progressQuery", "pg"))
                 .andExpect(model().attribute("progressSize", 5));
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void pager_links_preserve_filters_and_encode_query() throws Exception {
+        // Seed 3 matching students so size=2 forces a second page (pager renders).
+        // The query term carries '&' — it MUST be URL-encoded in every page link.
+        String term = "aa&bb";
+        for (int i = 1; i <= 3; i++) {
+            User s = ensureUser("pgenc" + i + "@ulp.edu.vn", term + " Student " + i, Role.STUDENT);
+            enrollmentRepository.saveAndFlush(Enrollment.createFor(
+                    s, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+        }
+        mockMvc.perform(get(progressUrl())
+                        .param("status", "all")
+                        .param("q", term)
+                        .param("size", "2")
+                        .param("page", "0"))
+                .andExpect(status().isOk())
+                // Shared fragment rendered with a second-page link that keeps the filters.
+                .andExpect(content().string(allOf(
+                        containsString("class=\"pager\""),
+                        containsString("status=all"),
+                        containsString("size=2"),
+                        // '&' encoded to %26 — not left raw as an argument separator.
+                        containsString("q=aa%26bb"))))
+                .andExpect(content().string(not(containsString("q=aa&bb"))));
     }
 
     @Test

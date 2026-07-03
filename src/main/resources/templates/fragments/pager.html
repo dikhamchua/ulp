@@ -1,0 +1,57 @@
+<!doctype html>
+<!--
+  Reusable SSR numbered pager: ‹ · 1 2 … N · ›
+
+  Any server-rendered list page can add pagination in one line:
+    <div th:replace="~{fragments/pager :: pager(${page}, '/base/url', ${params})}"></div>
+
+  Params:
+    page    = a Spring Data org.springframework.data.domain.Page.
+    baseUrl = path String, e.g. '/my/flashcards'.
+    params  = Map<String,Object> of extra query params to PRESERVE across pages
+              (page-independent: status/q/size/…); may be null/empty.
+
+  Page links are built as base + '?' + PageWindow.query(params, i). The query
+  string is assembled and URL-encoded in Java (Thymeleaf's @{url(map)} does NOT
+  expand a Map into query params), so a filter with spaces or '&' stays safe.
+  Because th:href is a restricted context (no static/T(...) access), the query
+  string is computed in th:with — unrestricted — and th:href reads the result.
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<nav th:fragment="pager(page, baseUrl, params)" class="pager"
+     th:if="${page.totalPages > 1}"
+     th:with="base=@{${baseUrl}}" aria-label="Phân trang">
+
+  <!-- Prev -->
+  <a class="pager-item pager-nav"
+     th:with="href=${base + '?' + T(com.ulp.common.PageWindow).query(params, page.number - 1)}"
+     th:classappend="${page.first} ? 'is-disabled'"
+     th:href="${href}"
+     title="Trang trước" aria-label="Trang trước">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </a>
+
+  <!-- Numbers ( -1 = collapsed ellipsis ) -->
+  <th:block th:each="i : ${T(com.ulp.common.PageWindow).of(page.number, page.totalPages)}">
+    <span class="pager-ellipsis" th:if="${i == -1}">…</span>
+    <a th:unless="${i == -1}" class="pager-item"
+       th:with="href=${base + '?' + T(com.ulp.common.PageWindow).query(params, i)}"
+       th:classappend="${i == page.number} ? 'is-active'"
+       th:href="${href}"
+       th:text="${i + 1}">1</a>
+  </th:block>
+
+  <!-- Next -->
+  <a class="pager-item pager-nav"
+     th:with="href=${base + '?' + T(com.ulp.common.PageWindow).query(params, page.number + 1)}"
+     th:classappend="${page.last} ? 'is-disabled'"
+     th:href="${href}"
+     title="Trang sau" aria-label="Trang sau">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+</nav>
+</body>
+</html>

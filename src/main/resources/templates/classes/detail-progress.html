@@ -4,6 +4,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-progress.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
@@ -119,17 +120,8 @@
         </span>
       </div>
 
-      <!-- ── Pager ── -->
-      <nav class="pg-pager" th:if="${progressPage.totalPages > 1}" aria-label="Phân trang">
-        <a class="pg-page"
-           th:classappend="${progressPage.first} ? 'is-disabled' : ''"
-           th:href="@{|/lecturer/classes/${clazz.id}/progress|(status=${progressStatus},q=${progressQuery},size=${progressSize},page=${progressPage.number - 1})}">Trước</a>
-        <span class="pg-page-info"
-              th:text="'Trang ' + (${progressPage.number} + 1) + '/' + ${progressPage.totalPages}">Trang 1/1</span>
-        <a class="pg-page"
-           th:classappend="${progressPage.last} ? 'is-disabled' : ''"
-           th:href="@{|/lecturer/classes/${clazz.id}/progress|(status=${progressStatus},q=${progressQuery},size=${progressSize},page=${progressPage.number + 1})}">Sau</a>
-      </nav>
+      <!-- ── Pager (shared fragment; params keep status/q/size across pages) ── -->
+      <div th:replace="~{fragments/pager :: pager(${progressPage}, ${'/lecturer/classes/' + clazz.id + '/progress'}, ${params})}"></div>
     </section>
   </main>
 

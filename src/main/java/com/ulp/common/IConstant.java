@@ -227,6 +227,45 @@ public interface IConstant {
     String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
 
+    // ───────── Flashcards (ULP-5.x) ──────────────────────────────────
+    // Route prefixes / canonical URLs.
+    String BASE_FLASHCARDS      = "/my/flashcards";
+    String API_FLASHCARDS       = "/api/flashcards";
+
+    // View names.
+    String VIEW_FLASHCARD_LIST   = "flashcards/list";
+    String VIEW_FLASHCARD_FORM   = "flashcards/deck-form";
+    String VIEW_FLASHCARD_DETAIL = "flashcards/deck-detail";
+    String VIEW_FLASHCARD_FLIP   = "flashcards/flashcard-flip";
+    String VIEW_FLASHCARD_REVIEW = "flashcards/flashcard-review";
+
+    // Model attribute keys.
+    String ATTR_DECK          = "deck";
+    String ATTR_DECKS_OWN_PAGE = "ownDecksPage";
+    String ATTR_DECKS_SHARED  = "sharedDecks";
+    String ATTR_CARDS         = "cards";
+    String ATTR_CARDS_JSON    = "cardsJson";
+    String ATTR_DUE_COUNT     = "dueCount";
+    String ATTR_SHARE_CLASSES = "shareClasses";
+
+    // Flash / error messages (Vietnamese UI text).
+    String MSG_DECK_CREATED    = "Đã tạo bộ thẻ";
+    String MSG_DECK_UPDATED    = "Đã lưu bộ thẻ";
+    String MSG_DECK_DELETED    = "Đã xoá bộ thẻ";
+    String MSG_DECK_SHARED     = "Đã chia sẻ bộ thẻ cho lớp";
+    String MSG_DECK_UNSHARED   = "Đã chuyển bộ thẻ về riêng tư";
+    String MSG_DECK_TITLE_BLANK = "Tiêu đề không được để trống";
+    String MSG_CARD_SIDE_BLANK = "Mỗi thẻ phải có cả mặt trước và mặt sau";
+    String MSG_CARD_NOT_FOUND  = "Không tìm thấy thẻ";
+    String MSG_DECK_NOT_FOUND  = "Không tìm thấy bộ thẻ";
+    String MSG_SHARE_CLASS_INVALID = "Bạn không thuộc lớp này";
+
+    // SM-2 rating → quality map (Không nhớ / Khó / Tốt / Dễ).
+    int QUALITY_FORGOT = 1;
+    int QUALITY_HARD   = 3;
+    int QUALITY_GOOD   = 4;
+    int QUALITY_EASY   = 5;
+
     // ───────── Pagination ────────────────────────────────────────────
     int DEFAULT_PAGE_SIZE = 20;
 
@@ -241,4 +280,12 @@ public interface IConstant {
     // MAX caps a client-supplied ?size so a huge value can't force an oversized query.
     int DEFAULT_COMMENT_PAGE_SIZE = 10;
     int MAX_COMMENT_PAGE_SIZE = 50;
+
+    // Flashcards — own decks per SSR numbered-pager page.
+    int DEFAULT_DECK_PAGE_SIZE = 12;
+
+    // Shared pager fragment — Map of query params to preserve across pages
+    // (status/q/size/…). Consumed by templates/fragments/pager.html.
+    // Numbered-button window size lives in com.ulp.common.PageWindow.
+    String ATTR_PAGER_PARAMS = "params";
 }

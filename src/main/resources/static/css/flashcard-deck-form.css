@@ -1,0 +1,47 @@
+/* Flashcard deck editor styles (ULP-5.x). */
+
+.fc-form-page .fc-field { margin-bottom: 16px; }
+.fc-field label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+.fc-field input[type="text"],
+.fc-field textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 14px; font-family: inherit; box-sizing: border-box;
+}
+.fc-field textarea { resize: vertical; }
+.fc-field-error { color: #b91c1c; font-size: 12px; margin: 6px 0 0; }
+
+.fc-cards-editor { margin-top: 22px; }
+.fc-cards-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
+.fc-cards-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fc-import-tpl { font-size: 12px; color: #2563eb; text-decoration: none; }
+.fc-import-tpl:hover { text-decoration: underline; }
+
+.fc-card-row {
+    display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: start;
+    padding: 14px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; margin-bottom: 10px;
+}
+.fc-card-row.is-invalid { border-color: #fca5a5; background: #fff7f7; }
+.fc-row-index { font-weight: 700; color: #9ca3af; padding-top: 26px; text-align: center; }
+.fc-row-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fc-side label { display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 4px; }
+.fc-side textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 14px; font-family: inherit; resize: vertical; box-sizing: border-box;
+}
+
+.fc-row-actions { display: flex; flex-direction: column; gap: 6px; padding-top: 22px; }
+.fc-icon-btn {
+    width: 30px; height: 30px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff;
+    cursor: pointer; font-size: 15px; line-height: 1; color: #6b7280;
+}
+.fc-icon-btn:hover { background: #f3f4f6; color: #111827; }
+.fc-remove-card:hover { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+
+.fc-form-actions { margin-top: 20px; }
+
+@media (max-width: 640px) {
+    .fc-card-row { grid-template-columns: 1fr; }
+    .fc-row-sides { grid-template-columns: 1fr; }
+    .fc-row-actions { flex-direction: row; padding-top: 0; }
+    .fc-row-index { display: none; }
+}

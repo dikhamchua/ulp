@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Thẻ ghi nhớ', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('flashcards')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError},data-flash-info=${flashInfo}"
+      style="display:none;"></span>
+
+<main class="fc-page">
+  <div class="fc-toolbar">
+    <h1 class="fc-page-title">Thẻ ghi nhớ</h1>
+    <a class="fc-btn fc-btn-primary" th:href="@{/my/flashcards/new}">
+      <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      Tạo bộ thẻ mới
+    </a>
+  </div>
+
+  <!-- Own decks -->
+  <section class="fc-section">
+    <h2 class="fc-section-title">Bộ thẻ của tôi</h2>
+    <div class="fc-empty" th:if="${ownDecksPage.totalElements == 0}">
+      Bạn chưa có bộ thẻ nào. Nhấn <b>Tạo bộ thẻ mới</b> để bắt đầu.
+    </div>
+    <div id="fcOwnGrid" class="fc-grid" th:if="${ownDecksPage.totalElements > 0}">
+      <a th:each="deck : ${ownDecksPage.content}" class="fc-card" th:href="@{|/my/flashcards/${deck.id()}|}">
+        <div class="fc-card-body">
+          <h3 class="fc-card-title" th:text="${deck.title()}">Tên bộ thẻ</h3>
+          <p class="fc-card-desc" th:text="${deck.description()}"
+             th:if="${deck.description() != null}">Mô tả</p>
+        </div>
+        <div class="fc-card-foot">
+          <span class="fc-badge" th:text="${deck.cardCount()} + ' thẻ'">0 thẻ</span>
+          <span class="fc-badge fc-badge-shared" th:if="${deck.shared()}">Đã chia sẻ</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- SSR numbered pager (own decks only); no filters to preserve → params null -->
+    <div th:replace="~{fragments/pager :: pager(${ownDecksPage}, '/my/flashcards', null)}"></div>
+  </section>
+
+  <!-- Shared decks -->
+  <section class="fc-section" th:unless="${#lists.isEmpty(sharedDecks)}">
+    <h2 class="fc-section-title">Được chia sẻ với tôi</h2>
+    <div class="fc-grid">
+      <a th:each="deck : ${sharedDecks}" class="fc-card" th:href="@{|/my/flashcards/${deck.id()}|}">
+        <div class="fc-card-body">
+          <h3 class="fc-card-title" th:text="${deck.title()}">Tên bộ thẻ</h3>
+          <p class="fc-card-desc" th:text="${deck.description()}"
+             th:if="${deck.description() != null}">Mô tả</p>
+        </div>
+        <div class="fc-card-foot">
+          <span class="fc-badge" th:text="${deck.cardCount()} + ' thẻ'">0 thẻ</span>
+          <span class="fc-card-owner" th:if="${deck.ownerName() != null}"
+                th:text="'bởi ' + ${deck.ownerName()}">bởi ai đó</span>
+          <span class="fc-card-owner" th:if="${deck.className() != null}"
+                th:text="${deck.className()}">Lớp</span>
+        </div>
+      </a>
+    </div>
+  </section>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+</body>
+</html>

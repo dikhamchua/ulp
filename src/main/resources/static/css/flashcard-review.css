@@ -1,0 +1,20 @@
+/* Smart Review rating controls (ULP-5.x). */
+
+.fc-due-progress { text-align: center; margin-bottom: 16px; }
+.fc-due-progress span {
+    display: inline-block; padding: 6px 14px; border-radius: 999px;
+    background: #fef3c7; color: #b45309; font-size: 14px; font-weight: 600;
+}
+.fc-review-hint { font-size: 13px; color: #6b7280; text-align: center; margin: 0; }
+
+.fc-ratings { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.fc-rate {
+    padding: 10px 18px; border-radius: 10px; border: 1px solid transparent;
+    font-size: 14px; font-weight: 700; cursor: pointer; color: #fff;
+}
+.fc-rate:disabled { opacity: .55; cursor: default; }
+.fc-rate-1 { background: #dc2626; }
+.fc-rate-3 { background: #f59e0b; }
+.fc-rate-4 { background: #2563eb; }
+.fc-rate-5 { background: #059669; }
+.fc-rate:not(:disabled):hover { filter: brightness(0.94); }
