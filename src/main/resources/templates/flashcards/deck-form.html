@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Soạn bộ thẻ', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-deck-form.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('flashcards')}"></header>
+
+<main class="fc-page fc-form-page">
+  <div class="fc-form-head">
+    <a class="fc-back" th:href="${mode == 'edit'} ? @{|/my/flashcards/${deck.deckId()}|} : @{/my/flashcards}">
+      &larr; Quay lại
+    </a>
+    <h1 class="fc-page-title" th:text="${mode == 'edit'} ? 'Chỉnh sửa bộ thẻ' : 'Tạo bộ thẻ mới'">Soạn bộ thẻ</h1>
+  </div>
+
+  <form id="deckForm" method="post"
+        th:action="${mode == 'edit'} ? @{|/my/flashcards/${deck.deckId()}|} : @{/my/flashcards}"
+        th:attr="data-deck-id=${mode == 'edit'} ? ${deck.deckId()} : ''">
+
+    <!-- Metadata -->
+    <div class="fc-field">
+      <label for="deckTitle">Tiêu đề</label>
+      <input type="text" id="deckTitle" name="title" maxlength="300" required
+             th:field="${form.title}" placeholder="Ví dụ: Từ vựng chương 1">
+      <p class="fc-field-error" th:if="${#fields.hasErrors('form.title')}"
+         th:errors="${form.title}">Lỗi tiêu đề</p>
+    </div>
+    <div class="fc-field">
+      <label for="deckDesc">Mô tả (tuỳ chọn)</label>
+      <textarea id="deckDesc" name="description" rows="2" maxlength="2000"
+                th:field="${form.description}" placeholder="Mô tả ngắn gọn"></textarea>
+      <p class="fc-field-error" th:if="${#fields.hasErrors('form.description')}"
+         th:errors="${form.description}">Lỗi mô tả</p>
+    </div>
+
+    <!-- Card editor (edit mode only) -->
+    <section class="fc-cards-editor" th:if="${mode == 'edit'}">
+      <div class="fc-cards-head">
+        <h2 class="fc-section-title">Thẻ trong bộ</h2>
+        <div class="fc-cards-tools">
+          <a class="fc-import-tpl" th:href="@{/api/flashcards/import-template}" download>Tải file mẫu</a>
+          <button type="button" class="fc-btn fc-btn-ghost" id="fcImportBtn">
+            <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+            Import Excel
+          </button>
+          <input type="file" id="fcImportInput" accept=".xlsx" hidden>
+          <button type="button" class="fc-btn fc-btn-ghost" id="fcAddCard">
+            <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            Thêm thẻ
+          </button>
+        </div>
+      </div>
+
+      <div id="fcCardList">
+        <!-- Existing card rows -->
+        <div class="fc-card-row" th:each="card,it : ${cards}" th:attr="data-card-id=${card.id()}">
+          <div class="fc-row-index" th:text="${it.count}">1</div>
+          <div class="fc-row-sides">
+            <div class="fc-side">
+              <label>Mặt trước</label>
+              <textarea class="fc-front" rows="2" th:text="${card.front()}"></textarea>
+            </div>
+            <div class="fc-side">
+              <label>Mặt sau</label>
+              <textarea class="fc-back" rows="2" th:text="${card.back()}"></textarea>
+            </div>
+          </div>
+          <div class="fc-row-actions">
+            <button type="button" class="fc-icon-btn fc-move-up" title="Lên">&uarr;</button>
+            <button type="button" class="fc-icon-btn fc-move-down" title="Xuống">&darr;</button>
+            <button type="button" class="fc-icon-btn fc-remove-card" title="Xoá">&times;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fc-empty" id="fcCardsEmpty" th:classappend="${#lists.isEmpty(cards)} ? '' : 'is-hidden'">
+        Chưa có thẻ nào. Nhấn <b>Thêm thẻ</b> để tạo thẻ đầu tiên.
+      </div>
+    </section>
+
+    <div class="fc-form-actions">
+      <button type="submit" class="fc-btn fc-btn-primary"
+              th:text="${mode == 'edit'} ? 'Lưu bộ thẻ' : 'Tạo bộ thẻ'">Lưu</button>
+    </div>
+  </form>
+</main>
+
+<!-- Row template for new cards (cloned by JS) -->
+<template id="fcRowTemplate">
+  <div class="fc-card-row" data-card-id="">
+    <div class="fc-row-index">1</div>
+    <div class="fc-row-sides">
+      <div class="fc-side">
+        <label>Mặt trước</label>
+        <textarea class="fc-front" rows="2"></textarea>
+      </div>
+      <div class="fc-side">
+        <label>Mặt sau</label>
+        <textarea class="fc-back" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="fc-row-actions">
+      <button type="button" class="fc-icon-btn fc-move-up" title="Lên">&uarr;</button>
+      <button type="button" class="fc-icon-btn fc-move-down" title="Xuống">&darr;</button>
+      <button type="button" class="fc-icon-btn fc-remove-card" title="Xoá">&times;</button>
+    </div>
+  </div>
+</template>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/flashcard-deck-form.js}"></script>
+</body>
+</html>

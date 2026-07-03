@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static com.ulp.common.IConstant.ATTR_PAGER_PARAMS;
 import static com.ulp.common.IConstant.ATTR_PROGRESS_PAGE;
 import static com.ulp.common.IConstant.ATTR_PROGRESS_QUERY;
 import static com.ulp.common.IConstant.ATTR_PROGRESS_SIZE;
@@ -70,6 +74,17 @@ public class ClassProgressController {
         model.addAttribute(ATTR_PROGRESS_STATUS, status);
         model.addAttribute(ATTR_PROGRESS_QUERY, q);
         model.addAttribute(ATTR_PROGRESS_SIZE, size);
+        // Page-independent filters the shared pager must keep in every page link.
+        model.addAttribute(ATTR_PAGER_PARAMS, pagerParams(status, q, size));
         return VIEW_CLASS_DETAIL_PROGRESS;
+    }
+
+    /** Filters to preserve across pages so paging keeps the current filtered view. */
+    private static Map<String, Object> pagerParams(String status, String q, int size) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("status", status);
+        params.put("q", q);
+        params.put("size", size);
+        return params;
     }
 }

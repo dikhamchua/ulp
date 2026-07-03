@@ -123,6 +123,20 @@
         </ul>
       </div>
 
+      <!-- Flashcard decks shared to this class (ULP-5.x). -->
+      <div th:unless="${#lists.isEmpty(classSharedDecks)}" class="student-lessons-shared-decks">
+        <p class="student-lessons-sidebar-title">Thẻ ghi nhớ được chia sẻ</p>
+        <ul class="student-lessons-nav">
+          <li th:each="deck : ${classSharedDecks}">
+            <a class="student-lessons-nav-item" th:href="@{|/my/flashcards/${deck.id()}|}">
+              <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span th:text="${deck.title()}">Bộ thẻ</span>
+              <span class="student-lessons-section-count" th:text="${deck.cardCount()}">0</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
       <!-- Chapter switcher kept in the sidebar: the right rail is
            section-scoped, so students still need to pick a chapter here. -->
       <div th:if="${#lists.size(view.sections()) > 1}">

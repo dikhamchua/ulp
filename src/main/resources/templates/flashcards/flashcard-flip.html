@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${deck.title()} + ' — Lật thẻ', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-flip.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('flashcards')}"></header>
+
+<main class="fc-page fc-study-page">
+  <div class="fc-form-head">
+    <a class="fc-back" th:href="@{|/my/flashcards/${deck.id()}|}">&larr; Quay lại bộ thẻ</a>
+    <h1 class="fc-page-title" th:text="${deck.title()}">Tên bộ thẻ</h1>
+  </div>
+
+  <div id="fcStudy" th:attr="data-cards=${cardsJson}"></div>
+
+  <!-- Empty state -->
+  <div class="fc-empty fc-study-empty" id="fcEmpty" hidden>
+    Bộ thẻ này chưa có thẻ nào để học.
+  </div>
+
+  <!-- Card viewer -->
+  <div class="fc-study" id="fcViewer" hidden>
+    <div class="fc-flip-card" id="fcFlipCard" tabindex="0" role="button"
+         aria-label="Nhấn để lật thẻ">
+      <div class="fc-flip-inner">
+        <div class="fc-flip-face fc-flip-front">
+          <div class="fc-face-text" id="fcFrontText"></div>
+        </div>
+        <div class="fc-flip-face fc-flip-back">
+          <div class="fc-face-text" id="fcBackText"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fc-study-controls">
+      <button type="button" class="fc-btn fc-btn-ghost" id="fcPrev">&larr; Trước</button>
+      <span class="fc-counter"><span id="fcPos">1</span>/<span id="fcTotal">1</span></span>
+      <button type="button" class="fc-btn fc-btn-ghost" id="fcNext">Sau &rarr;</button>
+      <button type="button" class="fc-btn fc-btn-secondary" id="fcShuffle">Xáo trộn</button>
+    </div>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/flashcard-flip.js}"></script>
+</body>
+</html>

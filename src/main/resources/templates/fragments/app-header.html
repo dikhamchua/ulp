@@ -22,6 +22,7 @@
     <a th:href="@{/}" th:classappend="${active == 'home'} ? 'active'">Trang chủ</a>
     <a th:href="@{/profile}" th:classappend="${active == 'profile'} ? 'active'">Hồ sơ</a>
     <a th:href="@{/my/classes}" th:classappend="${active == 'my-classes'} ? 'active'">Lớp của tôi</a>
+    <a th:href="@{/my/flashcards}" th:classappend="${active == 'flashcards'} ? 'active'">Thẻ ghi nhớ</a>
     <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
        th:href="@{/lecturer/classes}" th:classappend="${active == 'classes'} ? 'active'">Lớp học</a>
     <a sec:authorize="hasRole('ADMIN')"

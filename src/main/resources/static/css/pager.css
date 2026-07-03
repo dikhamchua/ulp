@@ -1,0 +1,42 @@
+/* Shared SSR numbered pager: ‹ · 1 2 … N · ›
+   Consumed by templates/fragments/pager.html. Generic .pager* classes so any
+   list page can reuse it (flashcard deck list, lecturer progress dashboard, …). */
+.pager {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 26px;
+    flex-wrap: wrap;
+}
+.pager-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fff;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
+}
+.pager-item:hover { background: #f3f4f6; border-color: #d1d5db; color: #111827; }
+.pager-item.is-active {
+    background: #2563eb; color: #fff; border-color: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, .30);
+}
+.pager-item.is-active:hover { background: #1d4ed8; }
+.pager-item.is-disabled { opacity: .4; pointer-events: none; }
+.pager-nav { padding: 0 10px; color: #6b7280; }
+.pager-nav svg { width: 16px; height: 16px; display: block; }
+.pager-ellipsis {
+    min-width: 24px; text-align: center; color: #9ca3af;
+    font-weight: 700; letter-spacing: 1px; user-select: none;
+}

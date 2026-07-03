@@ -1,5 +1,6 @@
 package com.ulp.features.student.controller;
 
+import com.ulp.features.flashcards.service.DeckService;
 import com.ulp.features.student.dto.StudentLessonsDtos.ClassLessonsView;
 import com.ulp.features.student.dto.StudentLessonsDtos.LessonDetailView;
 import com.ulp.features.student.dto.StudentLessonsDtos.SectionWithLessons;
@@ -57,13 +58,16 @@ public class StudentLessonsController {
     private final StudentLessonsService studentLessonsService;
     private final StudentLessonDetailService studentLessonDetailService;
     private final LearningProgressService learningProgressService;
+    private final DeckService deckService;
 
     public StudentLessonsController(StudentLessonsService studentLessonsService,
                                     StudentLessonDetailService studentLessonDetailService,
-                                    LearningProgressService learningProgressService) {
+                                    LearningProgressService learningProgressService,
+                                    DeckService deckService) {
         this.studentLessonsService = studentLessonsService;
         this.studentLessonDetailService = studentLessonDetailService;
         this.learningProgressService = learningProgressService;
+        this.deckService = deckService;
     }
 
     /** Renders the class's sections + PUBLISHED lessons for the student. */
@@ -79,6 +83,9 @@ public class StudentLessonsController {
         Long activeSectionId = resolveActiveSection(view, sectionParam);
         model.addAttribute(ATTR_VIEW, view);
         model.addAttribute(ATTR_ACTIVE_SECTION_ID, activeSectionId);
+        // Surface flashcard decks shared to this class in the sidebar.
+        model.addAttribute("classSharedDecks",
+                deckService.listSharedForClass(classId, user.getId()));
 
         // Inline lesson detail when ?lesson=X is provided AND it belongs to the
         // active section. Invalid lesson id falls back to the hero placeholder

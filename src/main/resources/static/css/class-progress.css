@@ -86,27 +86,8 @@
 .pg-bar-not-started { background: #cbd5e1; }
 .pg-pct { margin-left: 10px; font-size: 13px; font-weight: 700; }
 
-/* ── Pager ─────────────────────────────────────────────────────────────── */
-.pg-pager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 18px;
-}
-.pg-page {
-  padding: 7px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #e2e8f0);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text, #0f172a);
-  text-decoration: none;
-  background: #fff;
-}
-.pg-page:hover { background: var(--primary-soft, #eff6ff); }
-.pg-page.is-disabled { opacity: .45; pointer-events: none; }
-.pg-page-info { font-size: 13px; color: var(--muted, #64748b); }
+/* Pager moved to the shared static/css/pager.css (fragment
+   templates/fragments/pager.html, generic .pager* classes). */
 
 /* ── Drill-down side panel ─────────────────────────────────────────────── */
 .pg-panel {
