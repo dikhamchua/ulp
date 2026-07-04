@@ -39,6 +39,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+		<!-- WebSocket (STOMP messaging for real-time chat, ULP-8.3) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
 		<!-- Bean Validation -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -122,6 +127,24 @@
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
+		</dependency>
+
+		<!-- STOMP-over-SockJS client assets for the messaging UI (ULP-8.3).
+		     webjars-locator-core resolves version-agnostic /webjars/** paths. -->
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>sockjs-client</artifactId>
+			<version>1.5.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>stomp-websocket</artifactId>
+			<version>2.3.4</version>
+		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>webjars-locator-core</artifactId>
+			<version>0.59</version>
 		</dependency>
 	</dependencies>
 

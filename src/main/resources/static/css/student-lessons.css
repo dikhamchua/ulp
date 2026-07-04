@@ -180,6 +180,22 @@ a.student-lessons-nav-item:hover {
   cursor: default;
 }
 
+/* Unread count pill on the "Tin nhắn" nav item; pushed to the right edge. */
+.student-lessons-nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.student-lessons-nav-badge.is-hidden { display: none; }
+
 .student-lessons-sidebar-title {
   font-size: 13px;
   font-weight: 600;

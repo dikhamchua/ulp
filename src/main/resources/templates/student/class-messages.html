@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${view.className()} + ' — Tin nhắn', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-class-tests.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/messaging.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+
+<main class="student-lessons-shell">
+  <!-- Top bar with back link + class name (mirrors the lessons/tests pages). -->
+  <div class="student-lessons-header">
+    <a th:href="@{/my/classes}" class="student-lessons-back">
+      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           width="16" height="16">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Quay lại lớp của tôi
+    </a>
+    <h1 class="student-lessons-title" th:text="${view.className()}">Tên lớp</h1>
+  </div>
+
+  <!-- 2-column layout: shared class sidebar (left) + lecturer thread (right). -->
+  <div class="student-class-tests-grid">
+    <!-- LEFT SIDEBAR: shared class shell sidebar, 'messages' tab active. No
+         progress bar or lessons-only extras, so both slots are the no-op ~{}. -->
+    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('messages', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
+
+    <!-- MAIN: the lecturer conversation thread fills the pane. -->
+    <section class="student-lessons-main msg-class-main">
+      <div th:replace="~{messaging/conversation :: thread(${view.conversation()})}"></div>
+    </section>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

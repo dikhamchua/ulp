@@ -1,10 +1,12 @@
 package com.ulp.features.classes.repository;
 
 import com.ulp.entities.Enrollment;
+import com.ulp.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -80,4 +82,34 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
      */
     @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.classId = :classId AND e.status = 'ACTIVE'")
     long countActiveByClassId(@Param("classId") Long classId);
+
+    /**
+     * Returns the distinct class ids the given user is ACTIVE-enrolled in. Used
+     * by messaging's recipient gate to resolve a student's set of classes before
+     * mapping them to the lecturers that teach them.
+     *
+     * @param userId the student's user id
+     * @return distinct ACTIVE class ids for that user
+     */
+    @Query("SELECT DISTINCT e.classId FROM Enrollment e " +
+            "WHERE e.user.id = :userId AND e.status = 'ACTIVE'")
+    List<Long> findActiveClassIdsForUser(@Param("userId") Long userId);
+
+    /**
+     * Returns the distinct users ACTIVE-enrolled in any of the given classes,
+     * optionally filtered by a case-insensitive name/email substring. Used by
+     * messaging's recipient gate (lecturer → eligible students) and recipient
+     * search. Returns empty when {@code classIds} is empty.
+     *
+     * @param classIds the classes to gather students from
+     * @param q        optional case-insensitive name/email filter; null/blank disables
+     * @return distinct ACTIVE-enrolled users across those classes
+     */
+    @Query("SELECT DISTINCT e.user FROM Enrollment e " +
+            "WHERE e.classId IN :classIds AND e.status = 'ACTIVE' " +
+            "AND (:q IS NULL OR :q = '' " +
+            "     OR LOWER(e.user.fullName) LIKE LOWER(CONCAT('%', :q, '%')) " +
+            "     OR LOWER(e.user.email) LIKE LOWER(CONCAT('%', :q, '%')))")
+    List<User> findActiveStudentsInClasses(@Param("classIds") Collection<Long> classIds,
+                                           @Param("q") String q);
 }

@@ -324,7 +324,24 @@ public interface IConstant {
     int DEFAULT_EXAM_PAGE_SIZE        = 12;
     int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
 
-    // ───────── Pagination ────────────────────────────────────────────
+    // ───────── Direct messaging (Epic #13, ULP-8.3 + ULP-8.4) ────────
+    // Route prefix / canonical URL.
+    String BASE_MY_MESSAGES = "/my/messages";
+
+    // View names.
+    String VIEW_MESSAGING_INDEX        = "messaging/index";
+    String VIEW_MESSAGING_CONVERSATION = "messaging/conversation";
+    String VIEW_STUDENT_CLASS_MESSAGES = "student/class-messages";
+
+    // Model attribute keys.
+    String ATTR_CONVERSATIONS = "conversations";
+    String ATTR_CONVERSATION  = "conversation";
+    String ATTR_MSG_UNREAD    = "msgUnreadCount";
+    String ATTR_RECIPIENTS     = "recipients";
+    String ATTR_COMPOSE        = "compose";
+    String ATTR_COMPOSE_QUERY  = "composeQuery";
+
+    // Pagination.
     int DEFAULT_PAGE_SIZE = 20;
 
     // Lessons feature — shared paging (history tab page size).

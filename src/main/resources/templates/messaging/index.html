@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Tin nhắn', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/messaging.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('messages')}"></header>
+
+<main class="msg-shell">
+  <h1 class="msg-title">Tin nhắn</h1>
+
+  <!-- has-open drives the mobile single-column behavior (hide list when a
+       thread is open). conversation is null on the plain list view. -->
+  <div class="msg-grid" th:classappend="${conversation != null} ? 'has-open'">
+
+    <!-- LEFT: conversation list ------------------------------------------------ -->
+    <aside class="msg-list-pane">
+      <div class="msg-list-head">
+        <span>Cuộc trò chuyện</span>
+        <!-- Entry point to the compose surface (start a new conversation). -->
+        <a th:href="@{/my/messages/new}" class="msg-compose-btn"
+           th:classappend="${compose} ? 'is-active'" title="Soạn tin nhắn mới"
+           aria-label="Soạn tin nhắn mới">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span class="msg-compose-btn-text">Soạn tin</span>
+        </a>
+      </div>
+
+      <div class="msg-empty" th:if="${conversations.totalElements == 0}">
+        Chưa có cuộc trò chuyện nào.
+      </div>
+
+      <nav class="msg-conv-list" th:if="${conversations.totalElements > 0}">
+        <a th:each="c : ${conversations.content}" class="msg-conv"
+           th:href="@{|/my/messages/${c.convId()}|}"
+           th:classappend="${conversation != null and conversation.convId() == c.convId()} ? 'is-active'">
+          <span class="msg-avatar" th:if="${c.peerAvatarUrl() == null}"
+                th:text="${#strings.isEmpty(c.peerName()) ? '?' : c.peerName().substring(0,1)}">A</span>
+          <img class="msg-avatar" th:unless="${c.peerAvatarUrl() == null}"
+               th:src="${c.peerAvatarUrl()}" alt="" />
+          <span class="msg-conv-body">
+            <span class="msg-conv-name" th:text="${c.peerName()}">Tên</span>
+            <span class="msg-conv-snippet"
+                  th:text="${c.lastSnippet() != null ? c.lastSnippet() : 'Bắt đầu trò chuyện'}">Tin nhắn</span>
+          </span>
+          <span class="msg-conv-meta">
+            <span class="msg-unread-pill" th:if="${c.unread() > 0}"
+                  th:text="${c.unread() > 99 ? '99+' : c.unread()}">1</span>
+          </span>
+        </a>
+      </nav>
+
+      <!-- SSR pager (only when the plain list is the primary view — not while
+           composing, where the right pane owns the interaction). th:if must gate
+           a parent element so th:replace (higher precedence) never fires. -->
+      <th:block th:if="${conversation == null and !compose}">
+        <div th:replace="~{fragments/pager :: pager(${conversations}, '/my/messages', ${params})}"></div>
+      </th:block>
+    </aside>
+
+    <!-- RIGHT: thread pane OR compose OR empty state -------------------------- -->
+    <section class="msg-thread-pane">
+      <!-- Empty state when nothing is selected and we are not composing. -->
+      <div class="msg-empty" th:if="${conversation == null and !compose}">
+        Chọn một cuộc trò chuyện để bắt đầu.
+      </div>
+
+      <!-- Compose: search eligible recipients, pick one to start a thread. -->
+      <div class="msg-compose" th:if="${compose}">
+        <header class="msg-thread-head">
+          <a th:href="@{/my/messages}" class="msg-back" aria-label="Quay lại danh sách">
+            <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </a>
+          <span class="msg-thread-name">Soạn tin nhắn mới</span>
+        </header>
+
+        <!-- Search box: GET reload keeps results server-filtered through the gate. -->
+        <form class="msg-compose-search" method="get" th:action="@{/my/messages/new}">
+          <input type="search" name="q" class="msg-compose-search-input"
+                 th:value="${composeQuery}" placeholder="Tìm theo tên hoặc email..."
+                 aria-label="Tìm người nhận" autofocus />
+          <button type="submit" class="msg-compose-search-btn">Tìm</button>
+        </form>
+
+        <div class="msg-compose-results">
+          <!-- No eligible peers (empty roster or no match for the query). -->
+          <div class="msg-empty" th:if="${#lists.isEmpty(recipients)}">
+            <span th:if="${composeQuery != null and !composeQuery.isEmpty()}">
+              Không tìm thấy người nhận phù hợp.
+            </span>
+            <span th:unless="${composeQuery != null and !composeQuery.isEmpty()}">
+              Chưa có người nhận nào bạn có thể bắt đầu trò chuyện.
+            </span>
+          </div>
+
+          <!-- Each result POSTs to /new; the gate re-validates server-side. -->
+          <form th:each="r : ${recipients}" class="msg-recipient" method="post"
+                th:action="@{/my/messages/new}">
+            <input type="hidden" name="to" th:value="${r.id()}" />
+            <button type="submit" class="msg-recipient-btn">
+              <span class="msg-avatar" th:if="${r.avatarUrl() == null}"
+                    th:text="${#strings.isEmpty(r.name()) ? '?' : r.name().substring(0,1)}">A</span>
+              <img class="msg-avatar" th:unless="${r.avatarUrl() == null}"
+                   th:src="${r.avatarUrl()}" alt="" />
+              <span class="msg-recipient-body">
+                <span class="msg-recipient-name" th:text="${r.name()}">Tên</span>
+                <span class="msg-recipient-email" th:text="${r.email()}">email</span>
+              </span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Thread: delegated to the conversation fragment. th:if must gate a
+           parent element so th:replace (higher precedence) never fires on null. -->
+      <th:block th:if="${conversation != null}">
+        <div th:replace="~{messaging/conversation :: thread(${conversation})}"></div>
+      </th:block>
+    </section>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
