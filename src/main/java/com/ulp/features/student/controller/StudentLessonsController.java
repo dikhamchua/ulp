@@ -7,6 +7,7 @@ import com.ulp.features.student.dto.StudentLessonsDtos.SectionWithLessons;
 import com.ulp.features.progress.service.LearningProgressService;
 import com.ulp.features.student.service.StudentLessonDetailService;
 import com.ulp.features.student.service.StudentLessonsService;
+import com.ulp.security.Role;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -78,7 +79,7 @@ public class StudentLessonsController {
                        @AuthenticationPrincipal UlpUserDetails user,
                        Model model) {
         ClassLessonsView view = studentLessonsService
-                .listClassLessons(classId, user.getId());
+                .listClassLessons(classId, user.getId(), user.getRole());
 
         Long activeSectionId = resolveActiveSection(view, sectionParam);
         model.addAttribute(ATTR_VIEW, view);
@@ -94,11 +95,11 @@ public class StudentLessonsController {
                 && lessonBelongsToSection(view, activeSectionId, lessonParam)) {
             try {
                 LessonDetailView detail = studentLessonDetailService
-                        .getLessonDetail(classId, lessonParam, user.getId());
+                        .getLessonDetail(classId, lessonParam, user.getId(), user.getRole());
                 model.addAttribute(ATTR_LESSON_DETAIL, detail);
                 // Auto-record IN_PROGRESS only after the detail gates pass;
                 // isolated so a progress write failure never breaks rendering.
-                recordOpenedQuietly(classId, lessonParam, user.getId());
+                recordOpenedQuietly(classId, lessonParam, user.getId(), user.getRole());
             } catch (EntityNotFoundException ignored) {
                 // Silently fall back to hero placeholder — caller's enrollment
                 // was already validated by listClassLessons() above.
@@ -109,9 +110,20 @@ public class StudentLessonsController {
 
     /**
      * Records the open as IN_PROGRESS, swallowing and logging any failure so
-     * a progress write problem can never break lesson rendering (design D3).
+     * a progress write problem can never break lesson rendering (design D7a).
+     *
+     * <p>Only ACTIVE-enrolled students accrue progress. A moderator
+     * (ADMIN/HEAD or the owning lecturer, admitted via the widened D7 gate
+     * but not enrolled) opens the lesson to moderate its thread, not to
+     * learn — so skipping progress for them is expected, not an error, and
+     * must not emit a WARN. Guarding by role here also spares the wasted
+     * enrollment gate query {@code recordOpened} would otherwise run.
      */
-    private void recordOpenedQuietly(Long classId, Long lessonId, Long userId) {
+    private void recordOpenedQuietly(Long classId, Long lessonId, Long userId, Role role) {
+        // Progress belongs to students only; moderators generate none (D7).
+        if (role != Role.STUDENT) {
+            return;
+        }
         try {
             learningProgressService.recordOpened(classId, lessonId, userId);
         } catch (RuntimeException ex) {
@@ -178,7 +190,7 @@ public class StudentLessonsController {
         // the resolved view so the query-param URL pre-selects the right
         // sidebar entry.
         LessonDetailView detail = studentLessonDetailService
-                .getLessonDetail(classId, lessonId, user.getId());
+                .getLessonDetail(classId, lessonId, user.getId(), user.getRole());
 
         String location = studentLessonUrl(classId, detail.sectionId(), detail.lessonId());
         HttpHeaders headers = new HttpHeaders();

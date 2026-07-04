@@ -230,6 +230,8 @@ public interface IConstant {
     String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
     String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
+    // Moderator hide/unhide (ULP-11.7).
+    String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
 
     // ───────── Flashcards (ULP-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.

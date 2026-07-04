@@ -12,6 +12,8 @@ import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
+import com.ulp.features.progress.repository.LearningProgressRepository;
+import com.ulp.features.progress.service.LearningProgressService;
 import com.ulp.features.student.dto.StudentLessonsDtos.ClassLessonsView;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,11 +23,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
@@ -64,6 +70,11 @@ class StudentLessonsControllerTest {
     @Autowired private LessonRepository lessonRepository;
     @Autowired private LessonAttachmentRepository lessonAttachmentRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
+    @Autowired private LearningProgressRepository progressRepository;
+
+    // Spy (not mock): STUDENT tests keep the real progress write; only the
+    // moderator test verifies recordOpened is never invoked (D7 guard).
+    @MockitoSpyBean private LearningProgressService learningProgressService;
 
     private User lecturer;
     private User student;
@@ -192,6 +203,32 @@ class StudentLessonsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("<iframe")))
                 .andExpect(content().string(containsString("youtube.com/embed/dQw4w9WgXcQ")));
+    }
+
+    // ── Moderator opens a lesson: no progress side-effect (design D7) ──
+
+    /**
+     * A moderator (owning lecturer, admitted via the widened D7 gate but not
+     * enrolled) may open the lesson to moderate its thread, yet must NOT
+     * accrue a learning-progress row — and the open must not emit a WARN.
+     */
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void moderator_open_records_no_progress_and_no_warn() throws Exception {
+        mockMvc.perform(get(urlWithLesson(clazz.getId(), section1.getId(), defaultLesson.getId())))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("lessonDetail"));
+
+        // The D7 guard short-circuits before recordOpened for non-students.
+        // This is the assertion that locks the guard: reverting it lets the
+        // controller call recordOpened for the moderator and fails here.
+        verify(learningProgressService, never()).recordOpened(anyLong(), anyLong(), anyLong());
+
+        // Invariant kept for defence in depth: even if recordOpened were
+        // reached, its gate throws before persisting, so no row exists.
+        assertThat(progressRepository
+                .findByUserIdAndLessonId(lecturer.getId(), defaultLesson.getId()))
+                .isEmpty();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

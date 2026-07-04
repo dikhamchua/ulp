@@ -1,17 +1,17 @@
 package com.ulp.features.student.service;
 
 import com.ulp.entities.ClassEntity;
-import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.LessonAttachment;
 import com.ulp.entities.Section;
-import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.lessons.repository.LessonAttachmentRepository;
+import com.ulp.features.lessons.support.ClassAccessPolicy;
 import com.ulp.features.lessons.support.LessonAccessResolver;
 import com.ulp.features.lessons.support.VimeoEmbedUrl;
 import com.ulp.features.lessons.support.YouTubeEmbedUrl;
 import com.ulp.features.student.dto.StudentLessonsDtos.LessonAttachmentRow;
 import com.ulp.features.student.dto.StudentLessonsDtos.LessonDetailView;
+import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,18 +34,21 @@ import static com.ulp.common.IConstant.VIDEO_PROVIDER_YOUTUBE;
  * Read service backing the student-facing lesson detail page at
  * {@code GET /my/classes/{classId}/lessons/{lessonId}}.
  *
- * <p>Four authz gates are applied in this order; any failure collapses
+ * <p>Authz gates are applied in this order; any failure collapses
  * to the same {@link EntityNotFoundException} so existence is never
  * leaked:
  * <ol>
- *   <li>Caller MUST have an enrollment row for {@code classId} with
- *       status {@code ACTIVE}.</li>
  *   <li>Class MUST be live ({@code @SQLRestriction} filters
- *       soft-deletes).</li>
- *   <li>The lesson's owning section MUST belong to {@code classId}
- *       (prevents cross-class URL fuzzing).</li>
- *   <li>The lesson MUST be {@link Lesson#STATUS_PUBLISHED} and not
- *       soft-deleted.</li>
+ *       soft-deletes), the lesson's owning section MUST belong to
+ *       {@code classId} (prevents cross-class URL fuzzing), and the
+ *       lesson MUST be {@link Lesson#STATUS_PUBLISHED} and not
+ *       soft-deleted — all resolved by {@link LessonAccessResolver}.</li>
+ *   <li>The caller MUST be admitted: an ACTIVE-enrolled student, OR the
+ *       owning lecturer, OR an ADMIN/HEAD moderator (bypasses enrollment
+ *       so they can open the lesson's discussion thread to moderate —
+ *       design D7, mirroring {@code LessonCommentsService.authorize}
+ *       D3). The lesson gates run first, so a moderator gains nothing on
+ *       a deleted / unpublished lesson.</li>
  * </ol>
  *
  * <p>The view model carries {@code contentType} + per-type body URLs
@@ -71,45 +74,49 @@ public class StudentLessonDetailService {
     private static final Set<String> OFFICE_EXTENSIONS =
             Set.of("pptx", "ppt", "xlsx", "xls");
 
-    private final EnrollmentRepository enrollmentRepository;
     private final LessonAttachmentRepository lessonAttachmentRepository;
     private final LessonAccessResolver lessonAccessResolver;
+    private final ClassAccessPolicy accessPolicy;
 
-    public StudentLessonDetailService(EnrollmentRepository enrollmentRepository,
-                                      LessonAttachmentRepository lessonAttachmentRepository,
-                                      LessonAccessResolver lessonAccessResolver) {
-        this.enrollmentRepository = enrollmentRepository;
+    public StudentLessonDetailService(LessonAttachmentRepository lessonAttachmentRepository,
+                                      LessonAccessResolver lessonAccessResolver,
+                                      ClassAccessPolicy accessPolicy) {
         this.lessonAttachmentRepository = lessonAttachmentRepository;
         this.lessonAccessResolver = lessonAccessResolver;
+        this.accessPolicy = accessPolicy;
     }
 
     /**
-     * Returns the populated view model for a single PUBLISHED lesson
-     * visible to an ACTIVE-enrolled student.
+     * Returns the populated view model for a single PUBLISHED lesson,
+     * admitting an ACTIVE-enrolled student, the owning lecturer, or an
+     * ADMIN/HEAD moderator.
      *
      * @param classId  target class id from the URL
      * @param lessonId target lesson id from the URL
      * @param userId   authenticated user id
+     * @param role     the caller's role; ADMIN/HEAD bypass enrollment
      * @return populated {@link LessonDetailView}; the attachments list is
      *         empty when the lesson has none
      * @throws EntityNotFoundException whenever any gate fails — always
      *         with the message {@code "Class not found or not accessible"}
      */
     @Transactional(readOnly = true)
-    public LessonDetailView getLessonDetail(Long classId, Long lessonId, Long userId) {
-        // Gate 1: enrollment must be ACTIVE — REMOVED/COMPLETED → 404.
-        enrollmentRepository.findByUserIdAndClassId(userId, classId)
-                .filter(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Class not found or not accessible"));
-
-        // Gates 2-4 (live class, section-belongs-to-class, PUBLISHED) resolve
-        // the trio via the shared resolver; failures collapse to 404.
+    public LessonDetailView getLessonDetail(Long classId, Long lessonId, Long userId, Role role) {
+        // Lesson gates first (live class, section-belongs-to-class, PUBLISHED)
+        // resolve the trio via the shared resolver; failures collapse to 404.
+        // Running these before the access gate means a moderator gains nothing
+        // on a deleted / unpublished lesson.
         LessonAccessResolver.ResolvedLesson resolved =
                 lessonAccessResolver.resolveInClass(classId, lessonId);
         ClassEntity clazz = resolved.clazz();
         Section section = resolved.section();
         Lesson lesson = resolved.lesson();
+
+        // Access gate: ADMIN/HEAD bypass enrollment so they can open the
+        // lesson (and its discussion thread) to moderate; the owning lecturer
+        // passes too; otherwise an ACTIVE enrollment is required. Any other
+        // caller (REMOVED/COMPLETED/non-enrolled non-moderator) → no-leak 404.
+        accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
 
         List<LessonAttachment> rawAttachments = lessonAttachmentRepository
                 .findByLessonIdOrderByUploadedAtAsc(lessonId);

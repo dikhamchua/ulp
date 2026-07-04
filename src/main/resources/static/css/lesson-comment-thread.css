@@ -96,6 +96,24 @@
   color: var(--shub-text-muted, #6b7280);
 }
 
+/* ── Moderator-hidden comment (ULP-11.7) ──────────────────────────────── */
+/* Only a moderator ever receives a hidden row; it renders dimmed with a red
+   "Đã ẩn" tag — visually distinct from the italic deleted placeholder. */
+.lesson-comment-bubble.is-hidden {
+  opacity: 0.6;
+  border: 1px dashed var(--shub-border, #e6e8eb);
+}
+
+.lesson-comment-hidden-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fdecec;
+  color: #d14343;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .lesson-comment-actions {
   display: flex;
   align-items: center;

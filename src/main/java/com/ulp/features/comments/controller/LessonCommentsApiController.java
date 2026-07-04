@@ -61,7 +61,9 @@ public class LessonCommentsApiController {
                                   @AuthenticationPrincipal UlpUserDetails user) {
         try {
             // size 0 lets the service fall back to DEFAULT_COMMENT_PAGE_SIZE.
-            CommentPageView data = commentsService.listPage(lessonId, user.getId(), page, size);
+            // Role decides the moderator-aware listing (hidden nodes flagged).
+            CommentPageView data = commentsService.listPage(
+                    lessonId, user.getId(), user.getRole(), page, size);
             return ResponseEntity.ok(AjaxResult.success(data));
         } catch (EntityNotFoundException ex) {
             return notFound(ex.getMessage());
@@ -123,6 +125,42 @@ public class LessonCommentsApiController {
             return notFound(ex.getMessage());
         } catch (RuntimeException ex) {
             log.error("Failed to delete comment {} on lesson {}", commentId, lessonId, ex);
+            return internalError();
+        }
+    }
+
+    /** Hides a comment (moderator only): sets REJECTED so students stop seeing it. */
+    @PostMapping("/{commentId}/hide")
+    public ResponseEntity<AjaxResult> hide(@PathVariable Long lessonId,
+                                           @PathVariable Long commentId,
+                                           @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            commentsService.hide(lessonId, commentId, user.getId(), user.getRole());
+            return ResponseEntity.ok(AjaxResult.success());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to hide comment {} on lesson {}", commentId, lessonId, ex);
+            return internalError();
+        }
+    }
+
+    /** Unhides a comment (moderator only): restores APPROVED so students see it. */
+    @PostMapping("/{commentId}/unhide")
+    public ResponseEntity<AjaxResult> unhide(@PathVariable Long lessonId,
+                                             @PathVariable Long commentId,
+                                             @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            commentsService.unhide(lessonId, commentId, user.getId(), user.getRole());
+            return ResponseEntity.ok(AjaxResult.success());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to unhide comment {} on lesson {}", commentId, lessonId, ex);
             return internalError();
         }
     }

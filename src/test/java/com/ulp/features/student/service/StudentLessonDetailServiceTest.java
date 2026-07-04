@@ -71,7 +71,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId());
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.classId()).isEqualTo(clazz.getId());
         assertThat(view.className()).isEqualTo("Lesson detail class");
@@ -99,7 +99,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId());
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.contentRichtext()).isNullOrEmpty();
         assertThat(view.attachments()).isEmpty();
@@ -111,7 +111,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId());
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.attachments()).isNotNull().isEmpty();
     }
@@ -121,7 +121,62 @@ class StudentLessonDetailServiceTest {
         Lesson lesson = persistLesson(section.getId(), "Bài 1", "<p>X</p>", true);
 
         assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId()))
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessage(NF_MSG);
+    }
+
+    @Test
+    void owning_lecturer_not_enrolled_can_view_detail() {
+        Lesson lesson = persistLesson(section.getId(), "Bài 1", "<p>X</p>", true);
+
+        // The owning lecturer is not enrolled but must open the detail (and its
+        // discussion thread) to moderate — design D7.
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), lecturer.getId(), Role.LECTURER);
+
+        assertThat(view.lessonId()).isEqualTo(lesson.getId());
+    }
+
+    @Test
+    void admin_not_enrolled_can_view_detail() {
+        Lesson lesson = persistLesson(section.getId(), "Bài 1", "<p>X</p>", true);
+
+        // ADMIN bypasses enrollment; the student stands in as a non-enrolled,
+        // non-owning caller whose role is elevated to ADMIN.
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId(), Role.ADMIN);
+
+        assertThat(view.lessonId()).isEqualTo(lesson.getId());
+    }
+
+    @Test
+    void head_not_enrolled_can_view_detail() {
+        Lesson lesson = persistLesson(section.getId(), "Bài 1", "<p>X</p>", true);
+
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId(), Role.HEAD);
+
+        assertThat(view.lessonId()).isEqualTo(lesson.getId());
+    }
+
+    @Test
+    void non_enrolled_non_moderator_student_gets_404() {
+        Lesson lesson = persistLesson(section.getId(), "Bài 1", "<p>X</p>", true);
+
+        assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessage(NF_MSG);
+    }
+
+    @Test
+    void draft_lesson_hidden_even_from_admin_moderator() {
+        Lesson lesson = persistLesson(section.getId(), "Bài nháp", "<p>X</p>", false);
+
+        // Lesson gates run first — ADMIN gains nothing on an unpublished lesson.
+        assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId(), Role.ADMIN))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage(NF_MSG);
     }
@@ -134,7 +189,7 @@ class StudentLessonDetailServiceTest {
         enrollmentRepository.saveAndFlush(e);
 
         assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId()))
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage(NF_MSG);
     }
@@ -146,7 +201,7 @@ class StudentLessonDetailServiceTest {
         forceEnrollmentStatus(e.getId(), Enrollment.STATUS_COMPLETED);
 
         assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId()))
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage(NF_MSG);
     }
@@ -157,7 +212,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId()))
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage(NF_MSG);
     }
@@ -171,7 +226,7 @@ class StudentLessonDetailServiceTest {
         entityManager.clear();
 
         assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId()))
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage(NF_MSG);
     }
@@ -186,7 +241,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lessonInB.getId(), student.getId()))
+                clazz.getId(), lessonInB.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage(NF_MSG);
     }
@@ -201,7 +256,7 @@ class StudentLessonDetailServiceTest {
         entityManager.clear();
 
         assertThatThrownBy(() -> studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId()))
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessage(NF_MSG);
     }
@@ -214,7 +269,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId());
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.contentType()).isEqualTo("RICHTEXT");
         assertThat(view.pdfDownloadUrl()).isNull();
@@ -234,7 +289,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId());
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.contentType()).isEqualTo("PDF");
         assertThat(view.pdfDownloadUrl())
@@ -256,7 +311,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId());
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.contentType()).isEqualTo("VIDEO");
         assertThat(view.videoProvider()).isEqualTo("YOUTUBE");
@@ -273,7 +328,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId());
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.videoProvider()).isEqualTo("VIMEO");
         assertThat(view.videoUrl()).isEqualTo("https://player.vimeo.com/video/123456789");
@@ -289,7 +344,7 @@ class StudentLessonDetailServiceTest {
         enrollActive();
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId());
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.videoProvider()).isEqualTo("UPLOAD");
         assertThat(view.videoUrl()).isEqualTo("/api/lessons/" + lesson.getId() + "/video/stream");

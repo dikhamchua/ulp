@@ -1,20 +1,20 @@
 package com.ulp.features.student.service;
 
 import com.ulp.entities.ClassEntity;
-import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.Section;
 import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
-import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.support.ProgressMath;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
+import com.ulp.features.lessons.support.ClassAccessPolicy;
 import com.ulp.features.progress.repository.LearningProgressRepository;
 import com.ulp.features.student.dto.StudentLessonsDtos.ClassLessonsView;
 import com.ulp.features.student.dto.StudentLessonsDtos.SectionWithLessons;
 import com.ulp.features.student.dto.StudentLessonsDtos.StudentLessonRow;
+import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,14 +29,17 @@ import static com.ulp.common.IConstant.CONTENT_TYPE_RICHTEXT;
 /**
  * Read service backing {@code GET /my/classes/{classId}/lessons}.
  *
- * <p>Enforces two authz rules in this order:
+ * <p>Enforces these authz rules:
  * <ol>
- *   <li>The caller MUST have an enrollment row for {@code classId} with
- *       status {@code ACTIVE}. REMOVED / COMPLETED / missing → 404 to
- *       avoid leaking class existence (see design D5, D6).</li>
  *   <li>The class itself must be live (not soft-deleted). The repo's
  *       {@code @SQLRestriction} filters soft-deleted rows
  *       transparently — a missing row maps to 404.</li>
+ *   <li>The caller must be admitted: an ACTIVE-enrolled student, OR the
+ *       owning lecturer, OR an ADMIN/HEAD moderator (bypasses enrollment
+ *       so they can open the discussion thread to moderate — design D7,
+ *       mirroring {@code LessonCommentsService.authorize} D3). Any other
+ *       caller (REMOVED / COMPLETED / non-enrolled non-moderator) → 404
+ *       to avoid leaking class existence (see design D5, D6).</li>
  * </ol>
  *
  * <p>Visibility filter (design D3): only {@link Lesson#STATUS_PUBLISHED}
@@ -46,51 +49,54 @@ import static com.ulp.common.IConstant.CONTENT_TYPE_RICHTEXT;
 @Service
 public class StudentLessonsService {
 
-    private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
     private final SectionRepository sectionRepository;
     private final LessonRepository lessonRepository;
     private final UserRepository userRepository;
     private final LearningProgressRepository progressRepository;
+    private final ClassAccessPolicy accessPolicy;
 
-    public StudentLessonsService(EnrollmentRepository enrollmentRepository,
-                                 ClassRepository classRepository,
+    public StudentLessonsService(ClassRepository classRepository,
                                  SectionRepository sectionRepository,
                                  LessonRepository lessonRepository,
                                  UserRepository userRepository,
-                                 LearningProgressRepository progressRepository) {
-        this.enrollmentRepository = enrollmentRepository;
+                                 LearningProgressRepository progressRepository,
+                                 ClassAccessPolicy accessPolicy) {
         this.classRepository = classRepository;
         this.sectionRepository = sectionRepository;
         this.lessonRepository = lessonRepository;
         this.userRepository = userRepository;
         this.progressRepository = progressRepository;
+        this.accessPolicy = accessPolicy;
     }
 
     /**
-     * Returns the lesson view for the given class scoped to an
-     * ACTIVE-enrolled student.
+     * Returns the lesson view for the given class, admitting an
+     * ACTIVE-enrolled student, the owning lecturer, or an ADMIN/HEAD
+     * moderator.
      *
      * @param classId target class id
      * @param userId  authenticated user id
+     * @param role    the caller's role; ADMIN/HEAD bypass enrollment
      * @return populated {@link ClassLessonsView}; sections list is empty
      *         when the class has none, individual section lesson lists
      *         may be empty when nothing is PUBLISHED yet
-     * @throws EntityNotFoundException when the caller is not
-     *         ACTIVE-enrolled or the class is soft-deleted / missing
+     * @throws EntityNotFoundException when the caller is not admitted or
+     *         the class is soft-deleted / missing
      */
     @Transactional(readOnly = true)
-    public ClassLessonsView listClassLessons(Long classId, Long userId) {
-        // Gate 1: enrollment must be ACTIVE — REMOVED/COMPLETED → 404.
-        enrollmentRepository.findByUserIdAndClassId(userId, classId)
-                .filter(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Class not found or not accessible"));
-
-        // Gate 2: class must be live. @SQLRestriction filters soft-deletes.
+    public ClassLessonsView listClassLessons(Long classId, Long userId, Role role) {
+        // Gate 1: class must be live. @SQLRestriction filters soft-deletes.
+        // Loaded first so the lecturer check below can read lecturerId.
         ClassEntity clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Class not found or not accessible"));
+
+        // Gate 2: admit the caller. ADMIN/HEAD bypass enrollment so they can
+        // open the discussion thread to moderate; the owning lecturer passes
+        // too; otherwise an ACTIVE enrollment is required. Any other caller
+        // (REMOVED/COMPLETED/non-enrolled non-moderator) → no-leak 404.
+        accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
 
         List<Section> sections = sectionRepository
                 .findByClassIdOrderByDisplayOrderAsc(classId);
