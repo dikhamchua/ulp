@@ -359,3 +359,141 @@
   .test-send-row { grid-template-columns: 1fr; }
   .test-send-row button { width: 100%; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Shared admin list-table shell
+   Panel + horizontal-scroll + table + empty state used by /admin/users and
+   /admin/categories. Extracted from admin-users.css to remove duplication.
+   Pages layer their own cell/row cosmetics on top (.user-name, .cat-* …).
+   ══════════════════════════════════════════════════════════════════════════ */
+.admin-list-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.admin-list-table-scroll {
+  overflow-x: auto;
+}
+
+.admin-list-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.admin-list-table thead th {
+  background: #f9fafb;
+  color: #374151;
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.admin-list-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.admin-list-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-list-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.admin-list-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* ── Row-menu (kebab) — base `.menu` lives in main.css; these bits are shared
+   across every admin list page so the danger action reads red consistently. */
+.row-menu .menu {
+  min-width: 200px;
+}
+
+.menu-item.danger {
+  color: #dc2626;
+}
+
+.menu-item.danger:hover {
+  background: #fef2f2;
+}
+
+/* ── Modal overlay + danger button ────────────────────────────────────────────
+   Confirm / lock / reset-password dialogs. Shared by the users list, the user
+   detail page, and the categories delete confirm. Previously lived only in
+   admin-users.css, which left the categories delete modal unstyled. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-box h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #111827;
+}
+
+.modal-box p {
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.modal-box textarea,
+.modal-box input[type=text],
+.modal-box input[type=password] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn-danger {
+  padding: 10px 18px;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}

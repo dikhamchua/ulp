@@ -56,6 +56,16 @@
         </a>
       </li>
       <li>
+        <a th:href="@{/admin/categories}"
+           th:classappend="${activeTab == 'categories'} ? 'active' : ''">
+          <svg class="ico ico-sm" viewBox="0 0 24 24">
+            <path d="M3 7h18"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/>
+            <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>
+            <path d="M10 12h4"/>
+          </svg>Danh mục
+        </a>
+      </li>
+      <li>
         <a th:href="@{/admin/classes}"
            th:classappend="${activeTab == 'classes'} ? 'active' : ''">
           <svg class="ico ico-sm" viewBox="0 0 24 24">

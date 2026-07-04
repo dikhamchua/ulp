@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${mode == 'create' ? 'Admin | Tạo danh mục' : 'Admin | Chỉnh sửa danh mục'}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin-categories.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('categories')}"></aside>
+
+  <main class="col detail-page">
+    <!-- Flash drain: hierarchy-guard errors surfaced when POST re-renders this form -->
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},
+                   data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <div class="detail-toolbar">
+      <a th:href="@{/admin/categories}" class="toolbar-back">
+        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Quay lại
+      </a>
+      <span class="toolbar-spacer"></span>
+      <button type="submit" form="categoryForm" class="btn-primary toolbar-save"
+              th:text="${mode == 'create' ? 'Tạo danh mục' : 'Lưu'}">Lưu</button>
+    </div>
+
+    <h1 class="detail-page-title"
+        th:text="${mode == 'create' ? 'Tạo danh mục' : 'Chỉnh sửa danh mục'}">Danh mục</h1>
+
+    <form id="categoryForm"
+          th:action="${mode == 'create'} ? @{/admin/categories} : @{'/admin/categories/' + ${targetId} + '/edit'}"
+          th:object="${form}"
+          method="post"
+          class="cat-form">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+      <section class="detail-card">
+        <h2 class="detail-card-title">Thông tin danh mục</h2>
+        <div class="detail-form-grid">
+          <div class="form-row span-3">
+            <label for="nameInput">Tên danh mục <span class="required">*</span></label>
+            <input id="nameInput" type="text" th:field="*{name}" required maxlength="150"
+                   placeholder="Ví dụ: Lập trình">
+            <p class="field-help">Đường dẫn (slug) được tạo tự động từ tên.</p>
+            <p class="field-error" th:if="${#fields.hasErrors('name')}"
+               th:errors="*{name}">Tên lỗi</p>
+          </div>
+
+          <div class="form-row span-3">
+            <label for="parentSelect">Danh mục cha</label>
+            <!-- A category that already has children must stay top-level: disable the picker. -->
+            <select id="parentSelect" th:field="*{parentId}"
+                    th:disabled="${hasChildren}">
+              <option value="">— Danh mục cấp 1 (không có cha) —</option>
+              <option th:each="p : ${categoryParents}"
+                      th:value="${p.id()}"
+                      th:text="${p.name()}"
+                      th:disabled="${mode == 'edit' and p.id() == targetId}">PARENT</option>
+            </select>
+            <p class="field-help" th:if="${hasChildren}">
+              Danh mục này đang có danh mục con nên phải giữ ở cấp 1.</p>
+            <p class="field-help" th:unless="${hasChildren}">
+              Bỏ trống để tạo danh mục cấp 1. Chọn danh mục cha để tạo danh mục con.</p>
+          </div>
+
+          <div class="form-row span-3">
+            <label for="descInput">Mô tả</label>
+            <textarea id="descInput" th:field="*{description}" rows="4"
+                      placeholder="Mô tả ngắn về danh mục (tuỳ chọn)"></textarea>
+            <p class="field-error" th:if="${#fields.hasErrors('description')}"
+               th:errors="*{description}">Mô tả lỗi</p>
+          </div>
+
+          <div class="form-row">
+            <label class="form-checkbox-label" for="activeInput">
+              <input id="activeInput" type="checkbox" th:field="*{active}">
+              <span>Hiển thị danh mục</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <a th:href="@{/admin/categories}" class="btn-ghost">Huỷ</a>
+        <button type="submit" class="btn-primary"
+                th:text="${mode == 'create' ? 'Tạo danh mục' : 'Lưu'}">Lưu</button>
+      </div>
+    </form>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin-categories.js}"></script>
+</body>
+</html>

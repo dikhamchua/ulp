@@ -85,9 +85,9 @@
     </section>
 
     <!-- User table -->
-    <section class="users-panel">
-      <div class="users-table-scroll">
-        <table class="users-table" th:if="${not page.isEmpty()}">
+    <section class="admin-list-panel">
+      <div class="admin-list-table-scroll">
+        <table class="admin-list-table" th:if="${not page.isEmpty()}">
         <thead>
           <tr>
             <th>Họ tên / Email</th>
@@ -248,7 +248,7 @@
       </table>
       </div>
 
-      <div th:if="${page.isEmpty()}" class="users-empty" role="status" aria-live="polite">
+      <div th:if="${page.isEmpty()}" class="admin-list-empty" role="status" aria-live="polite">
         Không có tài khoản nào khớp bộ lọc hiện tại.
       </div>
 
