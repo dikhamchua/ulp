@@ -1,0 +1,65 @@
+/* Lecturer exam authoring form + question builder (Epic #11). */
+
+.tst-btn {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 8px 14px; border-radius: 8px; border: 1px solid #d0d7de;
+  background: #fff; color: #1f2328; font-weight: 600; font-size: 14px; text-decoration: none;
+}
+.tst-btn:hover { background: #f3f4f6; }
+.tst-btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+.tst-btn-primary:hover { background: #1d4ed8; }
+.tst-btn-primary:disabled { opacity: .6; cursor: default; }
+
+.lf-page { max-width: 900px; margin: 0 auto; padding: 24px 16px 80px; }
+
+/* Create mode collapses the class-detail grid to a single centred column
+   (no class exists yet, so no sidebar). */
+.class-detail-layout.lf-no-sidebar { grid-template-columns: 1fr; }
+
+/* Edit mode: the form lives in the right grid column, so shed the standalone
+   centring cap + padding — the .class-detail-layout wrapper owns spacing. */
+.class-detail-layout:not(.lf-no-sidebar) .lf-page {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The shared .detail-toolbar is sticky by default (used by lesson/section/user
+   forms). On the exam detail page the lecturer asked for a plain toolbar that
+   scrolls away, so drop the sticky positioning within .lf-page only. */
+.lf-page .detail-toolbar { position: static; top: auto; z-index: auto; }
+
+.lf-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.lf-title { font-size: 22px; font-weight: 800; margin: 0; }
+
+.lf-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.lf-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.lf-panel-title { font-size: 16px; font-weight: 700; margin: 0; }
+
+.lf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.lf-col-2 { grid-column: 1 / -1; }
+.lf-field { display: flex; flex-direction: column; gap: 6px; }
+.lf-label { font-weight: 600; font-size: 13px; }
+.lf-input { padding: 9px 12px; border: 1px solid #d0d7de; border-radius: 8px; font-size: 14px; font-family: inherit; line-height: 1.5; width: 100%; box-sizing: border-box; }
+.lf-checks { flex-direction: row; align-items: center; gap: 18px; padding-top: 24px; }
+.lf-check { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.lf-err { color: #dc2626; font-size: 12px; min-height: 14px; }
+
+.lf-questions { display: flex; flex-direction: column; gap: 16px; }
+.lf-question { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; background: #fbfcfd; }
+.lf-q-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.lf-q-type { max-width: 220px; }
+.lf-q-points { max-width: 90px; }
+.lf-q-content, .lf-q-explanation { margin-bottom: 10px; }
+.lf-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.lf-option { display: flex; align-items: center; gap: 10px; }
+.lf-o-correct { width: 18px; height: 18px; flex: 0 0 auto; }
+.lf-o-content { flex: 1; }
+.lf-icon-btn { border: none; background: #f3f4f6; color: #6b7280; border-radius: 6px;
+  width: 28px; height: 28px; cursor: pointer; font-size: 14px; flex: 0 0 auto; }
+.lf-icon-btn:hover { background: #fee2e2; color: #b91c1c; }
+.lf-hint { color: #9ca3af; font-size: 13px; text-align: center; }
+
+@media (max-width: 640px) {
+  .lf-grid { grid-template-columns: 1fr; }
+}

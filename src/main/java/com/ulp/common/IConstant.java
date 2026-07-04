@@ -54,6 +54,7 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_SETTINGS   = "classes/detail-settings";
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
     String VIEW_CLASS_DETAIL_PROGRESS   = "classes/detail-progress";
+    String VIEW_CLASS_DETAIL_TESTS      = "classes/detail-tests";
     String VIEW_LESSON_FORM             = "classes/lesson-form";
     String VIEW_STUDENT_CLASS_LESSONS   = "student/class-lessons";
     String VIEW_STUDENT_LESSON_DETAIL   = "student/lesson-detail";
@@ -127,6 +128,7 @@ public interface IConstant {
     String TAB_LESSONS     = "lessons";
     String TAB_MATERIALS   = "materials";
     String TAB_PROGRESS    = "progress";
+    String TAB_TESTS       = "tests";
     String TAB_SETTINGS    = "settings";
 
     // Additional tab keys (used across admin / detail screens).
@@ -135,6 +137,8 @@ public interface IConstant {
     String TAB_INFO      = "info";
     String TAB_HISTORY   = "history";
     String TAB_ACTIVITY  = "activity";
+    String TAB_MONITOR     = "monitor";
+    String TAB_SUBMISSIONS = "submissions";
 
     // Settings sub-tabs
     String SUBTAB_INFO   = "info";
@@ -265,6 +269,59 @@ public interface IConstant {
     int QUALITY_HARD   = 3;
     int QUALITY_GOOD   = 4;
     int QUALITY_EASY   = 5;
+
+    // ───────── MCQ online exams (Epic #11) ───────────────────────────
+    // Route prefixes / canonical URLs.
+    String BASE_MY_TESTS       = "/my/tests";
+    String API_TESTS           = "/api/tests";
+    String BASE_LECTURER_TESTS = BASE_LECTURER + "/tests";
+
+    // View names.
+    String VIEW_TEST_LIST          = "tests/list";
+    String VIEW_TEST_TAKE          = "tests/take";
+    String VIEW_TEST_RESULT        = "tests/result";
+    String VIEW_TEST_REVIEW        = "tests/review";
+    String VIEW_TEST_PRACTICE_NEW  = "tests/practice-new";
+    String VIEW_TEST_READINESS     = "tests/readiness";
+    String VIEW_TEST_LECTURER_LIST = "tests/lecturer-list";
+    String VIEW_TEST_LECTURER_FORM = "tests/lecturer-form";
+
+    // Model attribute keys.
+    String ATTR_EXAMS_PAGE   = "examsPage";
+    String ATTR_TAKE         = "take";
+    String ATTR_RESULT       = "result";
+    String ATTR_REVIEW       = "review";
+    String ATTR_READINESS    = "readiness";
+    String ATTR_PRACTICE     = "practice";
+    String ATTR_EXAM_FORM    = "examForm";
+    String ATTR_TEST         = "test";
+    String ATTR_LED_CLASSES  = "ledClasses";
+    String ATTR_MONITOR      = "monitor";
+    String ATTR_SUBMISSIONS  = "submissions";
+    String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
+
+    // Readiness band labels (Vietnamese UI text).
+    String BAND_NOT_READY = "Chưa sẵn sàng";
+    String BAND_OK        = "Khá";
+    String BAND_READY     = "Sẵn sàng";
+
+    // Flash / validation messages (Vietnamese UI text).
+    String MSG_EXAM_SAVED            = "Đã lưu bài test";
+    String MSG_EXAM_DELETED          = "Đã xoá bài test";
+    String MSG_EXAM_SUBMITTED        = "Đã nộp bài";
+    String MSG_PRACTICE_CREATED      = "Đã tạo bài luyện tập";
+    String MSG_EXAM_TITLE_BLANK      = "Tiêu đề bài test không được để trống";
+    String MSG_EXAM_NEEDS_CLASS      = "Vui lòng chọn lớp cho bài test";
+    String MSG_EXAM_NEEDS_QUESTIONS  = "Bài test phải có ít nhất một câu hỏi";
+    String MSG_QUESTION_NEEDS_OPTIONS = "Mỗi câu hỏi phải có ít nhất hai lựa chọn";
+    String MSG_QUESTION_NEEDS_CORRECT = "Mỗi câu hỏi phải có ít nhất một đáp án đúng";
+    String MSG_MCQ_ONE_CORRECT       = "Câu hỏi một đáp án (MCQ) phải có đúng một đáp án đúng";
+    String MSG_PRACTICE_EMPTY_POOL   = "Không có câu hỏi phù hợp để tạo bài luyện tập";
+    String MSG_PRACTICE_INVALID_SOURCE = "Nguồn câu hỏi không hợp lệ";
+
+    // Exam list / submissions page sizes (default + upper bound for ?size).
+    int DEFAULT_EXAM_PAGE_SIZE        = 12;
+    int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
 
     // ───────── Pagination ────────────────────────────────────────────
     int DEFAULT_PAGE_SIZE = 20;

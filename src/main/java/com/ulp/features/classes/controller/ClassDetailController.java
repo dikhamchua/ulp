@@ -7,6 +7,7 @@ import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.service.ClassMembersService;
 import com.ulp.features.classes.service.ClassesService;
 import com.ulp.features.classes.service.invites.InviteCodeService;
+import com.ulp.features.tests.service.LecturerExamService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import org.springframework.http.HttpStatus;
@@ -53,15 +54,18 @@ public class ClassDetailController {
     private final ClassMembersService classMembersService;
     private final InviteCodeService inviteCodeService;
     private final ClassDetailModelSupport detailSupport;
+    private final LecturerExamService examService;
 
     public ClassDetailController(ClassesService classesService,
                                  ClassMembersService classMembersService,
                                  InviteCodeService inviteCodeService,
-                                 ClassDetailModelSupport detailSupport) {
+                                 ClassDetailModelSupport detailSupport,
+                                 LecturerExamService examService) {
         this.classesService = classesService;
         this.classMembersService = classMembersService;
         this.inviteCodeService = inviteCodeService;
         this.detailSupport = detailSupport;
+        this.examService = examService;
     }
 
     /** Renders the class board (announcement) tab. */
@@ -86,6 +90,18 @@ public class ClassDetailController {
         model.addAttribute(ATTR_MEMBERS, view.members());
         model.addAttribute(ATTR_MEMBER_TOTAL, view.total());
         return VIEW_CLASS_DETAIL_MEMBERS;
+    }
+
+    /** Renders the class exams tab — the exams belonging to this class. */
+    @GetMapping("/classes/{id}/tests")
+    public String detailTests(@PathVariable Long id,
+                              @RequestParam(name = "page", defaultValue = "0") int page,
+                              @AuthenticationPrincipal UlpUserDetails user,
+                              Model model) {
+        ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
+        detailSupport.populateDetail(model, clazz, TAB_TESTS, user.getId(), user.getRole());
+        model.addAttribute(ATTR_EXAMS_PAGE, examService.listForClass(id, page));
+        return VIEW_CLASS_DETAIL_TESTS;
     }
 
     /**

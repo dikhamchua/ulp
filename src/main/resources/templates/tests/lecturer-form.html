@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${mode == 'create' ? 'Soạn bài test' : test.title()}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-lecturer-form.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-monitor.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-submissions.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<div class="class-detail-layout" th:classappend="${mode == 'create'} ? 'lf-no-sidebar'">
+  <!-- Left sidebar (edit mode only): the class this exam belongs to — share
+       box + class nav. No class nav item maps to the tests screen, so no
+       entry is highlighted (empty activeTab). Create mode has no class yet,
+       so the layout collapses to a single full-width column. -->
+  <aside th:if="${mode == 'edit' and clazz != null}"
+         th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, '')}"></aside>
+
+  <main class="col detail-page lf-page">
+
+  <!-- ═══ EDIT mode chrome — toolbar + header + tab strip ══════════════
+       In create mode there are no tabs; the info form below renders alone.
+       ══════════════════════════════════════════════════════════════════ -->
+  <th:block th:if="${mode == 'edit'}">
+    <!-- Sticky toolbar: Quay lại / Lưu. Lưu is form-associated (form="lfForm")
+         and disabled on non-info tabs — there is no form to submit there. -->
+    <div class="detail-toolbar">
+      <a th:href="@{/lecturer/tests}" class="toolbar-back">← Quay lại</a>
+      <span class="toolbar-spacer"></span>
+      <button type="submit" form="lfForm" id="lfSave" class="toolbar-save"
+              th:disabled="${activeDetailTab != 'info'}">Lưu bài test</button>
+    </div>
+
+    <h1 class="detail-page-title" th:text="${test.title()}">Bài test</h1>
+    <div class="detail-page-meta">
+      <div class="meta-badges">
+        <span class="detail-type-badge" th:text="${test.status()}">STATUS</span>
+      </div>
+      <span>Số câu: <em th:text="${test.totalQuestions() == null ? 0 : test.totalQuestions()}">0</em></span>
+      <span>Đóng lúc:
+        <em th:text="${test.endAt() != null ? #temporals.format(test.endAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</em>
+      </span>
+    </div>
+
+    <nav class="detail-tabs" aria-label="Phần chi tiết bài test">
+      <a class="detail-tab"
+         th:href="@{'/lecturer/tests/' + ${test.id()} + '/edit'(tab='info')}"
+         th:classappend="${activeDetailTab == 'info'} ? 'active'">Thông tin chung</a>
+      <a class="detail-tab"
+         th:href="@{'/lecturer/tests/' + ${test.id()} + '/edit'(tab='monitor')}"
+         th:classappend="${activeDetailTab == 'monitor'} ? 'active'">Theo dõi</a>
+      <a class="detail-tab"
+         th:href="@{'/lecturer/tests/' + ${test.id()} + '/edit'(tab='submissions')}"
+         th:classappend="${activeDetailTab == 'submissions'} ? 'active'">Bài nộp</a>
+      <a class="detail-tab"
+         th:href="@{'/lecturer/tests/' + ${test.id()} + '/edit'(tab='history')}"
+         th:classappend="${activeDetailTab == 'history'} ? 'active'">Lịch sử</a>
+    </nav>
+  </th:block>
+
+  <!-- ═══ Tab body — swapped in place by test-detail-tabs.js on tab switch
+       (no full-page reload). The orchestrator fetches the same ?tab= URL,
+       lifts this #tabPanel out of the response, and replaces the innerHTML. -->
+  <div id="tabPanel">
+
+  <!-- ═══ Tab: Thông tin chung — question-builder form ═════════════════
+       Rendered in create mode (no tabs) and on the edit "info" tab. The
+       form JS (test-lecturer-form.js) no-ops when #lfForm is absent. -->
+  <form th:if="${mode == 'create' or activeDetailTab == 'info'}"
+        id="lfForm" th:attr="data-save-url=@{/lecturer/tests/save},data-list-url=@{/lecturer/tests}">
+    <!-- Exam payload for the builder to hydrate from. Lives inside #tabPanel so
+         an AJAX tab swap carries the fresh JSON; read by id, never executed. -->
+    <script type="application/json" id="lfData" th:inline="javascript">/*[[${examForm}]]*/ null</script>
+    <div class="lf-bar" th:if="${mode == 'create'}">
+      <h1 class="lf-title">Tạo bài test</h1>
+      <button type="submit" class="tst-btn tst-btn-primary" id="lfSave">Lưu bài test</button>
+    </div>
+
+    <section class="lf-panel">
+      <div class="lf-grid">
+        <div class="lf-field lf-col-2">
+          <label class="lf-label" for="lfTitle">Tiêu đề</label>
+          <input class="lf-input" id="lfTitle" type="text" maxlength="300">
+          <small class="lf-err" id="lfTitleErr"></small>
+        </div>
+        <div class="lf-field lf-col-2">
+          <label class="lf-label" for="lfDescription">Mô tả</label>
+          <textarea class="lf-input" id="lfDescription" rows="2"></textarea>
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfClass">Lớp</label>
+          <select class="lf-input" id="lfClass">
+            <option value="">— Chọn lớp —</option>
+            <option th:each="c : ${ledClasses}" th:value="${c.id()}" th:text="${c.name()}">Lớp</option>
+          </select>
+          <small class="lf-err" id="lfClassErr"></small>
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfType">Loại</label>
+          <select class="lf-input" id="lfType">
+            <option value="MOCK">MOCK (thi thử)</option>
+            <option value="MODULE">MODULE (theo chương)</option>
+          </select>
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfStatus">Trạng thái</label>
+          <select class="lf-input" id="lfStatus">
+            <option value="DRAFT">Nháp</option>
+            <option value="PUBLISHED">Xuất bản</option>
+            <option value="ARCHIVED">Lưu trữ</option>
+          </select>
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfTimeMode">Kiểu tính giờ</label>
+          <select class="lf-input" id="lfTimeMode">
+            <option value="FIXED_WINDOW">Cửa sổ cố định (theo giờ mở/đóng)</option>
+            <option value="INDIVIDUAL">Riêng từng SV (theo thời lượng)</option>
+          </select>
+        </div>
+        <div class="lf-field" id="lfDurationWrap">
+          <label class="lf-label" for="lfDuration">Thời lượng (phút)</label>
+          <input class="lf-input" id="lfDuration" type="number" min="1" max="600">
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfStartAt">Mở lúc</label>
+          <input class="lf-input" id="lfStartAt" type="datetime-local">
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfEndAt">Đóng lúc</label>
+          <input class="lf-input" id="lfEndAt" type="datetime-local">
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfPassing">Điểm đạt (tuỳ chọn)</label>
+          <input class="lf-input" id="lfPassing" type="number" step="0.01" min="0">
+        </div>
+        <div class="lf-field lf-checks">
+          <label class="lf-check"><input type="checkbox" id="lfShuffleQ"> Trộn câu hỏi</label>
+          <label class="lf-check"><input type="checkbox" id="lfShuffleO"> Trộn đáp án</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="lf-panel">
+      <div class="lf-panel-head">
+        <h2 class="lf-panel-title">Câu hỏi</h2>
+        <button type="button" class="tst-btn" id="lfAddQuestion">+ Thêm câu hỏi</button>
+      </div>
+      <div id="lfQuestions" class="lf-questions"></div>
+      <p class="lf-hint" id="lfNoQuestions">Chưa có câu hỏi nào. Nhấn "Thêm câu hỏi".</p>
+    </section>
+  </form>
+
+  <!-- ═══ Tab: Theo dõi — live monitor (JS polls /monitor/data) ═════════ -->
+  <div th:if="${mode == 'edit' and activeDetailTab == 'monitor'}" class="mn-page" id="mnPage"
+       th:attr="data-poll-url=@{|/lecturer/tests/${test.id()}/monitor/data|}">
+    <div class="mn-stats">
+      <div class="mn-stat"><span class="mn-stat-value" id="mnSubmitted"
+          th:text="${monitor.submittedCount()}">0</span><span class="mn-stat-label">Đã nộp</span></div>
+      <div class="mn-stat"><span class="mn-stat-value" id="mnInProgress"
+          th:text="${monitor.inProgressCount()}">0</span><span class="mn-stat-label">Đang làm</span></div>
+      <div class="mn-stat"><span class="mn-stat-value" id="mnActive"
+          th:text="${monitor.activeCount()}">0</span><span class="mn-stat-label">Đang hoạt động</span></div>
+      <div class="mn-stat"><span class="mn-stat-value" id="mnCountdown"
+          th:attr="data-seconds=${monitor.remainingSeconds()}"
+          th:text="${monitor.remainingSeconds() == null} ? '—' : ${monitor.remainingSeconds()}">—</span>
+        <span class="mn-stat-label">Còn lại</span></div>
+    </div>
+
+    <table class="mn-table">
+      <thead>
+      <tr><th>Sinh viên</th><th>Email</th><th>Trạng thái</th><th>Hoạt động gần nhất</th></tr>
+      </thead>
+      <tbody id="mnStudents">
+      <tr th:each="s : ${monitor.students()}">
+        <td th:text="${s.name()}">Tên</td>
+        <td th:text="${s.email()}">email</td>
+        <td>
+          <span class="mn-pill" th:classappend="'mn-pill-' + ${s.state()}"
+                th:text="${s.state() == 'submitted'} ? 'Đã nộp' : (${s.state() == 'in-progress'} ? 'Đang làm' : 'Chưa làm')">—</span>
+          <span class="mn-active-dot" th:if="${s.active()}" title="Đang hoạt động">●</span>
+        </td>
+        <td th:text="${s.lastActivity() != null ? #temporals.format(s.lastActivity(), 'HH:mm:ss dd/MM') : '—'}">—</td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ Tab: Bài nộp — paginated, student-searchable ═════════════════ -->
+  <div th:if="${mode == 'edit' and activeDetailTab == 'submissions'}" class="sb-page">
+    <div class="sb-stats">
+      <div class="sb-stat"><span class="sb-stat-value" th:text="${submissions.submittedCount()}">0</span>
+        <span class="sb-stat-label">Lượt nộp</span></div>
+      <div class="sb-stat"><span class="sb-stat-value" th:text="${submissions.lateCount()}">0</span>
+        <span class="sb-stat-label">Nộp muộn</span></div>
+    </div>
+
+    <form class="sb-search" method="get" th:action="@{'/lecturer/tests/' + ${test.id()} + '/edit'}">
+      <input type="hidden" name="tab" value="submissions">
+      <input type="text" name="q" th:value="${submissions.query()}"
+             placeholder="Tìm theo tên hoặc email sinh viên">
+      <button type="submit" class="tst-btn">Tìm</button>
+    </form>
+
+    <div class="sb-empty" th:if="${submissions.attempts().totalElements == 0}">
+      Chưa có bài nộp nào.
+    </div>
+
+    <table class="sb-table" th:if="${submissions.attempts().totalElements > 0}">
+      <thead>
+      <tr>
+        <th>ID</th><th>Sinh viên</th><th>Email</th><th>Điểm</th><th>Câu đúng</th>
+        <th>Nộp lúc</th><th>Số lần</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr th:each="a : ${submissions.attempts().content}"
+          th:classappend="${a.late()} ? 'sb-row-late'">
+        <td class="sb-id" th:text="${a.attemptId()}">1</td>
+        <td th:text="${a.studentName()}">Tên</td>
+        <td>
+          <a class="sb-email-link"
+             th:href="@{|/lecturer/tests/${test.id()}/review/${a.attemptId()}|}"
+             th:text="${a.email()}">email</a>
+        </td>
+        <td th:text="${a.score()}">0</td>
+        <td th:text="${a.correctCount()} + '/' + ${a.totalQuestions()}">0/0</td>
+        <td>
+          <span th:text="${a.submittedAt() != null ? #temporals.format(a.submittedAt(), 'HH:mm:ss dd/MM') : '—'}">—</span>
+          <span class="sb-late-tag" th:if="${a.late()}">Muộn</span>
+        </td>
+        <td th:text="${a.attemptCount()}">1</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <nav th:if="${submissions.attempts().totalPages > 1}" class="detail-pagination" aria-label="Phân trang">
+      <a class="page-link" th:if="${!submissions.attempts().first}"
+         th:href="@{'/lecturer/tests/' + ${test.id()} + '/edit'(tab='submissions', q=${submissions.query()}, page=${submissions.attempts().number - 1})}">‹ Trước</a>
+      <span class="page-current"
+            th:text="'Trang ' + (${submissions.attempts().number + 1}) + ' / ' + ${submissions.attempts().totalPages}">Trang 1 / 1</span>
+      <a class="page-link" th:if="${!submissions.attempts().last}"
+         th:href="@{'/lecturer/tests/' + ${test.id()} + '/edit'(tab='submissions', q=${submissions.query()}, page=${submissions.attempts().number + 1})}">Sau ›</a>
+    </nav>
+  </div>
+
+  <!-- ═══ Tab: Lịch sử — audit table from activity_tests ═══════════════ -->
+  <section th:if="${mode == 'edit' and activeDetailTab == 'history'}" class="detail-card">
+    <h2 class="detail-card-title">Lịch sử cập nhật bài test</h2>
+
+    <div th:if="${activitiesPage.empty}" class="detail-empty" role="status" aria-live="polite">
+      Chưa có hoạt động nào được ghi nhận cho bài test này.
+    </div>
+
+    <div th:if="${not activitiesPage.empty}">
+      <table class="detail-table">
+        <thead>
+        <tr><th>Loại</th><th>Nội dung</th><th>Người thực hiện</th><th>Thời điểm</th></tr>
+        </thead>
+        <tbody>
+        <tr th:each="row : ${activitiesPage.content}">
+          <td><span class="detail-type-badge" th:text="${row.type()}">TYPE</span></td>
+          <td th:text="${row.description() != null ? row.description() : '—'}">nội dung</td>
+          <td th:text="${row.actorEmail() != null ? row.actorEmail() : '—'}">actor</td>
+          <td th:text="${row.createdAt() != null ? #temporals.format(row.createdAt(), 'HH:mm:ss dd/MM/yyyy') : '—'}">—</td>
+        </tr>
+        </tbody>
+      </table>
+
+      <nav th:if="${activitiesPage.totalPages > 1}" class="detail-pagination" aria-label="Phân trang">
+        <a class="page-link" th:if="${!activitiesPage.first}"
+           th:href="@{'/lecturer/tests/' + ${test.id()} + '/edit'(tab='history', page=${activitiesPage.number - 1})}">‹ Trước</a>
+        <span class="page-current"
+              th:text="'Trang ' + (${activitiesPage.number + 1}) + ' / ' + ${activitiesPage.totalPages}">Trang 1 / 1</span>
+        <a class="page-link" th:if="${!activitiesPage.last}"
+           th:href="@{'/lecturer/tests/' + ${test.id()} + '/edit'(tab='history', page=${activitiesPage.number + 1})}">Sau ›</a>
+      </nav>
+    </div>
+  </section>
+  </div><!-- /#tabPanel -->
+  </main>
+</div>
+
+<!-- Question builder templates (cloned by test-lecturer-form.js). -->
+<template id="lfQuestionTpl">
+  <div class="lf-question">
+    <div class="lf-q-head">
+      <select class="lf-input lf-q-type">
+        <option value="MCQ">Một đáp án (MCQ)</option>
+        <option value="MR">Nhiều đáp án (MR)</option>
+      </select>
+      <input class="lf-input lf-q-points" type="number" step="0.01" min="0" value="1" title="Điểm">
+      <button type="button" class="lf-icon-btn lf-q-remove" title="Xoá câu hỏi">✕</button>
+    </div>
+    <textarea class="lf-input lf-q-content" rows="2" placeholder="Nội dung câu hỏi"></textarea>
+    <textarea class="lf-input lf-q-explanation" rows="1" placeholder="Giải thích (tuỳ chọn)"></textarea>
+    <div class="lf-options"></div>
+    <button type="button" class="tst-btn lf-add-option">+ Thêm đáp án</button>
+    <small class="lf-err lf-q-err"></small>
+  </div>
+</template>
+
+<template id="lfOptionTpl">
+  <div class="lf-option">
+    <input type="checkbox" class="lf-o-correct" title="Đáp án đúng">
+    <input class="lf-input lf-o-content" type="text" placeholder="Nội dung đáp án">
+    <button type="button" class="lf-icon-btn lf-o-remove" title="Xoá đáp án">✕</button>
+  </div>
+</template>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/test-lecturer-form.js}"></script>
+<script th:src="@{/js/test-monitor.js}"></script>
+<script th:src="@{/js/test-detail-tabs.js}"></script>
+</body>
+</html>

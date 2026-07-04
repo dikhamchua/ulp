@@ -1,0 +1,51 @@
+/* Lecturer submissions overview (Epic #11). */
+
+.tst-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border-radius: 8px; border: 1px solid #d0d7de; background: #fff; color: #1f2328;
+  font-weight: 600; font-size: 14px; text-decoration: none; cursor: pointer;
+}
+
+.sb-page {
+  background: var(--bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(16,24,40,.05));
+  padding: 20px;
+}
+.sb-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.sb-title { font-size: 22px; font-weight: 800; margin: 0; }
+.sb-status { color: #6b7280; margin: 4px 0 0; font-size: 13px; }
+
+.sb-stats { display: flex; gap: 12px; margin-bottom: 16px; }
+.sb-stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 24px; text-align: center; }
+.sb-stat-value { display: block; font-size: 22px; font-weight: 800; }
+.sb-stat-label { font-size: 12px; color: #6b7280; }
+
+.sb-search { display: flex; gap: 8px; margin-bottom: 16px; }
+.sb-search input[type="text"] {
+  flex: 1; padding: 10px 14px; border: 1px solid var(--border, #d0d7de);
+  border-radius: 8px; font-size: 14px; background: #fff; color: #1f2328;
+  transition: border-color .15s, box-shadow .15s;
+}
+.sb-search input[type="text"]::placeholder { color: #9ca3af; }
+.sb-search input[type="text"]:focus {
+  outline: none; border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+}
+
+.sb-empty { padding: 32px; text-align: center; color: #6b7280;
+  border: 1px dashed #d0d7de; border-radius: 12px; }
+
+.sb-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+.sb-table th, .sb-table td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #eef0f2; font-size: 14px; }
+.sb-table th { color: #6b7280; font-weight: 600; }
+.sb-row-late { background: #fff7ed; }
+.sb-late-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px;
+  background: #ffedd5; color: #9a3412; font-size: 11px; font-weight: 700; }
+.sb-table a { color: #2563eb; text-decoration: none; }
+.sb-table a:hover { text-decoration: underline; }
+
+.sb-id { color: #9ca3af; font-variant-numeric: tabular-nums; width: 56px; }
+.sb-email-link { color: #2563eb; font-weight: 600; text-decoration: none; }
+.sb-email-link:hover { text-decoration: underline; }
