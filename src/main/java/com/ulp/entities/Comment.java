@@ -126,6 +126,16 @@ public class Comment {
         this.deleted = true;
     }
 
+    /** Hides the comment from students by setting REJECTED moderation status. */
+    public void hide() {
+        this.moderationStatus = MODERATION_REJECTED;
+    }
+
+    /** Restores a hidden comment to APPROVED so students see it again. */
+    public void unhide() {
+        this.moderationStatus = MODERATION_APPROVED;
+    }
+
     // ── Getters ────────────────────────────────────────────────────────
 
     public Long getId() {

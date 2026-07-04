@@ -43,6 +43,8 @@ class LessonCommentsApiControllerTest {
     private static final String AUTHOR_EMAIL = "student@ulp.edu.vn";  // enrolled
     private static final String OTHER_EMAIL = "sv02@ulp.edu.vn";      // enrolled
     private static final String OUTSIDER_EMAIL = "sv01@ulp.edu.vn";   // not enrolled
+    private static final String LECTURER_EMAIL = "lecturer@ulp.edu.vn"; // owns the class
+    private static final String ADMIN_EMAIL = "admin@ulp.edu.vn";    // ADMIN, not enrolled
 
     @Autowired private MockMvc mockMvc;
     @Autowired private LessonCommentsService service;
@@ -184,6 +186,70 @@ class LessonCommentsApiControllerTest {
         mockMvc.perform(delete(url() + "/" + root.id()).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(true));
+    }
+
+    // ── Moderation: hide / unhide (ULP-11.7) ──────────────────────────
+
+    @Test
+    @WithUserDetails(LECTURER_EMAIL)
+    void lecturer_hide_returns_ok() throws Exception {
+        CommentRow root = service.create(lesson.getId(), author.getId(), "Bình luận xấu", null);
+
+        mockMvc.perform(post(url() + "/" + root.id() + "/hide").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ok").value(true));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER_EMAIL)
+    void lecturer_unhide_returns_ok() throws Exception {
+        CommentRow root = service.create(lesson.getId(), author.getId(), "Ẩn rồi hiện", null);
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), com.ulp.security.Role.LECTURER);
+
+        mockMvc.perform(post(url() + "/" + root.id() + "/unhide").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ok").value(true));
+    }
+
+    @Test
+    @WithUserDetails(ADMIN_EMAIL)
+    void admin_not_enrolled_hide_returns_ok() throws Exception {
+        CommentRow root = service.create(lesson.getId(), author.getId(), "Admin sẽ ẩn", null);
+
+        mockMvc.perform(post(url() + "/" + root.id() + "/hide").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ok").value(true));
+    }
+
+    @Test
+    @WithUserDetails(OTHER_EMAIL)
+    void student_hide_returns_403() throws Exception {
+        CommentRow root = service.create(lesson.getId(), author.getId(), "Của tác giả", null);
+
+        mockMvc.perform(post(url() + "/" + root.id() + "/hide").with(csrf()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.ok").value(false));
+    }
+
+    @Test
+    @WithUserDetails(OTHER_EMAIL)
+    void student_unhide_returns_403() throws Exception {
+        CommentRow root = service.create(lesson.getId(), author.getId(), "Của tác giả", null);
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), com.ulp.security.Role.LECTURER);
+
+        mockMvc.perform(post(url() + "/" + root.id() + "/unhide").with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithUserDetails(LECTURER_EMAIL)
+    void hide_foreign_comment_returns_404() throws Exception {
+        Lesson lesson2 = persistLesson("Bài 2", true);
+        CommentRow foreign = service.create(lesson2.getId(), author.getId(), "Ở lesson khác", null);
+
+        // Target the foreign comment through this lesson's URL → 404, no leak.
+        mockMvc.perform(post(url() + "/" + foreign.id() + "/hide").with(csrf()))
+                .andExpect(status().isNotFound());
     }
 
     private String url() {

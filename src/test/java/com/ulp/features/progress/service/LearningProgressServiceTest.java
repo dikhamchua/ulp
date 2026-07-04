@@ -174,7 +174,7 @@ class LearningProgressServiceTest {
         entityManager.clear();
 
         ClassLessonsView view = studentLessonsService
-                .listClassLessons(clazz.getId(), student.getId());
+                .listClassLessons(clazz.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.publishedTotal()).isEqualTo(2);
         assertThat(view.completedTotal()).isEqualTo(1);
@@ -188,7 +188,7 @@ class LearningProgressServiceTest {
         enrollActive();
 
         ClassLessonsView view = studentLessonsService
-                .listClassLessons(clazz.getId(), student.getId());
+                .listClassLessons(clazz.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.publishedTotal()).isZero();
         assertThat(view.percent()).isZero();

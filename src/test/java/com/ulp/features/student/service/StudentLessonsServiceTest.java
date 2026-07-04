@@ -62,7 +62,7 @@ class StudentLessonsServiceTest {
         Lesson draft = persistLesson(section1.getId(), "Bài nháp", (short) 2, false);
         enrollActive();
 
-        ClassLessonsView view = studentLessonsService.listClassLessons(clazz.getId(), student.getId());
+        ClassLessonsView view = studentLessonsService.listClassLessons(clazz.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.classId()).isEqualTo(clazz.getId());
         assertThat(view.className()).isEqualTo("Student lessons class");
@@ -77,7 +77,68 @@ class StudentLessonsServiceTest {
     @Test
     void not_enrolled_user_gets_404() {
         persistLesson(section1.getId(), "Bài 1", (short) 0, true);
-        assertThatThrownBy(() -> studentLessonsService.listClassLessons(clazz.getId(), student.getId()))
+        assertThatThrownBy(() -> studentLessonsService.listClassLessons(clazz.getId(), student.getId(), Role.STUDENT))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void owning_lecturer_not_enrolled_can_list() {
+        Lesson pub = persistLesson(section1.getId(), "Bài 1", (short) 0, true);
+
+        // The owning lecturer is not enrolled, yet must reach the thread to moderate.
+        ClassLessonsView view = studentLessonsService
+                .listClassLessons(clazz.getId(), lecturer.getId(), Role.LECTURER);
+
+        assertThat(view.classId()).isEqualTo(clazz.getId());
+        assertThat(view.sections().get(0).lessons())
+                .extracting(StudentLessonRow::id).containsExactly(pub.getId());
+    }
+
+    @Test
+    void admin_not_enrolled_can_list() {
+        Lesson pub = persistLesson(section1.getId(), "Bài 1", (short) 0, true);
+
+        // ADMIN bypasses enrollment (design D7); student here stands in as a
+        // non-enrolled, non-owning caller whose role is elevated to ADMIN.
+        ClassLessonsView view = studentLessonsService
+                .listClassLessons(clazz.getId(), student.getId(), Role.ADMIN);
+
+        assertThat(view.classId()).isEqualTo(clazz.getId());
+        assertThat(view.sections().get(0).lessons())
+                .extracting(StudentLessonRow::id).containsExactly(pub.getId());
+    }
+
+    @Test
+    void head_not_enrolled_can_list() {
+        Lesson pub = persistLesson(section1.getId(), "Bài 1", (short) 0, true);
+
+        ClassLessonsView view = studentLessonsService
+                .listClassLessons(clazz.getId(), student.getId(), Role.HEAD);
+
+        assertThat(view.classId()).isEqualTo(clazz.getId());
+        assertThat(view.sections().get(0).lessons())
+                .extracting(StudentLessonRow::id).containsExactly(pub.getId());
+    }
+
+    @Test
+    void non_enrolled_non_moderator_student_gets_404() {
+        persistLesson(section1.getId(), "Bài 1", (short) 0, true);
+
+        // A plain STUDENT who is neither enrolled nor the owner is still blocked.
+        assertThatThrownBy(() -> studentLessonsService
+                .listClassLessons(clazz.getId(), student.getId(), Role.STUDENT))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void soft_deleted_class_gets_404_for_admin_moderator() {
+        clazz.softDelete();
+        classRepository.saveAndFlush(clazz);
+        entityManager.clear();
+
+        // Lesson gates run first, so ADMIN gains nothing on a deleted class.
+        assertThatThrownBy(() -> studentLessonsService
+                .listClassLessons(clazz.getId(), student.getId(), Role.ADMIN))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
@@ -86,7 +147,7 @@ class StudentLessonsServiceTest {
         Enrollment e = enrollActive();
         e.markRemoved();
         enrollmentRepository.saveAndFlush(e);
-        assertThatThrownBy(() -> studentLessonsService.listClassLessons(clazz.getId(), student.getId()))
+        assertThatThrownBy(() -> studentLessonsService.listClassLessons(clazz.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
@@ -95,7 +156,7 @@ class StudentLessonsServiceTest {
         Enrollment e = enrollActive();
         // Native UPDATE — Enrollment exposes no setter for COMPLETED.
         forceEnrollmentStatus(e.getId(), Enrollment.STATUS_COMPLETED);
-        assertThatThrownBy(() -> studentLessonsService.listClassLessons(clazz.getId(), student.getId()))
+        assertThatThrownBy(() -> studentLessonsService.listClassLessons(clazz.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
@@ -106,7 +167,7 @@ class StudentLessonsServiceTest {
         classRepository.saveAndFlush(clazz);
         // Clear so the next findById is re-read and SQLRestriction applies.
         entityManager.clear();
-        assertThatThrownBy(() -> studentLessonsService.listClassLessons(clazz.getId(), student.getId()))
+        assertThatThrownBy(() -> studentLessonsService.listClassLessons(clazz.getId(), student.getId(), Role.STUDENT))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
@@ -117,7 +178,7 @@ class StudentLessonsServiceTest {
         section2.markDeleted();
         sectionRepository.saveAndFlush(section2);
 
-        ClassLessonsView view = studentLessonsService.listClassLessons(clazz.getId(), student.getId());
+        ClassLessonsView view = studentLessonsService.listClassLessons(clazz.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.sections()).hasSize(1);
         assertThat(view.sections().get(0).sectionId()).isEqualTo(section1.getId());
@@ -130,7 +191,7 @@ class StudentLessonsServiceTest {
         published.markDeleted();
         lessonRepository.saveAndFlush(published);
 
-        ClassLessonsView view = studentLessonsService.listClassLessons(clazz.getId(), student.getId());
+        ClassLessonsView view = studentLessonsService.listClassLessons(clazz.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.sections().get(0).lessons()).isEmpty();
     }
@@ -143,7 +204,7 @@ class StudentLessonsServiceTest {
         sectionRepository.saveAndFlush(section1);
         sectionRepository.saveAndFlush(section2);
 
-        ClassLessonsView view = studentLessonsService.listClassLessons(clazz.getId(), student.getId());
+        ClassLessonsView view = studentLessonsService.listClassLessons(clazz.getId(), student.getId(), Role.STUDENT);
 
         assertThat(view.sections()).isEmpty();
     }

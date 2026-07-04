@@ -2,12 +2,14 @@ package com.ulp.features.comments.service;
 
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Comment;
-import com.ulp.entities.Enrollment;
-import com.ulp.features.classes.repository.EnrollmentRepository;
+import com.ulp.entities.CommentModeration;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CommentPageView;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CommentRow;
+import com.ulp.features.comments.repository.CommentModerationRepository;
 import com.ulp.features.comments.repository.LessonCommentRepository;
+import com.ulp.features.lessons.support.ClassAccessPolicy;
 import com.ulp.features.lessons.support.LessonAccessResolver;
+import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -22,6 +24,7 @@ import java.util.List;
 import static com.ulp.common.IConstant.DEFAULT_COMMENT_PAGE_SIZE;
 import static com.ulp.common.IConstant.MAX_COMMENT_PAGE_SIZE;
 import static com.ulp.common.IConstant.MSG_COMMENT_BLANK;
+import static com.ulp.common.IConstant.MSG_COMMENT_MODERATE_FORBIDDEN;
 import static com.ulp.common.IConstant.MSG_COMMENT_NOT_FOUND;
 import static com.ulp.common.IConstant.MSG_COMMENT_PARENT_INVALID;
 import static com.ulp.common.IConstant.MSG_COMMENT_TOO_LONG;
@@ -38,24 +41,30 @@ import static com.ulp.common.IConstant.MSG_COMMENT_TOO_LONG;
 @Service
 public class LessonCommentsService {
 
-    private static final String NF_MSG = "Class not found or not accessible";
     private static final int MAX_CONTENT = 2000;
     private static final int MAX_DEPTH = 3;
     private static final int DEPTH_WALK_LIMIT = 5;
 
-    private final EnrollmentRepository enrollmentRepository;
+    /** Statuses a moderator listing loads: visible plus hidden (REJECTED) nodes. */
+    private static final List<String> MODERATOR_STATUSES =
+            List.of(Comment.MODERATION_APPROVED, Comment.MODERATION_REJECTED);
+
     private final LessonCommentRepository commentRepository;
+    private final CommentModerationRepository moderationRepository;
     private final CommentThreadAssembler assembler;
     private final LessonAccessResolver lessonAccessResolver;
+    private final ClassAccessPolicy accessPolicy;
 
-    public LessonCommentsService(EnrollmentRepository enrollmentRepository,
-                                 LessonCommentRepository commentRepository,
+    public LessonCommentsService(LessonCommentRepository commentRepository,
+                                 CommentModerationRepository moderationRepository,
                                  CommentThreadAssembler assembler,
-                                 LessonAccessResolver lessonAccessResolver) {
-        this.enrollmentRepository = enrollmentRepository;
+                                 LessonAccessResolver lessonAccessResolver,
+                                 ClassAccessPolicy accessPolicy) {
         this.commentRepository = commentRepository;
+        this.moderationRepository = moderationRepository;
         this.assembler = assembler;
         this.lessonAccessResolver = lessonAccessResolver;
+        this.accessPolicy = accessPolicy;
     }
 
     /**
@@ -66,25 +75,29 @@ public class LessonCommentsService {
      * placeholder, but a deleted ROOT drops its whole thread from the list.
      */
     @Transactional(readOnly = true)
-    public CommentPageView listPage(Long lessonId, Long userId, int page, int size) {
-        ClassEntity clazz = authorize(lessonId, userId);
+    public CommentPageView listPage(Long lessonId, Long userId, Role role, int page, int size) {
+        ClassEntity clazz = authorize(lessonId, userId, role);
+        // A moderator additionally sees hidden (REJECTED) nodes flagged for unhide.
+        boolean moderator = accessPolicy.isModerator(clazz, userId, role);
 
         // Clamp the client-supplied size: default when unset, capped so a huge
         // ?size can't force an oversized root page + IN () reply queries.
         int safeSize = size <= 0 ? DEFAULT_COMMENT_PAGE_SIZE
                 : Math.min(size, MAX_COMMENT_PAGE_SIZE);
         int safePage = Math.max(page, 0);
-        Page<Comment> rootPage = commentRepository
-                .findByLessonIdAndParentIdIsNullAndDeletedFalseAndModerationStatus(
-                        lessonId, Comment.MODERATION_APPROVED,
-                        // id is a monotonic tiebreaker so same-second roots keep a
-                        // stable order and never drift between pages.
-                        PageRequest.of(safePage, safeSize,
-                                Sort.by(Sort.Direction.DESC, "createdAt", "id")));
+        // id is a monotonic tiebreaker so same-second roots keep a stable order
+        // and never drift between pages.
+        PageRequest pageable = PageRequest.of(safePage, safeSize,
+                Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+        Page<Comment> rootPage = moderator
+                ? commentRepository.findByLessonIdAndParentIdIsNullAndDeletedFalseAndModerationStatusIn(
+                        lessonId, MODERATOR_STATUSES, pageable)
+                : commentRepository.findByLessonIdAndParentIdIsNullAndDeletedFalseAndModerationStatus(
+                        lessonId, Comment.MODERATION_APPROVED, pageable);
 
-        List<Comment> roots = rootPage.getContent();       // newest-first
-        List<Comment> level2 = repliesOf(idsOf(roots));    // depth-2 replies
-        List<Comment> level3 = repliesOf(idsOf(level2));   // depth-3 replies
+        List<Comment> roots = rootPage.getContent();               // newest-first
+        List<Comment> level2 = repliesOf(idsOf(roots), moderator);  // depth-2 replies
+        List<Comment> level3 = repliesOf(idsOf(level2), moderator); // depth-3 replies
 
         // Keep roots first (in DESC page order) so the assembler renders them
         // newest-first; replies follow and are re-sorted ASC per thread there.
@@ -93,7 +106,7 @@ public class LessonCommentsService {
         combined.addAll(level2);
         combined.addAll(level3);
 
-        List<CommentRow> rows = assembler.assemble(combined, clazz.getLecturerId(), userId);
+        List<CommentRow> rows = assembler.assemble(combined, clazz.getLecturerId(), userId, moderator);
         return new CommentPageView(rows, safePage, safeSize,
                 rootPage.getTotalElements(), rootPage.hasNext());
     }
@@ -160,29 +173,86 @@ public class LessonCommentsService {
         return ids;
     }
 
-    /** Batch-loads APPROVED replies of the given parents; guards empty IN (). */
-    private List<Comment> repliesOf(List<Long> parentIds) {
+    /**
+     * Batch-loads replies of the given parents; guards empty IN (). A moderator
+     * load includes hidden (REJECTED) replies; the student load stays APPROVED-only.
+     */
+    private List<Comment> repliesOf(List<Long> parentIds, boolean moderator) {
         if (parentIds.isEmpty()) return List.of(); // MySQL IN () is invalid SQL
-        return commentRepository.findByParentIdInAndModerationStatus(
-                parentIds, Comment.MODERATION_APPROVED);
+        return moderator
+                ? commentRepository.findByParentIdInAndModerationStatusIn(parentIds, MODERATOR_STATUSES)
+                : commentRepository.findByParentIdInAndModerationStatus(parentIds, Comment.MODERATION_APPROVED);
+    }
+
+    // ── Moderation (hide / unhide) ─────────────────────────────────────
+
+    /**
+     * Hides a comment (sets REJECTED) so students no longer see it. Requires the
+     * caller to be a moderator (owning lecturer / ADMIN / HEAD). Idempotent: a
+     * no-op when already hidden. Writes a {@code comment_moderation} audit row.
+     *
+     * @throws AccessDeniedException   when the caller is not a moderator (403)
+     * @throws EntityNotFoundException when the comment is not in this lesson (404)
+     */
+    @Transactional
+    public void hide(Long lessonId, Long commentId, Long userId, Role role) {
+        ClassEntity clazz = authorize(lessonId, userId, role);
+        if (!accessPolicy.isModerator(clazz, userId, role)) {
+            throw new AccessDeniedException(MSG_COMMENT_MODERATE_FORBIDDEN);
+        }
+        Comment comment = loadLiveComment(lessonId, commentId);
+        // Idempotent: already hidden → succeed without a duplicate audit row.
+        if (Comment.MODERATION_REJECTED.equals(comment.getModerationStatus())) {
+            return;
+        }
+        comment.hide();
+        commentRepository.saveAndFlush(comment);
+        moderationRepository.save(CommentModeration.record(
+                commentId, userId, CommentModeration.ACTION_REJECTED));
+    }
+
+    /**
+     * Unhides a previously hidden comment (restores APPROVED) so students see it
+     * again. Symmetric to {@link #hide}: moderator-only, idempotent, audited.
+     *
+     * @throws AccessDeniedException   when the caller is not a moderator (403)
+     * @throws EntityNotFoundException when the comment is not in this lesson (404)
+     */
+    @Transactional
+    public void unhide(Long lessonId, Long commentId, Long userId, Role role) {
+        ClassEntity clazz = authorize(lessonId, userId, role);
+        if (!accessPolicy.isModerator(clazz, userId, role)) {
+            throw new AccessDeniedException(MSG_COMMENT_MODERATE_FORBIDDEN);
+        }
+        Comment comment = loadLiveComment(lessonId, commentId);
+        // Idempotent: already visible → succeed without a duplicate audit row.
+        if (Comment.MODERATION_APPROVED.equals(comment.getModerationStatus())) {
+            return;
+        }
+        comment.unhide();
+        commentRepository.saveAndFlush(comment);
+        moderationRepository.save(CommentModeration.record(
+                commentId, userId, CommentModeration.ACTION_APPROVED));
     }
 
     // ── Authorization ──────────────────────────────────────────────────
 
+    /** Participant-only access (create/edit/delete): no ADMIN/HEAD bypass. */
+    private ClassEntity authorize(Long lessonId, Long userId) {
+        return authorize(lessonId, userId, null);
+    }
+
     /**
      * Runs the shared lesson gates (live class, section, PUBLISHED) then admits
-     * an ACTIVE-enrolled student or the owning lecturer. Returns the live class.
+     * the caller. ADMIN/HEAD bypass enrollment so they can view and moderate the
+     * thread; otherwise the owning lecturer or an ACTIVE-enrolled student passes.
+     * The lesson gates always run first, so ADMIN/HEAD gain nothing on a deleted
+     * or unpublished lesson. Returns the live class.
      */
-    private ClassEntity authorize(Long lessonId, Long userId) {
+    private ClassEntity authorize(Long lessonId, Long userId, Role role) {
+        // Lesson gates first so ADMIN/HEAD gain nothing on a deleted/unpublished lesson.
         ClassEntity clazz = lessonAccessResolver.resolveByLesson(lessonId).clazz();
-        boolean lecturer = clazz.getLecturerId().equals(userId);
-        boolean enrolled = enrollmentRepository
-                .findByUserIdAndClassId(userId, clazz.getId())
-                .filter(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
-                .isPresent();
-        if (!lecturer && !enrolled) {
-            throw new EntityNotFoundException(NF_MSG);
-        }
+        accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
         return clazz;
     }
 

@@ -34,6 +34,9 @@ public final class LessonCommentsDtos {
      * @param authorAvatarUrl author avatar image URL; null when none / placeholder
      * @param avatarLabel     initials fallback for a missing avatar; null on placeholder
      * @param avatarGradient  CSS gradient backing the initials; null on placeholder
+     * @param hidden          true when the comment is moderator-hidden (REJECTED);
+     *                        only ever true in a moderator listing
+     * @param canModerate     true when the caller may hide/unhide this comment
      * @param replies         nested replies oldest-first (empty when none)
      */
     public record CommentRow(
@@ -50,6 +53,8 @@ public final class LessonCommentsDtos {
             String authorAvatarUrl,
             String avatarLabel,
             String avatarGradient,
+            boolean hidden,
+            boolean canModerate,
             List<CommentRow> replies
     ) { }
 
@@ -59,7 +64,7 @@ public final class LessonCommentsDtos {
      * @param comments   assembled root rows for this page, newest-first
      * @param page       zero-based page index served
      * @param size       page size used (roots per page)
-     * @param totalRoots total APPROVED root comments across all pages
+     * @param totalRoots total root comments visible to the caller across all pages
      * @param hasNext    true when a further page of roots exists
      */
     public record CommentPageView(

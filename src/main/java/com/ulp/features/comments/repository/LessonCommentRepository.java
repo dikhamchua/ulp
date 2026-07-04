@@ -35,4 +35,21 @@ public interface LessonCommentRepository extends JpaRepository<Comment, Long> {
      */
     List<Comment> findByParentIdInAndModerationStatus(Collection<Long> parentIds,
                                                       String moderationStatus);
+
+    /**
+     * Moderator variant of the ROOT page query (ULP-11.7): loads non-deleted
+     * roots whose {@code moderation_status} is in the given set, so a moderator
+     * page includes hidden (REJECTED) roots alongside APPROVED ones. The student
+     * path keeps calling the single-status method above.
+     */
+    Page<Comment> findByLessonIdAndParentIdIsNullAndDeletedFalseAndModerationStatusIn(
+            Long lessonId, Collection<String> moderationStatuses, Pageable pageable);
+
+    /**
+     * Moderator variant of the reply batch-load: returns replies whose status is
+     * in the given set. Callers MUST guard against an empty {@code parentIds} —
+     * MySQL {@code IN ()} is invalid SQL.
+     */
+    List<Comment> findByParentIdInAndModerationStatusIn(Collection<Long> parentIds,
+                                                        Collection<String> moderationStatuses);
 }

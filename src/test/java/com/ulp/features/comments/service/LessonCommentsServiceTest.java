@@ -1,6 +1,8 @@
 package com.ulp.features.comments.service;
 
 import com.ulp.entities.ClassEntity;
+import com.ulp.entities.Comment;
+import com.ulp.entities.CommentModeration;
 import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.Section;
@@ -11,6 +13,7 @@ import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CommentPageView;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CommentRow;
+import com.ulp.features.comments.repository.CommentModerationRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.security.Role;
@@ -42,6 +45,7 @@ class LessonCommentsServiceTest {
     @Autowired private LessonRepository lessonRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private CommentModerationRepository moderationRepository;
 
     private User lecturer;
     private User student;
@@ -255,6 +259,157 @@ class LessonCommentsServiceTest {
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
+    // ── Moderation: hide / unhide (ULP-11.7) ──────────────────────────
+
+    @Test
+    void lecturer_hides_comment_hidden_for_student_flagged_for_moderator() {
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Bình luận xấu", null);
+
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        // Student never sees a hidden comment.
+        assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
+        // Moderator sees it, flagged hidden + moderatable.
+        List<CommentRow> modRows = listAsModerator(lesson.getId(), lecturer.getId(), Role.LECTURER);
+        assertThat(modRows).hasSize(1);
+        assertThat(modRows.get(0).hidden()).isTrue();
+        assertThat(modRows.get(0).canModerate()).isTrue();
+    }
+
+    @Test
+    void hidden_root_drops_thread_for_student() {
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Gốc bị ẩn", null);
+        service.create(lesson.getId(), other.getId(), "Trả lời còn sống", root.id());
+
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        // A hidden root removes the whole thread for students (like a deleted root).
+        assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
+    }
+
+    @Test
+    void moderator_sees_visible_comment_as_moderatable() {
+        service.create(lesson.getId(), student.getId(), "Bình luận thường", null);
+
+        List<CommentRow> modRows = listAsModerator(lesson.getId(), lecturer.getId(), Role.LECTURER);
+
+        assertThat(modRows).hasSize(1);
+        assertThat(modRows.get(0).hidden()).isFalse();
+        assertThat(modRows.get(0).canModerate()).isTrue();
+    }
+
+    @Test
+    void student_sees_no_moderate_flag() {
+        service.create(lesson.getId(), student.getId(), "Bình luận thường", null);
+
+        List<CommentRow> rows = listRoots(lesson.getId(), student.getId());
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).canModerate()).isFalse();
+        assertThat(rows.get(0).hidden()).isFalse();
+    }
+
+    @Test
+    void unhide_restores_comment_for_student() {
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Ẩn rồi hiện lại", null);
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        service.unhide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        List<CommentRow> rows = listRoots(lesson.getId(), student.getId());
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).content()).isEqualTo("Ẩn rồi hiện lại");
+    }
+
+    @Test
+    void admin_not_enrolled_can_hide() {
+        User admin = ensureUser("comment-admin@ulp.edu.vn", "Comment Admin", Role.ADMIN);
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Admin sẽ ẩn", null);
+
+        service.hide(lesson.getId(), root.id(), admin.getId(), Role.ADMIN);
+
+        // ADMIN (not enrolled) can both moderate and view the hidden thread.
+        List<CommentRow> modRows = listAsModerator(lesson.getId(), admin.getId(), Role.ADMIN);
+        assertThat(modRows).hasSize(1);
+        assertThat(modRows.get(0).hidden()).isTrue();
+        assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
+    }
+
+    @Test
+    void head_not_enrolled_can_hide() {
+        User head = ensureUser("comment-head@ulp.edu.vn", "Comment Head", Role.HEAD);
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Head sẽ ẩn", null);
+
+        service.hide(lesson.getId(), root.id(), head.getId(), Role.HEAD);
+
+        assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
+    }
+
+    @Test
+    void student_hide_denied() {
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Của tôi", null);
+
+        assertThatThrownBy(() -> service.hide(lesson.getId(), root.id(), other.getId(), Role.STUDENT))
+                .isInstanceOf(AccessDeniedException.class);
+        // Status unchanged: still visible to students.
+        assertThat(listRoots(lesson.getId(), student.getId())).hasSize(1);
+    }
+
+    @Test
+    void student_unhide_denied() {
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Của tôi", null);
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        assertThatThrownBy(() -> service.unhide(lesson.getId(), root.id(), student.getId(), Role.STUDENT))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void hide_is_idempotent() {
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Ẩn hai lần", null);
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        // Second hide is a no-op success (no duplicate audit row).
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        assertThat(auditRowsFor(root.id(), CommentModeration.ACTION_REJECTED)).isEqualTo(1);
+    }
+
+    @Test
+    void unhide_already_visible_is_idempotent() {
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Chưa ẩn", null);
+
+        // Unhide an APPROVED comment: success, no state change, no audit row.
+        service.unhide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        assertThat(auditRowsFor(root.id(), CommentModeration.ACTION_APPROVED)).isZero();
+        assertThat(listRoots(lesson.getId(), student.getId())).hasSize(1);
+    }
+
+    @Test
+    void hide_writes_audit_row_with_moderator_and_action() {
+        CommentRow root = service.create(lesson.getId(), student.getId(), "Ghi lịch sử", null);
+
+        service.hide(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
+
+        CommentModeration audit = moderationRepository.findAll().stream()
+                .filter(m -> m.getCommentId().equals(root.id()))
+                .findFirst().orElseThrow();
+        assertThat(audit.getModeratedBy()).isEqualTo(lecturer.getId());
+        assertThat(audit.getAction()).isEqualTo(CommentModeration.ACTION_REJECTED);
+    }
+
+    @Test
+    void hide_foreign_comment_returns_404() {
+        Lesson other2 = persistLesson("Bài 2", true);
+        CommentRow foreign = service.create(other2.getId(), student.getId(), "Ở lesson khác", null);
+
+        // Target a comment that does not belong to `lesson` → 404, no existence leak.
+        assertThatThrownBy(() ->
+                service.hide(lesson.getId(), foreign.id(), lecturer.getId(), Role.LECTURER))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
     // ── Pagination ────────────────────────────────────────────────────
 
     @Test
@@ -264,7 +419,7 @@ class LessonCommentsServiceTest {
             service.create(lesson.getId(), student.getId(), "Gốc " + i, null);
         }
 
-        CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), 0, 5);
+        CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), Role.STUDENT,0, 5);
 
         assertThat(page0.comments()).hasSize(5);
         assertThat(page0.totalRoots()).isEqualTo(12);
@@ -282,7 +437,7 @@ class LessonCommentsServiceTest {
             service.create(lesson.getId(), student.getId(), "Gốc " + i, null);
         }
 
-        CommentPageView page2 = service.listPage(lesson.getId(), student.getId(), 2, 5);
+        CommentPageView page2 = service.listPage(lesson.getId(), student.getId(), Role.STUDENT,2, 5);
 
         // 12 roots / size 5 → page 2 holds the final two, oldest at the tail.
         assertThat(page2.comments()).hasSize(2);
@@ -298,7 +453,7 @@ class LessonCommentsServiceTest {
         service.create(lesson.getId(), other.getId(), "Trả lời cũ", oldRoot.id());
         service.create(lesson.getId(), student.getId(), "Gốc mới", null);
 
-        CommentPageView page1 = service.listPage(lesson.getId(), student.getId(), 1, 1);
+        CommentPageView page1 = service.listPage(lesson.getId(), student.getId(), Role.STUDENT,1, 1);
 
         // Page 1 (second-newest) is the old root and must carry its reply subtree.
         assertThat(page1.comments()).hasSize(1);
@@ -313,7 +468,7 @@ class LessonCommentsServiceTest {
         service.create(lesson.getId(), other.getId(), "Trả lời sống", root.id());
         service.delete(lesson.getId(), root.id(), student.getId());
 
-        CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), 0, 5);
+        CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), Role.STUDENT,0, 5);
 
         // Option A: deleted root leaves neither a placeholder nor a count entry,
         // so an all-deleted thread reads as a clean empty state (no phantom pager).
@@ -328,7 +483,7 @@ class LessonCommentsServiceTest {
         CommentRow dead = service.create(lesson.getId(), student.getId(), "Gốc chết", null);
         service.delete(lesson.getId(), dead.id(), student.getId());
 
-        CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), 0, 5);
+        CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), Role.STUDENT,0, 5);
 
         // Only the live root counts; the deleted root is dropped from page + count.
         assertThat(page0.totalRoots()).isEqualTo(1);
@@ -340,7 +495,7 @@ class LessonCommentsServiceTest {
     void zero_size_falls_back_to_default() {
         service.create(lesson.getId(), student.getId(), "Gốc", null);
 
-        CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), 0, 0);
+        CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), Role.STUDENT,0, 0);
 
         // size 0 → service default (DEFAULT_COMMENT_PAGE_SIZE).
         assertThat(page0.size()).isEqualTo(10);
@@ -349,9 +504,21 @@ class LessonCommentsServiceTest {
 
     // ── Helpers ───────────────────────────────────────────────────────
 
-    /** Reads the first, generously-sized root page and returns its rows. */
+    /** Reads the first, generously-sized root page (student view) and returns its rows. */
     private List<CommentRow> listRoots(Long lessonId, Long userId) {
-        return service.listPage(lessonId, userId, 0, 50).comments();
+        return service.listPage(lessonId, userId, Role.STUDENT, 0, 50).comments();
+    }
+
+    /** Reads the first root page from a moderator's perspective (includes hidden). */
+    private List<CommentRow> listAsModerator(Long lessonId, Long userId, Role role) {
+        return service.listPage(lessonId, userId, role, 0, 50).comments();
+    }
+
+    /** Counts audit rows written for a comment with the given action. */
+    private long auditRowsFor(Long commentId, String action) {
+        return moderationRepository.findAll().stream()
+                .filter(m -> m.getCommentId().equals(commentId) && action.equals(m.getAction()))
+                .count();
     }
 
     private Lesson persistLesson(String title, boolean published) {
@@ -378,10 +545,14 @@ class LessonCommentsServiceTest {
     }
 
     private User ensureUser(String email, String name) {
+        return ensureUser(email, name, Role.STUDENT);
+    }
+
+    private User ensureUser(String email, String name, Role role) {
         return userRepository.findByEmailIgnoreCase(email).orElseGet(() -> {
             User u = UserFactory.newAdminCreated(email,
                     "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
-                    name, Role.STUDENT, true, null, null);
+                    name, role, true, null, null);
             return userRepository.saveAndFlush(u);
         });
     }

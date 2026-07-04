@@ -98,29 +98,46 @@
     }
 
     function bubble(c) {
-      var b = el('div', 'lesson-comment-bubble' + (c.deleted ? ' is-deleted' : ''));
+      var cls = 'lesson-comment-bubble' + (c.deleted ? ' is-deleted' : '')
+        + (c.hidden ? ' is-hidden' : '');
+      var b = el('div', cls);
       b.appendChild(el('span', 'lesson-comment-author',
         c.deleted ? 'Người dùng' : (c.authorName || 'Người dùng')));
       if (c.lecturer && !c.deleted) b.appendChild(el('span', 'lesson-comment-badge', 'GV'));
+      // Only a moderator ever receives a hidden row; flag it so intent is clear.
+      if (c.hidden) b.appendChild(el('span', 'lesson-comment-hidden-tag', 'Đã ẩn'));
       var body = el('div', 'lesson-comment-body',
         c.deleted ? '[Bình luận đã bị xoá]' : c.content);
       b.appendChild(body);
       return { bubble: b, body: body };
     }
 
+    // Appends the relative-time label (with edited marker) when parseable.
+    function appendTime(c, row) {
+      var d = new Date(c.createdAt);
+      if (isNaN(d.getTime())) return;
+      var time = el('span', 'lesson-comment-time',
+        relativeTime(d) + (c.edited ? ' · đã chỉnh sửa' : ''));
+      time.title = absoluteTime(d);
+      row.appendChild(time);
+    }
+
     function actionRow(c, node, body) {
       var row = el('div', 'lesson-comment-actions');
+      if (c.hidden) {
+        // Hidden node (moderator view only): offer just the unhide control.
+        if (c.canModerate) {
+          row.appendChild(actionButton('Mở lại', false, function () { confirmModerate(c, row, false); }));
+        }
+        appendTime(c, row);
+        return row;
+      }
       // Reply is offered on every level; the API clamps nesting back to 3.
       row.appendChild(actionButton('Trả lời', false, function () { openReply(c, node); }));
       if (c.canEdit) row.appendChild(actionButton('Sửa', false, function () { startEdit(c, body); }));
       if (c.canDelete) row.appendChild(actionButton('Xoá', true, function () { confirmDelete(c, row); }));
-      var d = new Date(c.createdAt);
-      if (!isNaN(d.getTime())) {
-        var time = el('span', 'lesson-comment-time',
-          relativeTime(d) + (c.edited ? ' · đã chỉnh sửa' : ''));
-        time.title = absoluteTime(d);
-        row.appendChild(time);
-      }
+      if (c.canModerate) row.appendChild(actionButton('Ẩn', false, function () { confirmModerate(c, row, true); }));
+      appendTime(c, row);
       return row;
     }
 
@@ -198,6 +215,20 @@
       row.appendChild(el('span', 'lesson-comment-time', 'Xoá bình luận này?'));
       row.appendChild(actionButton('Xoá', true, function () {
         mutate(api('DELETE', base + '/' + c.id), 'Đã xoá bình luận');
+      }));
+      row.appendChild(actionButton('Huỷ', false, function () { reload(); }));
+    }
+
+    // Inline confirm for moderator hide/unhide; hide=true → Ẩn, false → Mở lại.
+    function confirmModerate(c, row, hide) {
+      var prompt = hide ? 'Ẩn bình luận này?' : 'Hiện lại bình luận này?';
+      var label = hide ? 'Ẩn' : 'Mở lại';
+      var okMsg = hide ? 'Đã ẩn bình luận' : 'Đã hiện lại bình luận';
+      var path = hide ? '/hide' : '/unhide';
+      row.textContent = '';
+      row.appendChild(el('span', 'lesson-comment-time', prompt));
+      row.appendChild(actionButton(label, hide, function () {
+        mutate(api('POST', base + '/' + c.id + path), okMsg);
       }));
       row.appendChild(actionButton('Huỷ', false, function () { reload(); }));
     }
