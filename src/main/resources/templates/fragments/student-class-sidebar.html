@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Fragment: classSidebar(active, classId, className, classCode, lecturerName,
+                         progressSlot, extrasSlot)
+  Shared left sidebar for the student class shell (lessons + tests pages).
+
+  active       — which nav item to highlight: 'lessons' or 'tests'.
+  classId      — used to build the class-scoped nav hrefs.
+  className    — class name shown in the info card.
+  classCode    — class code shown in the info card.
+  lecturerName — lecturer full name, or null to hide the line.
+  progressSlot — fragment expression rendered inside the class card (lessons
+                 passes its progress bar; tests passes the no-op ~{}).
+  extrasSlot   — fragment expression rendered between the nav and the leave
+                 foot (lessons passes shared decks + chapter switcher; tests
+                 passes ~{}). th:replace on a ~{} expression renders nothing.
+
+  Requires app-shell.css + student-lessons.css (owns .student-lessons-sidebar*).
+-->
+<aside th:fragment="classSidebar(active, classId, className, classCode, lecturerName, progressSlot, extrasSlot)"
+       class="student-lessons-sidebar">
+  <div class="student-lessons-class-card">
+    <p class="student-lessons-class-name" th:text="${className}">Tên lớp</p>
+    <p class="student-lessons-class-code">
+      Mã lớp: <b th:text="${classCode}">NILXM</b>
+    </p>
+    <p class="student-lessons-class-lecturer"
+       th:if="${lecturerName != null}">
+      Giảng viên: <b th:text="${lecturerName}">Giảng viên</b>
+    </p>
+    <th:block th:replace="${progressSlot}"></th:block>
+  </div>
+
+  <!-- Class-level nav. "Bài giảng" + "Bài test" are wired; the rest render
+       disabled until their student views ship. -->
+  <div>
+    <p class="student-lessons-sidebar-title">Danh mục</p>
+    <ul class="student-lessons-nav">
+      <li>
+        <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Bảng tin
+        </span>
+      </li>
+      <li>
+        <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Lịch học
+        </span>
+      </li>
+      <li>
+        <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Thành viên
+        </span>
+      </li>
+      <li>
+        <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+          Nhóm học tập
+        </span>
+      </li>
+      <li>
+        <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Bài tập
+        </span>
+      </li>
+      <li>
+        <a class="student-lessons-nav-item"
+           th:classappend="${active == 'lessons'} ? ' is-active'"
+           th:attrappend="aria-current=${active == 'lessons'} ? 'page'"
+           th:href="@{|/my/classes/${classId}/lessons|}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          Bài giảng
+        </a>
+      </li>
+      <li>
+        <a class="student-lessons-nav-item"
+           th:classappend="${active == 'tests'} ? ' is-active'"
+           th:attrappend="aria-current=${active == 'tests'} ? 'page'"
+           th:href="@{|/my/classes/${classId}/tests|}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+          Bài test
+        </a>
+      </li>
+      <li>
+        <span class="student-lessons-nav-item is-disabled" aria-disabled="true" title="Sắp có">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Tài liệu
+        </span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Lessons-only extras (shared decks + chapter switcher) inject here. -->
+  <th:block th:replace="${extrasSlot}"></th:block>
+
+  <!-- Leave class — reuses the confirm-modal + hidden-form pattern. -->
+  <div class="student-lessons-sidebar-foot">
+    <button type="button" class="student-lessons-leave"
+            data-action="leave-class"
+            th:attr="data-class-id=${classId},data-class-name=${className}">
+      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Rời khỏi lớp này
+    </button>
+    <form th:id="'leave-form-' + ${classId}"
+          th:action="@{|/my/classes/${classId}/leave|}"
+          method="post" class="leave-form" style="display:none;">
+    </form>
+  </div>
+</aside>
+</html>

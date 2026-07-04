@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${view.className()} + ' — Bài test', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-class-tests.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+
+<main class="student-lessons-shell">
+  <!-- Top bar with back link + class name (mirrors the lessons page). -->
+  <div class="student-lessons-header">
+    <a th:href="@{/my/classes}" class="student-lessons-back">
+      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           width="16" height="16">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Quay lại lớp của tôi
+    </a>
+    <h1 class="student-lessons-title" th:text="${view.className()}">Tên lớp</h1>
+  </div>
+
+  <!-- 2-column layout: shared class sidebar (left) + tests panel (right). -->
+  <div class="student-class-tests-grid">
+    <!-- LEFT SIDEBAR: shared class shell sidebar, 'tests' tab active. No
+         progress bar or lessons-only extras, so both slots are the no-op ~{}. -->
+    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('tests', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
+
+    <!-- MAIN: search toolbar + test cards + pager. -->
+    <section class="student-lessons-main">
+      <div class="tst-toolbar">
+        <h2 class="tst-page-title">Bài test</h2>
+        <form class="tst-search" method="get" th:action="@{|/my/classes/${view.classId()}/tests|}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>
+          </svg>
+          <input type="text" name="q" th:value="${view.query()}"
+                 placeholder="Tìm bài test theo tên" aria-label="Tìm bài test">
+        </form>
+      </div>
+
+      <!-- Empty state: distinguishes "no match for search" from "class has none". -->
+      <div class="tst-empty" th:if="${view.exams().totalElements == 0}">
+        <span th:if="${#strings.isEmpty(view.query())}">Lớp này chưa có bài test nào.</span>
+        <span th:unless="${#strings.isEmpty(view.query())}"
+              th:text="'Không tìm thấy bài test nào khớp với &quot;' + ${view.query()} + '&quot;.'">Không tìm thấy</span>
+      </div>
+
+      <div class="tst-grid" th:if="${view.exams().totalElements > 0}">
+        <a th:each="exam : ${view.exams().content}" class="tst-card"
+           th:href="@{|/my/tests/${exam.id()}/take|}">
+          <div class="tst-card-body">
+            <span class="tst-badge" th:classappend="'tst-badge-' + ${exam.type()}"
+                  th:text="${exam.type()}">MOCK</span>
+            <h3 class="tst-card-title" th:text="${exam.title()}">Tên bài test</h3>
+          </div>
+          <div class="tst-card-foot">
+            <span class="tst-meta" th:text="${exam.totalQuestions()} + ' câu'">0 câu</span>
+            <span class="tst-meta" th:if="${exam.durationMinutes() != null}"
+                  th:text="${exam.durationMinutes()} + ' phút'">30 phút</span>
+            <span class="tst-meta tst-meta-done" th:if="${exam.bestScorePercent() != null}"
+                  th:text="'Điểm cao nhất: ' + ${exam.bestScorePercent()} + '%'">Điểm cao nhất</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Shared SSR numbered pager; preserves ?q via the params map. -->
+      <div th:replace="~{fragments/pager :: pager(${view.exams()}, |/my/classes/${view.classId()}/tests|, ${params})}"></div>
+    </section>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

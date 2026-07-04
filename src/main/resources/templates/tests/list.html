@@ -1,5 +1,6 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head('Bài test', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
@@ -16,8 +17,8 @@
   <div class="tst-toolbar">
     <h1 class="tst-page-title">Bài test</h1>
     <div class="tst-toolbar-actions">
-      <a class="tst-btn" th:href="@{/my/tests/readiness}">Mức độ sẵn sàng</a>
-      <a class="tst-btn tst-btn-primary" th:href="@{/my/tests/practice/new}">Tạo bài luyện tập</a>
+      <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
+         class="tst-btn tst-btn-primary" th:href="@{/my/tests/practice/new}">Tạo bài luyện tập</a>
     </div>
   </div>
 
