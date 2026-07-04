@@ -13,8 +13,13 @@
      collapses to a single centred column (rv-no-sidebar). -->
 <div class="class-detail-layout"
      th:classappend="${!review.lecturerView() or clazz == null} ? 'rv-no-sidebar'">
-  <aside th:if="${review.lecturerView() and clazz != null}"
-         th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'tests')}"></aside>
+  <!-- th:if must live on an OUTER element, not the same tag as th:replace:
+       th:replace has higher precedence and would resolve the fragment even
+       when the condition is false, calling classSidebar(null) on the student
+       view (no clazz in model) and crashing. The th:block gate prevents that. -->
+  <th:block th:if="${review.lecturerView() and clazz != null}">
+    <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'tests')}"></aside>
+  </th:block>
 
   <main class="col rv-page">
   <div class="rv-back">

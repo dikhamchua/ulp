@@ -285,6 +285,7 @@ public interface IConstant {
     String VIEW_TEST_READINESS     = "tests/readiness";
     String VIEW_TEST_LECTURER_LIST = "tests/lecturer-list";
     String VIEW_TEST_LECTURER_FORM = "tests/lecturer-form";
+    String VIEW_STUDENT_CLASS_TESTS = "student/class-tests";
 
     // Model attribute keys.
     String ATTR_EXAMS_PAGE   = "examsPage";

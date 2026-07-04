@@ -38,4 +38,13 @@ public interface TestRepository extends JpaRepository<Test, Long> {
 
     /** Exams belonging to a single class (class-detail "Bài test" tab). */
     Page<Test> findByClassId(Long classId, Pageable pageable);
+
+    /**
+     * Published exams in a single class whose title contains {@code title}
+     * (case-insensitive), newest-updated first. Backs the class-scoped student
+     * tests page ({@code GET /my/classes/{classId}/tests}); an empty title
+     * matches everything.
+     */
+    Page<Test> findByClassIdAndStatusAndTitleContainingIgnoreCaseOrderByUpdatedAtDesc(
+            Long classId, String status, String title, Pageable pageable);
 }

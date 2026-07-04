@@ -30,6 +30,16 @@ public final class TestDtos {
     public record StudentExamList(Page<ExamListRow> exams) {
     }
 
+    /**
+     * Class-scoped student tests view ({@code GET /my/classes/{classId}/tests}):
+     * class metadata for the shared sidebar plus the paginated, title-filtered
+     * PUBLISHED exams of that one class.
+     */
+    public record ClassTestsView(Long classId, String className, String classCode,
+                                 String lecturerName, String query,
+                                 Page<ExamListRow> exams) {
+    }
+
     // ── Taking screen ────────────────────────────────────────────────
 
     /** An option as shown while taking (never carries is_correct). */

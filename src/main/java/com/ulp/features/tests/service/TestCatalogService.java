@@ -1,13 +1,20 @@
 package com.ulp.features.tests.service;
 
 import com.ulp.entities.ClassEntity;
+import com.ulp.entities.Enrollment;
+import com.ulp.entities.User;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
+import com.ulp.features.classes.repository.EnrollmentRepository;
+import com.ulp.features.tests.dto.TestDtos.ClassTestsView;
 import com.ulp.features.tests.dto.TestDtos.ExamListRow;
 import com.ulp.features.tests.dto.TestDtos.StudentExamList;
 import com.ulp.features.tests.entity.Test;
 import com.ulp.features.tests.entity.TestAttempt;
 import com.ulp.features.tests.repository.TestAttemptRepository;
+import com.ulp.features.tests.repository.TestRepository;
 import com.ulp.features.tests.support.TestAccessQueries;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -30,13 +37,22 @@ public class TestCatalogService {
     private final TestAccessQueries accessQueries;
     private final TestAttemptRepository attemptRepository;
     private final ClassRepository classRepository;
+    private final TestRepository testRepository;
+    private final EnrollmentRepository enrollmentRepository;
+    private final UserRepository userRepository;
 
     public TestCatalogService(TestAccessQueries accessQueries,
                               TestAttemptRepository attemptRepository,
-                              ClassRepository classRepository) {
+                              ClassRepository classRepository,
+                              TestRepository testRepository,
+                              EnrollmentRepository enrollmentRepository,
+                              UserRepository userRepository) {
         this.accessQueries = accessQueries;
         this.attemptRepository = attemptRepository;
         this.classRepository = classRepository;
+        this.testRepository = testRepository;
+        this.enrollmentRepository = enrollmentRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -62,6 +78,39 @@ public class TestCatalogService {
         int to = Math.min(from + DEFAULT_EXAM_PAGE_SIZE, rows.size());
         Page<ExamListRow> examsPage = new PageImpl<>(rows.subList(from, to), pageable, rows.size());
         return new StudentExamList(examsPage);
+    }
+
+    /**
+     * One SSR page of a single class's PUBLISHED exams, title-filtered, for the
+     * class-scoped student tests page ({@code GET /my/classes/{classId}/tests}).
+     * Gates on ACTIVE enrollment first (same 404-no-leak policy as lessons), then
+     * returns class metadata for the shared sidebar plus the paginated rows.
+     */
+    @Transactional(readOnly = true)
+    public ClassTestsView listClassTests(Long classId, Long userId, String query, int page) {
+        // Gate 1 — enrollment must be ACTIVE (else 404, no existence leak).
+        enrollmentRepository.findByUserIdAndClassId(userId, classId)
+                .filter(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lớp hoặc bạn không có quyền truy cập"));
+        // Gate 2 — class must be live (soft-deletes filtered by @SQLRestriction).
+        ClassEntity clazz = classRepository.findById(classId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lớp hoặc bạn không có quyền truy cập"));
+
+        String normalized = query == null ? "" : query.trim();
+        int safePage = Math.max(page, 0);
+        PageRequest pageable = PageRequest.of(safePage, DEFAULT_EXAM_PAGE_SIZE);
+        Page<Test> examPage = testRepository
+                .findByClassIdAndStatusAndTitleContainingIgnoreCaseOrderByUpdatedAtDesc(
+                        classId, Test.STATUS_PUBLISHED, normalized, pageable);
+
+        Map<Long, List<TestAttempt>> attemptsByTest = attemptsByTest(userId, examPage.getContent());
+        Page<ExamListRow> rows = examPage.map(t -> toRow(t, clazz.getName(),
+                attemptsByTest.getOrDefault(t.getId(), List.of())));
+
+        String lecturerName = userRepository.findById(clazz.getLecturerId())
+                .map(User::getFullName).orElse(null);
+        return new ClassTestsView(clazz.getId(), clazz.getName(), clazz.getCode(),
+                lecturerName, normalized, rows);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────
