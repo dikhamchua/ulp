@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Mức độ sẵn sàng', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-readiness.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
+
+<main class="rd-page">
+  <div class="rd-hero">
+    <div class="rd-gauge"
+         th:classappend="${readiness.score() >= 80} ? 'rd-ready' : (${readiness.score() >= 50} ? 'rd-ok' : 'rd-low')">
+      <span class="rd-gauge-value" th:text="${readiness.score()}">0</span>
+      <span class="rd-gauge-unit">/100</span>
+    </div>
+    <div class="rd-hero-info">
+      <h1 class="rd-title">Mức độ sẵn sàng thi</h1>
+      <p class="rd-band" th:text="${readiness.band()}">Chưa sẵn sàng</p>
+      <p class="rd-sub"
+         th:text="'Đã làm ' + ${readiness.doneCount()} + '/' + ${readiness.totalCount()} + ' bài test'">
+        Đã làm 0/0 bài test</p>
+    </div>
+  </div>
+
+  <section class="rd-section">
+    <h2 class="rd-section-title">Các bài test tính vào điểm sẵn sàng</h2>
+    <div class="rd-empty" th:if="${#lists.isEmpty(readiness.exams())}">
+      Chưa có bài test MOCK/MODULE nào dành cho bạn.
+    </div>
+    <ul class="rd-list" th:unless="${#lists.isEmpty(readiness.exams())}">
+      <li class="rd-row" th:each="exam : ${readiness.exams()}"
+          th:classappend="${exam.done()} ? 'rd-row-done' : 'rd-row-todo'">
+        <span class="rd-row-title" th:text="${exam.title()}">Tên bài test</span>
+        <span class="rd-row-status" th:if="${exam.done()}"
+              th:text="${exam.bestScorePercent()} + '%'">0%</span>
+        <span class="rd-row-status rd-row-todo-tag" th:unless="${exam.done()}">Chưa làm</span>
+      </li>
+    </ul>
+  </section>
+
+  <div class="rd-actions">
+    <a class="tst-btn" th:href="@{/my/tests}">Về danh sách</a>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

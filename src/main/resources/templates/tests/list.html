@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Bài test', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError},data-flash-info=${flashInfo}"
+      style="display:none;"></span>
+
+<main class="tst-page">
+  <div class="tst-toolbar">
+    <h1 class="tst-page-title">Bài test</h1>
+    <div class="tst-toolbar-actions">
+      <a class="tst-btn" th:href="@{/my/tests/readiness}">Mức độ sẵn sàng</a>
+      <a class="tst-btn tst-btn-primary" th:href="@{/my/tests/practice/new}">Tạo bài luyện tập</a>
+    </div>
+  </div>
+
+  <section class="tst-section">
+    <div class="tst-empty" th:if="${examsPage.totalElements == 0}">
+      Chưa có bài test nào dành cho bạn.
+    </div>
+
+    <div class="tst-grid" th:if="${examsPage.totalElements > 0}">
+      <a th:each="exam : ${examsPage.content}" class="tst-card"
+         th:href="@{|/my/tests/${exam.id()}/take|}">
+        <div class="tst-card-body">
+          <span class="tst-badge" th:classappend="'tst-badge-' + ${exam.type()}"
+                th:text="${exam.type()}">MOCK</span>
+          <span class="tst-badge tst-badge-practice" th:if="${exam.practice()}">Luyện tập</span>
+          <h3 class="tst-card-title" th:text="${exam.title()}">Tên bài test</h3>
+          <p class="tst-card-class" th:if="${exam.className() != null}"
+             th:text="${exam.className()}">Lớp</p>
+        </div>
+        <div class="tst-card-foot">
+          <span class="tst-meta" th:text="${exam.totalQuestions()} + ' câu'">0 câu</span>
+          <span class="tst-meta" th:if="${exam.durationMinutes() != null}"
+                th:text="${exam.durationMinutes()} + ' phút'">30 phút</span>
+          <span class="tst-meta tst-meta-done" th:if="${exam.bestScorePercent() != null}"
+                th:text="'Điểm cao nhất: ' + ${exam.bestScorePercent()} + '%'">Điểm cao nhất</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- Shared SSR numbered pager; no filters to preserve → params null. -->
+    <div th:replace="~{fragments/pager :: pager(${examsPage}, '/my/tests', null)}"></div>
+  </section>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+</body>
+</html>

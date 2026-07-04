@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Tạo bài luyện tập', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<main class="pr-page">
+  <div class="pr-card">
+    <h1 class="pr-title">Tạo bài luyện tập</h1>
+    <p class="pr-desc">
+      Hệ thống sẽ lấy ngẫu nhiên các câu hỏi trắc nghiệm từ những bài test bạn có
+      thể truy cập và tạo một bài luyện tập riêng của bạn.
+    </p>
+
+    <form id="prForm" method="post" th:action="@{/my/tests/practice}">
+      <div class="pr-field">
+        <label class="pr-label" for="prSourceClass">Theo lớp (tuỳ chọn)</label>
+        <select class="pr-input" id="prSourceClass" name="sourceClassId">
+          <option value="">— Tất cả lớp —</option>
+          <option th:each="c : ${practice.classes()}" th:value="${c.id()}"
+                  th:text="${c.label()}">Lớp</option>
+        </select>
+      </div>
+
+      <div class="pr-field">
+        <label class="pr-label" for="prSourceTest">Theo một bài test cụ thể (tuỳ chọn)</label>
+        <select class="pr-input" id="prSourceTest" name="sourceTestId">
+          <option value="">— Không chọn —</option>
+          <option th:each="e : ${practice.exams()}" th:value="${e.id()}"
+                  th:text="${e.label()}">Bài test</option>
+        </select>
+        <small class="pr-hint">Nếu chọn một bài test, phạm vi theo lớp sẽ bị bỏ qua.</small>
+      </div>
+
+      <div class="pr-field">
+        <label class="pr-label" for="prCount">Số câu hỏi</label>
+        <input class="pr-input" id="prCount" name="count" type="number" min="1" max="50" value="10">
+      </div>
+
+      <div class="pr-actions">
+        <a class="tst-btn" th:href="@{/my/tests}">Huỷ</a>
+        <button type="submit" class="tst-btn tst-btn-primary">Tạo bài luyện tập</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/test-practice.js}"></script>
+</body>
+</html>

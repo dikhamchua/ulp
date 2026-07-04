@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Làm bài', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-take.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
+
+<main class="tk-page">
+  <div class="tk-bar">
+    <h1 class="tk-title" th:text="${take.title()}">Bài test</h1>
+    <div class="tk-timer" id="tkTimer" th:classappend="${take.remainingSeconds() < 0} ? 'is-hidden'">
+      <span class="tk-timer-label">Thời gian còn lại</span>
+      <span class="tk-timer-value" id="tkTimerValue">--:--</span>
+    </div>
+  </div>
+
+  <form id="tkForm"
+        th:attr="data-attempt-id=${take.attemptId()},
+                 data-remaining=${take.remainingSeconds()},
+                 data-time-mode=${take.timeMode()},
+                 data-submit-url=@{|/api/tests/attempts/${take.attemptId()}/submit|},
+                 data-heartbeat-url=@{|/api/tests/attempts/${take.attemptId()}/heartbeat|},
+                 data-result-base=@{|/my/tests/${take.testId()}/result|}">
+
+    <div class="tk-empty" th:if="${#lists.isEmpty(take.questions())}">
+      Bài test này chưa có câu hỏi.
+    </div>
+
+    <ol class="tk-questions">
+      <li class="tk-question" th:each="q, qi : ${take.questions()}"
+          th:attr="data-qid=${q.id()},data-type=${q.type()}">
+        <div class="tk-q-head">
+          <span class="tk-q-index" th:text="'Câu ' + ${qi.count}">Câu 1</span>
+          <span class="tk-q-type" th:text="${q.type() == 'MR'} ? 'Chọn nhiều đáp án' : 'Chọn một đáp án'">Loại</span>
+          <span class="tk-q-points" th:text="${q.points()} + ' điểm'">1 điểm</span>
+        </div>
+        <p class="tk-q-content" th:text="${q.content()}">Nội dung câu hỏi</p>
+        <ul class="tk-options">
+          <li class="tk-option" th:each="opt : ${q.options()}">
+            <label class="tk-option-label">
+              <input th:type="${q.type() == 'MR'} ? 'checkbox' : 'radio'"
+                     th:name="'q_' + ${q.id()}" th:value="${opt.id()}"
+                     class="tk-option-input">
+              <span class="tk-option-text" th:text="${opt.content()}">Đáp án</span>
+            </label>
+          </li>
+        </ul>
+      </li>
+    </ol>
+
+    <div class="tk-actions">
+      <button type="submit" class="tst-btn tst-btn-primary" id="tkSubmit">Nộp bài</button>
+    </div>
+  </form>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/test-take.js}"></script>
+</body>
+</html>

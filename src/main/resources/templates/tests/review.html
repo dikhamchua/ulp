@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Xem lại bài làm', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-result.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<!-- Lecturer view mirrors the class-detail layout: class sidebar on the left,
+     review body on the right. Student view has no class context, so the layout
+     collapses to a single centred column (rv-no-sidebar). -->
+<div class="class-detail-layout"
+     th:classappend="${!review.lecturerView() or clazz == null} ? 'rv-no-sidebar'">
+  <aside th:if="${review.lecturerView() and clazz != null}"
+         th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'tests')}"></aside>
+
+  <main class="col rv-page">
+  <div class="rv-back">
+    <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="@{/my/tests}">Quay lại</a>
+    <a class="tst-btn" th:if="${review.lecturerView()}"
+       th:href="@{|/lecturer/tests/${review.testId()}/submissions|}">Quay lại</a>
+  </div>
+
+  <div class="rv-bar">
+    <div>
+      <h1 class="rv-title" th:text="${review.title()}">Bài test</h1>
+      <p class="rv-sub" th:if="${review.lecturerView()}"
+         th:text="'Sinh viên: ' + ${review.studentName()}">Sinh viên</p>
+    </div>
+    <span class="rv-score"
+          th:text="${review.correctCount()} + '/' + ${review.totalQuestions()} + ' câu đúng'">0/0</span>
+  </div>
+
+  <ol class="rv-questions">
+    <li class="rv-question" th:each="q, qi : ${review.questions()}"
+        th:classappend="${q.correct()} ? 'rv-correct' : 'rv-incorrect'">
+      <div class="rv-q-head">
+        <span class="rv-q-index" th:text="'Câu ' + ${qi.count}">Câu 1</span>
+        <span class="rv-q-flag" th:text="${q.correct()} ? 'Đúng' : 'Sai'">Đúng</span>
+      </div>
+      <p class="rv-q-content" th:text="${q.content()}">Nội dung câu hỏi</p>
+      <ul class="rv-options">
+        <li class="rv-option" th:each="opt : ${q.options()}"
+            th:classappend="(${opt.correct()} ? ' is-correct' : '') + (${opt.selected()} ? ' is-selected' : '')">
+          <span class="rv-option-mark" th:if="${opt.correct()}">✓</span>
+          <span class="rv-option-mark rv-option-wrong"
+                th:if="${opt.selected() and !opt.correct()}">✗</span>
+          <span class="rv-option-text" th:text="${opt.content()}">Đáp án</span>
+          <span class="rv-option-tag" th:if="${opt.selected()}">Bạn chọn</span>
+        </li>
+      </ul>
+      <p class="rv-explanation" th:if="${q.explanation() != null}"
+         th:text="'Giải thích: ' + ${q.explanation()}">Giải thích</p>
+    </li>
+  </ol>
+
+  <div class="rv-actions">
+    <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="@{/my/tests}">Về danh sách</a>
+    <a class="tst-btn" th:if="${review.lecturerView()}"
+       th:href="@{|/lecturer/tests/${review.testId()}/submissions|}">Về danh sách bài nộp</a>
+  </div>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

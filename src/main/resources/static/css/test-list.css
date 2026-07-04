@@ -1,0 +1,61 @@
+/* Exam list / lecturer list / practice-new (Epic #11). Vanilla CSS. */
+
+.tst-page, .pr-page { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+
+.tst-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; }
+.tst-toolbar-actions { display: flex; gap: 8px; }
+.tst-page-title { font-size: 24px; font-weight: 800; margin: 0; }
+
+/* Shared buttons + badges (used across the test-* pages). */
+.tst-btn {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border, #d0d7de);
+  background: #fff; color: #1f2328; font-weight: 600; font-size: 14px;
+  text-decoration: none; transition: background .15s, border-color .15s;
+}
+.tst-btn:hover { background: #f3f4f6; }
+.tst-btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+.tst-btn-primary:hover { background: #1d4ed8; }
+
+.tst-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; background: #eef2ff; color: #3730a3;
+}
+.tst-badge-MOCK { background: #fef3c7; color: #92400e; }
+.tst-badge-MODULE { background: #dbeafe; color: #1e40af; }
+.tst-badge-PRACTICE, .tst-badge-practice { background: #dcfce7; color: #166534; }
+
+/* Card grid (student list). */
+.tst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.tst-card {
+  display: flex; flex-direction: column; justify-content: space-between;
+  border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 16px;
+  background: #fff; text-decoration: none; color: inherit; min-height: 130px;
+  transition: box-shadow .15s, transform .15s;
+}
+.tst-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,.08); transform: translateY(-2px); }
+.tst-card-title { font-size: 16px; font-weight: 700; margin: 8px 0 4px; }
+.tst-card-class { font-size: 13px; color: #6b7280; margin: 0; }
+.tst-card-foot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tst-meta { font-size: 12px; color: #6b7280; }
+.tst-meta-done { color: #166534; font-weight: 600; }
+
+.tst-empty { padding: 40px; text-align: center; color: #6b7280;
+  border: 1px dashed var(--border, #d0d7de); border-radius: 12px; }
+
+/* Lecturer table. */
+.tst-table { width: 100%; border-collapse: collapse; background: #fff; }
+.tst-table th, .tst-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef0f2; font-size: 14px; }
+.tst-table th { color: #6b7280; font-weight: 600; }
+.tst-row-actions a { margin-right: 10px; color: #2563eb; text-decoration: none; }
+.tst-row-actions a:hover { text-decoration: underline; }
+
+/* Practice-new form. */
+.pr-card { background: #fff; border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 24px; }
+.pr-title { font-size: 22px; font-weight: 800; margin: 0 0 8px; }
+.pr-desc { color: #6b7280; margin: 0 0 20px; }
+.pr-field { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+.pr-label { font-weight: 600; font-size: 14px; }
+.pr-input { padding: 9px 12px; border: 1px solid var(--border, #d0d7de); border-radius: 8px; font-size: 14px; }
+.pr-hint { color: #9ca3af; font-size: 12px; }
+.pr-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }

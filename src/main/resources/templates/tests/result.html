@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Kết quả', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-result.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
+
+<main class="rs-page">
+  <div class="rs-card">
+    <h1 class="rs-title" th:text="${result.title()}">Bài test</h1>
+
+    <div class="rs-verdict" th:if="${result.hasThreshold()}"
+         th:classappend="${result.passed()} ? 'rs-pass' : 'rs-fail'"
+         th:text="${result.passed()} ? 'Đạt' : 'Chưa đạt'">Đạt</div>
+    <div class="rs-verdict rs-none" th:unless="${result.hasThreshold()}">Không có ngưỡng đạt</div>
+
+    <div class="rs-badge rs-timeout" th:if="${result.status() == 'TIMED_OUT'}">
+      Bài được nộp khi hết giờ
+    </div>
+
+    <div class="rs-stats">
+      <div class="rs-stat">
+        <span class="rs-stat-value" th:text="${result.score()} + ' / ' + ${result.totalPoints()}">0 / 0</span>
+        <span class="rs-stat-label">Điểm</span>
+      </div>
+      <div class="rs-stat">
+        <span class="rs-stat-value" th:text="${result.correctCount()} + ' / ' + ${result.totalQuestions()}">0 / 0</span>
+        <span class="rs-stat-label">Câu đúng</span>
+      </div>
+      <div class="rs-stat">
+        <span class="rs-stat-value" th:text="${result.timeSpentSeconds()} + ' giây'">0 giây</span>
+        <span class="rs-stat-label">Thời gian làm</span>
+      </div>
+    </div>
+
+    <div class="rs-actions">
+      <a class="tst-btn" th:href="@{/my/tests}">Về danh sách</a>
+      <a class="tst-btn tst-btn-primary"
+         th:href="@{|/my/tests/${result.testId()}/review/${result.attemptId()}|}">Xem lại bài làm</a>
+    </div>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
