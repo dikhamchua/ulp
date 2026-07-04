@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Fragment: thread(conversation)
+  Renders one open conversation: peer header, chronological message bubbles
+  (with SSR message pager), and the composer form. Included by messaging/index.html.
+
+  conversation — a MessagingDtos.ConversationView:
+    convId, peerId, peerName, peerAvatarUrl, messages (Page<MessageRow>).
+
+  Data attributes wire messaging.js (loaded app-wide from the header fragment):
+    data-msg-thread + data-conv-id      → identify the open thread
+    data-msg-list                       → scroll container for bubbles
+    data-msg-composer / -input / -send  → the fetch-enhanced form
+    data-msg-error                      → inline send-error slot
+-->
+<body>
+<div th:fragment="thread(conversation)" class="msg-thread"
+     data-msg-thread th:attr="data-conv-id=${conversation.convId()}">
+
+  <!-- Peer header with a back link (mobile returns to the list). -->
+  <header class="msg-thread-head">
+    <a th:href="@{/my/messages}" class="msg-back" aria-label="Quay lại danh sách">
+      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <span class="msg-avatar" th:if="${conversation.peerAvatarUrl() == null}"
+          th:text="${#strings.isEmpty(conversation.peerName()) ? '?' : conversation.peerName().substring(0,1)}">A</span>
+    <img class="msg-avatar" th:unless="${conversation.peerAvatarUrl() == null}"
+         th:src="${conversation.peerAvatarUrl()}" alt="" />
+    <span class="msg-thread-name" th:text="${conversation.peerName()}">Tên</span>
+  </header>
+
+  <!-- Message pager (older pages). Kept above the list so newest stays at the
+       bottom, nearest the composer. Preserves no extra params. -->
+  <div class="msg-pager-top"
+       th:replace="~{fragments/pager :: pager(${conversation.messages()}, |/my/messages/${conversation.convId()}|, ${params})}"></div>
+
+  <!-- Chronological bubbles: mine=right, peer=left. -->
+  <div class="msg-list" data-msg-list>
+    <div class="msg-empty" data-msg-empty th:if="${conversation.messages().totalElements == 0}">
+      Chưa có tin nhắn. Hãy gửi lời chào đầu tiên.
+    </div>
+    <div th:each="m : ${conversation.messages().content}"
+         class="msg-bubble-row" th:classappend="${m.mine()} ? 'is-mine' : 'is-peer'">
+      <div class="msg-bubble" th:text="${m.body()}">Nội dung tin nhắn</div>
+    </div>
+  </div>
+
+  <!-- Composer: posts to the same conversation URL. messaging.js intercepts
+       with fetch when JS is on; without JS this is a plain form POST → redirect. -->
+  <form class="msg-composer" method="post"
+        th:action="@{|/my/messages/${conversation.convId()}|}"
+        data-msg-composer>
+    <p class="msg-composer-error" data-msg-error hidden></p>
+    <div class="msg-composer-row">
+      <textarea name="body" class="msg-composer-input" data-msg-input
+                maxlength="2000" rows="1" required
+                placeholder="Nhập tin nhắn..." aria-label="Nội dung tin nhắn"></textarea>
+      <button type="submit" class="msg-composer-send" data-msg-send aria-label="Gửi">
+        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </form>
+</div>
+</body>
+</html>

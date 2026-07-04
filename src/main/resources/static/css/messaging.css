@@ -1,0 +1,424 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Direct messaging (Epic #13, ULP-8.3 + ULP-8.4)
+   Messenger-style two-column layout: conversation list (left) + thread (right).
+   Mirrors the class-tests / student-lessons breakpoints already in the project.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Header chat icon + unread badge styles live in app-shell.css (rendered on
+   every page); this file styles only the messaging page itself. */
+
+/* ── Page shell ──────────────────────────────────────────────────────────── */
+/* Full-bleed like the class tests/lessons pages: the list acts as the left
+   sidebar flush to the edge, not a centered card. */
+.msg-shell {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+/* The big page title is redundant with the header chat icon; the thread pane
+   already labels the open conversation. Kept in the DOM for screen readers. */
+.msg-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Two-column grid: sidebar + main pane, filling the viewport under the header. */
+.msg-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+  height: calc(100vh - var(--header-height, 64px));
+  min-height: 480px;
+  background: #fff;
+}
+
+/* ── Left: conversation list ─────────────────────────────────────────────── */
+.msg-list-pane {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border, #e5e7eb);
+  min-height: 0;
+}
+.msg-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  font-weight: 700;
+  font-size: 15px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+
+/* "New conversation" entry point in the list header. */
+.msg-compose-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color .12s ease;
+}
+.msg-compose-btn:hover,
+.msg-compose-btn.is-active {
+  background: #e0e7ff;
+}
+.msg-compose-btn .ico-sm {
+  width: 16px;
+  height: 16px;
+}
+.msg-conv-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+.msg-conv {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color .12s ease;
+}
+.msg-conv:hover {
+  background: #f9fafb;
+}
+.msg-conv.is-active {
+  background: #eef2ff;
+}
+.msg-avatar {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e5e7eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+.msg-conv-body {
+  flex: 1;
+  min-width: 0;
+}
+.msg-conv-name {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msg-conv-snippet {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msg-conv-meta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.msg-unread-pill {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ── Right: thread pane ──────────────────────────────────────────────────── */
+.msg-thread-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* The thread fills the pane as a flex column so .msg-list can flex-scroll and
+   the composer stays pinned to the bottom (scroll-to-bottom = newest message). */
+.msg-thread {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.msg-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  font-weight: 700;
+}
+.msg-thread-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msg-back {
+  display: inline-flex;
+  align-items: center;
+  color: #6b7280;
+  text-decoration: none;
+}
+.msg-back:hover {
+  color: #111827;
+}
+.msg-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  background: #f9fafb;
+}
+.msg-bubble-row {
+  display: flex;
+}
+.msg-bubble-row.is-mine {
+  justify-content: flex-end;
+}
+.msg-bubble-row.is-peer {
+  justify-content: flex-start;
+}
+.msg-bubble {
+  max-width: 70%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.is-mine .msg-bubble {
+  background: #4f46e5;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.is-peer .msg-bubble {
+  background: #fff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  border-bottom-left-radius: 4px;
+}
+
+/* ── Composer (sticky bottom) ────────────────────────────────────────────── */
+.msg-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border, #e5e7eb);
+  background: #fff;
+}
+.msg-composer-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.msg-composer textarea {
+  flex: 1;
+  resize: none;
+  min-height: 40px;
+  max-height: 120px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+}
+.msg-composer textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, .15);
+}
+.msg-composer-send {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #4f46e5;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .12s ease;
+}
+.msg-composer-send:hover {
+  background: #4338ca;
+}
+.msg-composer-send:disabled {
+  opacity: .6;
+  cursor: default;
+}
+.msg-composer-error {
+  color: #dc2626;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ── States: empty / loading / error ─────────────────────────────────────── */
+.msg-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 15px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* ── Compose: new-conversation button + recipient search ─────────────────── */
+.msg-compose-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: #fff;
+  color: #4f46e5;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.msg-compose-btn:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+.msg-compose-btn.is-active {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+/* The compose surface fills the thread pane like an open conversation. */
+.msg-compose {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.msg-compose-search {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+.msg-compose-search-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+}
+.msg-compose-search-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, .15);
+}
+.msg-compose-search-btn {
+  flex: 0 0 auto;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: #4f46e5;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .12s ease;
+}
+.msg-compose-search-btn:hover {
+  background: #4338ca;
+}
+.msg-compose-results {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+/* Each recipient is its own POST form; the button spans the full row. */
+.msg-recipient {
+  margin: 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.msg-recipient-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .12s ease;
+}
+.msg-recipient-btn:hover {
+  background: #f9fafb;
+}
+.msg-recipient-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.msg-recipient-name {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msg-recipient-email {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Responsive: stack to a single column on narrow screens ──────────────── */
+@media (max-width: 768px) {
+  .msg-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  /* When a conversation is open, hide the list to give the thread full width. */
+  .msg-grid.has-open .msg-list-pane {
+    display: none;
+  }
+  .msg-list {
+    min-height: 50vh;
+  }
+}

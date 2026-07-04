@@ -68,6 +68,27 @@
 .profile-card .avatar-row .info h2 { font-size: 18px; font-weight: 700; color: var(--heading); }
 .profile-card .avatar-row .info p { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
+/* ── Header chat icon + unread badge (messaging, Epic #13) ─────────────
+   Lives here (not messaging.css) so the badge is styled on EVERY page —
+   the header fragment renders app-wide but messaging.css loads only on the
+   messaging page. */
+.header-msg {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; margin-right: 8px;
+  border-radius: 10px; color: var(--heading, #1f2937);
+  transition: background-color .15s ease;
+}
+.header-msg:hover { background: rgba(0, 0, 0, .05); }
+.msg-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: #ef4444; color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 18px;
+  text-align: center; box-shadow: 0 0 0 2px #fff;
+}
+.msg-badge.is-hidden { display: none; }
+
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
   .nav { display: none; }

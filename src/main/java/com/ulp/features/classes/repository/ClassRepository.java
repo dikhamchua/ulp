@@ -4,7 +4,10 @@ import com.ulp.entities.ClassEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,4 +60,28 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      * with an explicit method on the repository for clarity.
      */
     Page<ClassEntity> findAllBy(Pageable pageable);
+
+    /**
+     * Returns the distinct lecturer ids that teach any of the given classes.
+     * Used by messaging's recipient gate to map a student's ACTIVE-enrollment
+     * classes to the lecturers eligible to be messaged. Soft-deleted classes are
+     * excluded by the entity's {@code @SQLRestriction}. Returns empty when
+     * {@code classIds} is empty.
+     *
+     * @param classIds the classes to resolve lecturers from
+     * @return distinct lecturer ids teaching those classes
+     */
+    @Query("SELECT DISTINCT c.lecturerId FROM ClassEntity c WHERE c.id IN :classIds")
+    List<Long> findLecturerIdsForClasses(@Param("classIds") Collection<Long> classIds);
+
+    /**
+     * Returns the distinct ids of (non-deleted) classes taught by the given
+     * lecturer. Used by messaging's recipient gate (lecturer → the students in
+     * their classes).
+     *
+     * @param lecturerId the lecturer's user id
+     * @return distinct class ids taught by that lecturer
+     */
+    @Query("SELECT c.id FROM ClassEntity c WHERE c.lecturerId = :lecturerId")
+    List<Long> findClassIdsForLecturer(@Param("lecturerId") Long lecturerId);
 }
