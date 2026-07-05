@@ -30,6 +30,21 @@
   </nav>
 
   <div class="header-right">
+    <!-- Bell icon + unread badge (hidden when 0). Count comes from the
+         notifUnreadCount model attribute supplied by NotificationHeaderAdvice on
+         every page; notifications.js polls to keep it current. -->
+    <a th:href="@{/my/notifications}" class="header-msg" title="Thông báo" aria-label="Thông báo"
+       data-notif-link>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      <span class="msg-badge" data-notif-badge
+            th:classappend="${(notifUnreadCount != null and notifUnreadCount > 0)} ? '' : 'is-hidden'"
+            th:text="${(notifUnreadCount != null and notifUnreadCount > 99) ? '99+' : notifUnreadCount}">0</span>
+    </a>
+
     <!-- Chat icon + unread badge (hidden when 0). Count comes from the
          msgUnreadCount model attribute supplied by MessagingHeaderAdvice on
          every page; messaging.js keeps it live over STOMP. -->

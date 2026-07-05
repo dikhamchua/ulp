@@ -1,0 +1,155 @@
+/* notifications.css — styles for /my/notifications inbox */
+
+/* ── Shell layout ─────────────────────────────────────────────── */
+.notif-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+.notif-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.notif-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary, #111);
+}
+
+/* ── Empty state ──────────────────────────────────────────────── */
+.notif-empty {
+  text-align: center;
+  padding: 4rem 1rem;
+  color: var(--text-muted, #888);
+}
+
+.notif-empty-ico {
+  width: 48px;
+  height: 48px;
+  stroke: var(--text-muted, #ccc);
+  margin-bottom: 1rem;
+}
+
+.notif-empty p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* ── List ─────────────────────────────────────────────────────── */
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.notif-item {
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: #fff;
+  transition: background 0.15s;
+}
+
+.notif-item:last-child {
+  border-bottom: none;
+}
+
+.notif-item--unread {
+  background: var(--notif-unread-bg, #f0f6ff);
+}
+
+.notif-item--unread:hover {
+  background: var(--notif-unread-hover, #e0edff);
+}
+
+.notif-item:not(.notif-item--unread):hover {
+  background: var(--hover-bg, #f9fafb);
+}
+
+/* ── Item button ─────────────────────────────────────────────── */
+.notif-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+/* ── Dot indicator ───────────────────────────────────────────── */
+.notif-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+  background: var(--primary, #2563eb);
+}
+
+.notif-dot--read {
+  background: transparent;
+}
+
+/* ── Body text ───────────────────────────────────────────────── */
+.notif-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.notif-item-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary, #111);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notif-item-content {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #555);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notif-item-time {
+  font-size: 0.78rem;
+  color: var(--text-muted, #999);
+  margin-top: 0.15rem;
+}
+
+/* ── Arrow icon ──────────────────────────────────────────────── */
+.notif-arrow {
+  flex-shrink: 0;
+  color: var(--text-muted, #ccc);
+  margin-top: 2px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .notif-shell {
+    padding: 1rem 0.5rem 3rem;
+  }
+
+  .notif-btn {
+    padding: 0.875rem 1rem;
+  }
+}

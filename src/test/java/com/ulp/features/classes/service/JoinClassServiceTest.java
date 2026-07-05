@@ -14,6 +14,7 @@ import com.ulp.features.classes.service.JoinClassService.JoinResult;
 import com.ulp.features.classes.service.JoinClassService.Success;
 import com.ulp.features.classes.service.invites.InviteCodeValidationException;
 import com.ulp.features.classes.service.invites.InviteRejectionReason;
+import com.ulp.features.notifications.service.NotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,7 @@ class JoinClassServiceTest {
     private ClassRepository classRepository;
     private ClassActivityWriter activityWriter;
     private UserRepository userRepository;
+    private NotificationService notificationService;
     private JoinClassService service;
 
     @BeforeEach
@@ -62,8 +64,9 @@ class JoinClassServiceTest {
         classRepository = mock(ClassRepository.class);
         activityWriter = mock(ClassActivityWriter.class);
         userRepository = mock(UserRepository.class);
+        notificationService = mock(NotificationService.class);
         service = new JoinClassService(inviteRepository, enrollmentRepository,
-                classRepository, activityWriter, userRepository);
+                classRepository, activityWriter, userRepository, notificationService);
     }
 
     // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ invalid token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

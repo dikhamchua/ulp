@@ -3,9 +3,12 @@ package com.ulp.features.lessons.service;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.LessonActivity;
 import com.ulp.entities.Section;
+import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.ClassesService;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
+import com.ulp.features.notifications.entity.NotificationType;
+import com.ulp.features.notifications.service.NotificationService;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
@@ -38,15 +41,21 @@ public class LessonsPublishService {
     private final SectionRepository sectionRepository;
     private final ClassesService classesService;
     private final LessonActivityWriter activityWriter;
+    private final EnrollmentRepository enrollmentRepository;
+    private final NotificationService notificationService;
 
     public LessonsPublishService(LessonRepository lessonRepository,
                                  SectionRepository sectionRepository,
                                  ClassesService classesService,
-                                 LessonActivityWriter activityWriter) {
+                                 LessonActivityWriter activityWriter,
+                                 EnrollmentRepository enrollmentRepository,
+                                 NotificationService notificationService) {
         this.lessonRepository = lessonRepository;
         this.sectionRepository = sectionRepository;
         this.classesService = classesService;
         this.activityWriter = activityWriter;
+        this.enrollmentRepository = enrollmentRepository;
+        this.notificationService = notificationService;
     }
 
     /** Publishes a lesson and writes a PUBLISHED activity. No-op when already published. */
@@ -64,6 +73,8 @@ public class LessonsPublishService {
                 LessonActivity.TYPE_PUBLISHED,
                 "Xuất bản bài giảng " + lesson.getTitle(),
                 userId);
+        // Fan-out: notify every active student in this class about the new lesson.
+        fanOutLessonPublished(classId, lesson);
     }
 
     /** Reverts a lesson to DRAFT and writes an UNPUBLISHED activity. No-op when already a draft. */
@@ -104,5 +115,33 @@ public class LessonsPublishService {
     private Lesson loadLesson(Long sectionId, Long lessonId) {
         return lessonRepository.findByIdAndSectionId(lessonId, sectionId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_LESSON_NOT_FOUND));
+    }
+
+    /**
+     * Creates a LESSON_PUBLISHED notification for every ACTIVE-enrolled student
+     * in the class. Best-effort: failures per student are swallowed so a bad
+     * email address cannot abort the rest of the fan-out.
+     */
+    private void fanOutLessonPublished(Long classId, Lesson lesson) {
+        try {
+            enrollmentRepository
+                    .findAllByClassIdAndStatusOrderByJoinedAtDesc(classId, "ACTIVE")
+                    .forEach(e -> {
+                        try {
+                            notificationService.create(
+                                    e.getUser().getId(),
+                                    "Bài giảng mới được xuất bản",
+                                    "Bài giảng \"" + lesson.getTitle() + "\" vừa được xuất bản.",
+                                    NotificationType.LESSON_PUBLISHED,
+                                    NotificationType.REF_LESSON,
+                                    lesson.getId()
+                            );
+                        } catch (Exception ignored) {
+                            // Failure for one student must not stop other notifications.
+                        }
+                    });
+        } catch (Exception ignored) {
+            // Fan-out failure must not roll back the publish transaction.
+        }
     }
 }

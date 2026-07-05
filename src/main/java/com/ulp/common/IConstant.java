@@ -326,6 +326,20 @@ public interface IConstant {
     int DEFAULT_EXAM_PAGE_SIZE        = 12;
     int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
 
+    // ───────── Notifications (Sprint 5, #63/#64) ─────────────────────
+    // Route prefix / canonical URL.
+    String BASE_MY_NOTIFICATIONS = "/my/notifications";
+
+    // View names.
+    String VIEW_NOTIFICATIONS_INDEX = "notifications/index";
+
+    // Model attribute keys.
+    String ATTR_NOTIFICATIONS   = "notifications";
+    String ATTR_NOTIF_UNREAD    = "notifUnreadCount";
+
+    // Flash messages (Vietnamese UI text).
+    String MSG_NOTIF_READ = "Đã đánh dấu đã đọc";
+
     // ───────── Direct messaging (Epic #13, ULP-8.3 + ULP-8.4) ────────
     // Route prefix / canonical URL.
     String BASE_MY_MESSAGES = "/my/messages";

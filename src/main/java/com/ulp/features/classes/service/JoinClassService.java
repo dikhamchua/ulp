@@ -10,6 +10,8 @@ import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.invites.InviteCodeValidationException;
 import com.ulp.features.classes.service.invites.InviteRejectionReason;
+import com.ulp.features.notifications.entity.NotificationType;
+import com.ulp.features.notifications.service.NotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,16 +47,19 @@ public class JoinClassService {
     private final UserRepository userRepository;
     private final JoinTokenValidator validator;
     private final JoinAuditWriter auditWriter;
+    private final NotificationService notificationService;
 
     public JoinClassService(ClassInviteCodeRepository inviteRepository,
                             EnrollmentRepository enrollmentRepository,
                             ClassRepository classRepository,
                             ClassActivityWriter activityWriter,
-                            UserRepository userRepository) {
+                            UserRepository userRepository,
+                            NotificationService notificationService) {
         this.inviteRepository = inviteRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
         this.validator = new JoinTokenValidator(inviteRepository, classRepository,
                 enrollmentRepository);
         this.auditWriter = new JoinAuditWriter(activityWriter);
@@ -115,6 +120,8 @@ public class JoinClassService {
         inviteRepository.save(token);
 
         auditWriter.writeJoin(clazz, userId, token);
+        // Notify the student that they successfully joined the class.
+        emitEnrolledNotification(clazz, userId);
         return new Success(clazz);
     }
 
@@ -173,10 +180,32 @@ public class JoinClassService {
                 token.incrementUseCount();
                 inviteRepository.save(token);
                 auditWriter.writeJoin(clazz, userId, token);
+                // Notify the student that they have been re-enrolled in the class.
+                emitEnrolledNotification(clazz, userId);
                 return new Success(clazz);
             }
             default -> throw new IllegalStateException(
                     "Trạng thái enrollment không hợp lệ: " + row.getStatus());
+        }
+    }
+
+    /**
+     * Fires a CLASS_ENROLLED notification for the student who just joined.
+     * Best-effort: failures are swallowed so they never roll back the enrollment
+     * transaction.
+     */
+    private void emitEnrolledNotification(ClassEntity clazz, Long userId) {
+        try {
+            notificationService.create(
+                    userId,
+                    "Tham gia lớp thành công",
+                    "Bạn đã tham gia lớp \"" + clazz.getName() + "\" thành công.",
+                    NotificationType.CLASS_ENROLLED,
+                    NotificationType.REF_CLASS,
+                    clazz.getId()
+            );
+        } catch (Exception ignored) {
+            // Notification failure must not roll back the enrollment.
         }
     }
 }
