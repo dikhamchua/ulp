@@ -66,4 +66,12 @@ public interface ClassInviteCodeRepository extends JpaRepository<ClassInviteCode
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM ClassInviteCode c WHERE c.code = :code AND c.active = true")
     Optional<ClassInviteCode> findByCodeForUpdate(@Param("code") String code);
+
+    /**
+     * Pessimistic-locked load by primary key. Used on approve so concurrent
+     * admissions cannot overshoot {@code max_uses} when incrementing use_count.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ClassInviteCode c WHERE c.id = :id")
+    Optional<ClassInviteCode> findByIdForUpdate(@Param("id") Long id);
 }

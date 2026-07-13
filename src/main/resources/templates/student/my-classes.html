@@ -68,12 +68,13 @@
     <!-- Class list -->
     <div class="class-list">
 
-      <!-- Empty state when no classes -->
-      <div class="empty" th:if="${rows == null or rows.isEmpty()}">
+      <!-- Empty state when no active or pending classes -->
+      <div class="empty"
+           th:if="${(rows == null or rows.isEmpty()) and (pendingRows == null or pendingRows.isEmpty())}">
         Bạn chưa tham gia lớp nào. Nhấn <b>Tham gia lớp mới</b> để bắt đầu.
       </div>
 
-      <!-- Class rows. The whole card area is a link that opens the lessons view. -->
+      <!-- ACTIVE class rows. The whole card area is a link that opens the lessons view. -->
       <div th:each="row : ${rows}" class="class-row student-class-row"
            th:attr="data-class-id=${row.classId()},data-class-name=${row.className()},data-class-code=${row.classCode()},data-joined-at=${#temporals.format(row.joinedAt(), 'yyyy-MM-dd''T''HH:mm:ss')}">
         <a class="class-main class-main-link"
@@ -122,6 +123,35 @@
         </form>
       </div>
 
+    </div>
+
+    <!-- PENDING join requests — no deep link into class content -->
+    <div class="pending-classes" th:if="${pendingRows != null and !pendingRows.isEmpty()}"
+         style="margin-top:24px; padding-top:16px; border-top:1px solid #e2e8f0;">
+      <h3 style="font-size:15px; font-weight:700; margin:0 0 12px;">Đang chờ duyệt
+        <span th:text="'(' + ${pendingRows.size()} + ')'">(0)</span>
+      </h3>
+      <div class="class-list">
+        <div th:each="row : ${pendingRows}" class="class-row student-class-row is-pending"
+             th:attr="data-class-id=${row.classId()},data-class-name=${row.className()}">
+          <div class="class-main">
+            <div class="class-thumb"
+                 th:style="'background:' + ${row.avatarGradient()}"
+                 th:text="${row.thumbLabel()}">SE</div>
+            <div class="class-info">
+              <h4 th:text="${row.className()}">SE1865</h4>
+              <div class="class-code">
+                Mã lớp &bull; <b th:text="${row.classCode()}">NILXM</b>
+                &bull; <span style="color:#B45309; font-weight:600;">đang chờ duyệt</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat student-stat-text" th:text="${row.lecturerName()}">Lecturer</div>
+          <div class="stat student-stat-text"
+               th:text="${row.joinedAt() != null ? #temporals.format(row.joinedAt(), 'dd/MM/yyyy') : '—'}">--/--/----</div>
+          <div class="stat student-stat-text" style="color:#B45309; font-weight:600;">Chờ duyệt</div>
+        </div>
+      </div>
     </div>
   </section>
 </main>

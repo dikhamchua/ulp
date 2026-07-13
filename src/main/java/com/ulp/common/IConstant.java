@@ -157,6 +157,20 @@ public interface IConstant {
     String MSG_JOINED_CLASS        = "Đã tham gia lớp ";
     String MSG_ALREADY_IN_CLASS    = "Bạn đã ở trong lớp ";
     String MSG_INVALID_INVITE_LINK = "Liên kết không hợp lệ";
+    String MSG_JOIN_REQUEST_SENT   = "Đã gửi yêu cầu tham gia lớp ";
+    String MSG_JOIN_REQUEST_PENDING_SUFFIX = " — chờ giảng viên duyệt";
+    String MSG_JOIN_ALREADY_PENDING = "Yêu cầu tham gia lớp ";
+    String MSG_JOIN_ALREADY_PENDING_SUFFIX = " đang chờ duyệt";
+    String MSG_JOIN_APPROVED       = "Đã duyệt yêu cầu tham gia của học sinh";
+    String MSG_JOIN_REJECTED       = "Đã từ chối yêu cầu tham gia";
+    String MSG_JOIN_APPROVE_FAILED = "Không thể duyệt yêu cầu: ";
+    String MSG_JOIN_REJECT_FAILED  = "Không thể từ chối yêu cầu: ";
+    String MSG_JOIN_CLASS_FULL     = "Lớp đã đầy, không thể duyệt thêm thành viên";
+
+    // Members tab — pending join requests
+    String ATTR_PENDING_MEMBERS = "pendingMembers";
+    String ATTR_PENDING_TOTAL   = "pendingTotal";
+    String ATTR_PENDING_ROWS    = "pendingRows";
 
     // Cross-controller admin-settings session guard
     // (used by EmailSettingsController + OauthSettingsController).
@@ -325,6 +339,42 @@ public interface IConstant {
     // Exam list / submissions page sizes (default + upper bound for ?size).
     int DEFAULT_EXAM_PAGE_SIZE        = 12;
     int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
+
+    // ───────── Assignments (Sprint 6, #70) ──────────────────────────
+    // Route prefixes / canonical URLs.
+    String PATH_ASSIGNMENTS              = "/assignments";
+    String URL_LECTURER_ASSIGNMENTS      = BASE_LECTURER + PATH_CLASSES + "/{classId}" + PATH_ASSIGNMENTS;
+
+    // View names.
+    String VIEW_ASSIGNMENT_LIST          = "assignments/lecturer-list";
+    String VIEW_ASSIGNMENT_FORM          = "assignments/lecturer-form";
+    String VIEW_ASSIGNMENT_SUBMISSIONS   = "assignments/lecturer-submissions";
+    String VIEW_ASSIGNMENT_GRADE         = "assignments/lecturer-grade";
+    String VIEW_STUDENT_ASSIGNMENT_LIST  = "assignments/student-list";
+    String VIEW_STUDENT_ASSIGNMENT_DETAIL = "assignments/student-detail";
+    String VIEW_STUDENT_ASSIGNMENT_FEEDBACK = "assignments/student-feedback";
+
+    // Model attribute keys.
+    String ATTR_ASSIGNMENT          = "assignment";
+    String ATTR_ASSIGNMENTS         = "assignments";
+    String ATTR_ASSIGNMENT_FORM     = "assignmentForm";
+    String ATTR_SUBMISSION          = "submission";
+    String ATTR_SUBMISSION_FORM     = "submitForm";
+    String ATTR_GRADE_FORM          = "gradeForm";
+
+    // Flash messages (Vietnamese UI text).
+    String MSG_ASSIGNMENT_CREATED    = "Đã tạo bài tập";
+    String MSG_ASSIGNMENT_UPDATED    = "Đã cập nhật bài tập";
+    String MSG_ASSIGNMENT_PUBLISHED  = "Đã xuất bản bài tập";
+    String MSG_ASSIGNMENT_CLOSED     = "Đã đóng bài tập";
+    String MSG_ASSIGNMENT_NOT_FOUND  = "Không tìm thấy bài tập";
+    String MSG_SUBMIT_SUCCESS        = "Đã nộp bài thành công";
+    String MSG_SUBMIT_LATE           = "Bài tập đã quá hạn, không thể nộp trễ";
+    String MSG_SUBMIT_AFTER_GRADED   = "Không thể chỉnh sửa sau khi đã được chấm điểm";
+    String MSG_GRADE_SUCCESS         = "Đã chấm điểm thành công";
+    String MSG_GRADE_SCORE_INVALID   = "Điểm phải nằm trong khoảng 0 đến điểm tối đa";
+    String MSG_ASSIGNMENT_INVALID_TRANSITION = "Không thể thực hiện thao tác này với trạng thái hiện tại";
+    String MSG_NOT_ENROLLED          = "Bạn không thuộc lớp này";
 
     // ───────── Notifications (Sprint 5, #63/#64) ─────────────────────
     // Route prefix / canonical URL.

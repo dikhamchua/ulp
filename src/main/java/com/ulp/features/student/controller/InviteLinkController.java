@@ -7,6 +7,7 @@ import com.ulp.features.classes.service.invites.InviteTokenGenerator;
 import com.ulp.features.classes.service.JoinClassService;
 import com.ulp.features.classes.service.JoinClassService.AlreadyJoined;
 import com.ulp.features.classes.service.JoinClassService.JoinResult;
+import com.ulp.features.classes.service.JoinClassService.PendingRequested;
 import com.ulp.features.classes.service.JoinClassService.Success;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,26 +26,19 @@ import static com.ulp.common.IConstant.*;
 /**
  * Deep-link handler for {@code GET /j/{token}}.
  *
- * <p>Token shape is gated by a strict regex so malformed paths fall
- * through to a 404. When an unauthenticated client hits this URL,
- * Spring Security's request cache picks up the original URI and
- * the user is redirected back here after a successful login.
+ * <p>Token shape is gated by a strict regex so malformed paths fall through to 404.
+ * Unauthenticated clients are redirected back here after login via the request cache.
  */
 @Controller
 @RequestMapping("/j")
 @PreAuthorize("isAuthenticated()")
 public class InviteLinkController {
 
-    /** Server-side regex matching the 32-char base64url LINK shape. */
     private static final Pattern LINK_PATTERN = Pattern.compile(InviteTokenGenerator.LINK_REGEX);
-
-    // ── Paths ─────────────────────────────────────────────────────
     private static final String REDIRECT_MY_CLASSES = "redirect:/my/classes";
-    private static final String REDIRECT_JOIN       = "redirect:/my/classes/join";
-
-    // ── Link-flavoured rejection messages ─────────────────────────
-    private static final String MSG_LINK_DISABLED  = "Liên kết mời đã hết hiệu lực";
-    private static final String MSG_LINK_EXPIRED   = "Liên kết mời đã hết hạn";
+    private static final String REDIRECT_JOIN = "redirect:/my/classes/join";
+    private static final String MSG_LINK_DISABLED = "Liên kết mời đã hết hiệu lực";
+    private static final String MSG_LINK_EXPIRED = "Liên kết mời đã hết hạn";
     private static final String MSG_LINK_EXHAUSTED = "Liên kết đã đạt giới hạn lượt dùng";
 
     private final JoinClassService joinClassService;
@@ -54,12 +48,8 @@ public class InviteLinkController {
     }
 
     /**
-     * Resolves a 32-char LINK token and either enrolls the caller
-     * or surfaces the validation error as a flash toast.
-     *
-     * <p>Token shape that does not match {@link #LINK_PATTERN}
-     * returns 404 — short tokens, accidental URL fragments, and
-     * any tampering all collapse to the same neutral response.
+     * Resolves a 32-char LINK token and creates a PENDING join request (or
+     * short-circuits when already ACTIVE / already PENDING).
      */
     @GetMapping("/{token}")
     public String resolve(@PathVariable("token") String token,
@@ -70,11 +60,7 @@ public class InviteLinkController {
         }
         try {
             JoinResult outcome = joinClassService.join(token, user.getId());
-            if (outcome instanceof Success s) {
-                ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOINED_CLASS + s.clazz().getName());
-            } else if (outcome instanceof AlreadyJoined a) {
-                ra.addFlashAttribute(ATTR_FLASH_INFO, MSG_ALREADY_IN_CLASS + a.clazz().getName());
-            }
+            applyJoinFlash(outcome, ra);
             return REDIRECT_MY_CLASSES;
         } catch (InviteCodeValidationException ex) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, linkMessageFor(ex.getReason()));
@@ -82,12 +68,22 @@ public class InviteLinkController {
         }
     }
 
-    /**
-     * Maps a rejection reason to a LINK-flavoured message. The {@code /j/} surface
-     * historically referred to "Liên kết" (link) rather than "Mã" (code), so the
-     * INVALID / DISABLED / EXPIRED / EXHAUSTED reasons use link-specific copy.
-     * All other reasons fall through to the enum's default message.
-     */
+    private static void applyJoinFlash(JoinResult outcome, RedirectAttributes ra) {
+        if (outcome instanceof Success s) {
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOINED_CLASS + s.clazz().getName());
+        } else if (outcome instanceof AlreadyJoined a) {
+            ra.addFlashAttribute(ATTR_FLASH_INFO, MSG_ALREADY_IN_CLASS + a.clazz().getName());
+        } else if (outcome instanceof PendingRequested p) {
+            if (p.alreadyPending()) {
+                ra.addFlashAttribute(ATTR_FLASH_INFO,
+                        MSG_JOIN_ALREADY_PENDING + p.clazz().getName() + MSG_JOIN_ALREADY_PENDING_SUFFIX);
+            } else {
+                ra.addFlashAttribute(ATTR_FLASH_INFO,
+                        MSG_JOIN_REQUEST_SENT + p.clazz().getName() + MSG_JOIN_REQUEST_PENDING_SUFFIX);
+            }
+        }
+    }
+
     private static String linkMessageFor(InviteRejectionReason reason) {
         return switch (reason) {
             case INVALID -> MSG_INVALID_INVITE_LINK;

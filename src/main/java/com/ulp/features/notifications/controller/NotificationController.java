@@ -1,6 +1,7 @@
 package com.ulp.features.notifications.controller;
 
 import com.ulp.features.notifications.dto.NotificationDtos.NotificationRow;
+import com.ulp.features.notifications.entity.NotificationType;
 import com.ulp.features.notifications.service.NotificationService;
 import com.ulp.security.UlpUserDetails;
 import org.springframework.data.domain.Page;
@@ -93,15 +94,28 @@ public class NotificationController {
     /**
      * Resolves a redirect URL from a notification's reference type and id.
      * Returns {@code null} when no reference is set or the type is unknown.
+     *
+     * <p>{@code JOIN_REQUEST} is lecturer-facing and must land on the class
+     * Members tab under {@code /lecturer/classes/...}. Other CLASS notifications
+     * keep the student lessons entry (ACTIVE members) as the default.
      */
     private static String resolveRedirect(NotificationRow n) {
         if (n.referenceType() == null || n.referenceId() == null) return null;
         return switch (n.referenceType()) {
-            // Class board tab is the canonical entry point for a class.
-            case "CLASS" -> "/my/classes/" + n.referenceId();
+            case "CLASS" -> resolveClassRedirect(n);
             // Student lesson detail page.
             case "LESSON" -> "/my/lessons/" + n.referenceId();
             default -> null;
         };
+    }
+
+    /** CLASS targets depend on notification type (owner queue vs student class). */
+    private static String resolveClassRedirect(NotificationRow n) {
+        // Lecturer must open the pending queue; /my/classes/{id} is not a real route.
+        if (NotificationType.JOIN_REQUEST.equals(n.type())) {
+            return "/lecturer/classes/" + n.referenceId() + "/members";
+        }
+        // Admitted students land on published lessons for the class.
+        return "/my/classes/" + n.referenceId() + "/lessons";
     }
 }

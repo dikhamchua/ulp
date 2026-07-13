@@ -65,12 +65,15 @@ class ClassMembersServiceTest {
         when(classesService.getViewable(eq(11L), eq(ANY_USER_ID), eq(Role.LECTURER))).thenReturn(clazz);
         when(enrollmentRepository.findAllByClassIdAndStatusOrderByJoinedAtDesc(11L, "ACTIVE"))
                 .thenReturn(enrollments);
+        when(enrollmentRepository.findAllByClassIdAndStatusOrderByJoinedAtDesc(11L, "PENDING"))
+                .thenReturn(List.of());
 
         ClassMembersService.ClassMembersView view = service.listForClass(11L, ANY_USER_ID, Role.LECTURER);
         List<MemberRow> rows = view.members();
 
         assertThat(rows).hasSize(6);
         assertThat(view.total()).isEqualTo(6);
+        assertThat(view.pendingTotal()).isZero();
 
         // Position 0 → palette index 0
         assertThat(rows.get(0).avatarGradient()).isEqualTo(EXPECTED_GRADIENT_AT_INDEX[0]);
@@ -86,11 +89,15 @@ class ClassMembersServiceTest {
         when(classesService.getViewable(eq(12L), eq(ANY_USER_ID), eq(Role.LECTURER))).thenReturn(clazz);
         when(enrollmentRepository.findAllByClassIdAndStatusOrderByJoinedAtDesc(12L, "ACTIVE"))
                 .thenReturn(List.of());
+        when(enrollmentRepository.findAllByClassIdAndStatusOrderByJoinedAtDesc(12L, "PENDING"))
+                .thenReturn(List.of());
 
         ClassMembersService.ClassMembersView view = service.listForClass(12L, ANY_USER_ID, Role.LECTURER);
 
         assertThat(view.members()).isEmpty();
         assertThat(view.total()).isZero();
+        assertThat(view.pendingMembers()).isEmpty();
+        assertThat(view.pendingTotal()).isZero();
         assertThat(view.clazz()).isSameAs(clazz);
     }
 
@@ -105,6 +112,8 @@ class ClassMembersServiceTest {
         when(classesService.getViewable(eq(13L), eq(ANY_USER_ID), eq(Role.LECTURER))).thenReturn(clazz);
         when(enrollmentRepository.findAllByClassIdAndStatusOrderByJoinedAtDesc(13L, "ACTIVE"))
                 .thenReturn(List.of(e));
+        when(enrollmentRepository.findAllByClassIdAndStatusOrderByJoinedAtDesc(13L, "PENDING"))
+                .thenReturn(List.of());
 
         MemberRow row = service.listForClass(13L, ANY_USER_ID, Role.LECTURER).members().get(0);
 

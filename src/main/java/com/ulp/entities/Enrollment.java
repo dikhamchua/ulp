@@ -36,6 +36,10 @@ public class Enrollment {
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_REMOVED = "REMOVED";
     public static final String STATUS_COMPLETED = "COMPLETED";
+    /** Awaiting class-owner approval after CODE/LINK self-join. */
+    public static final String STATUS_PENDING = "PENDING";
+    /** Class owner rejected the join request; student may re-request. */
+    public static final String STATUS_REJECTED = "REJECTED";
 
     /**
      * Enumerates the channels through which a student may end up enrolled in a
@@ -87,15 +91,9 @@ public class Enrollment {
     private LocalDateTime updatedAt;
 
     /**
-     * Factory constructor for a brand new enrollment via the join
-     * flow. The {@code joinedAt} timestamp is populated by MySQL's
-     * {@code DEFAULT CURRENT_TIMESTAMP} clause on first insert.
-     *
-     * @param user         the enrolling user
-     * @param classId      target class id
-     * @param joinedVia    enrollment source: {@code CODE} or {@code LINK}
-     * @param inviteCodeId id of the {@link ClassInviteCode} row used
-     *                     (nullable for non-token enrollments)
+     * Factory constructor for a brand new enrollment. Defaults to ACTIVE so
+     * lecturer-initiated paths (IMPORT/MANUAL) keep immediate admission.
+     * Invite self-join uses {@link #createPending} instead.
      */
     public Enrollment(User user, Long classId, String joinedVia, Long inviteCodeId) {
         this.user = user;
@@ -107,15 +105,8 @@ public class Enrollment {
     }
 
     /**
-     * Factory for creating a fresh ACTIVE enrollment. Prefer this over the raw
-     * constructor so the {@code joinedVia} string stays consistent across the
-     * codebase (no stray lowercase / typo values landing in the DB).
-     *
-     * @param user         the enrolling user
-     * @param classId      target class id
-     * @param joinedVia    enrollment source as a typed enum
-     * @param inviteCodeId id of the {@link ClassInviteCode} row used, or
-     *                     {@code null} for non-token enrollments
+     * Factory for a fresh ACTIVE enrollment (IMPORT / MANUAL). Prefer this over
+     * the raw constructor so {@code joinedVia} stays consistent.
      */
     public static Enrollment createFor(User user, Long classId,
                                        JoinedVia joinedVia, Long inviteCodeId) {
@@ -123,15 +114,19 @@ public class Enrollment {
     }
 
     /**
-     * Revives a previously {@code REMOVED} enrollment by flipping
-     * its status back to {@code ACTIVE} and updating
-     * {@code joinedVia} / {@code inviteCodeId} to reflect the new
-     * channel. {@code completedAt} is cleared as a defensive measure
-     * (a REMOVED row should not have a completion timestamp, but
-     * this guarantees consistency).
-     *
-     * @param joinedVia    new enrollment source
-     * @param inviteCodeId id of the new {@link ClassInviteCode} row
+     * Factory for a CODE/LINK self-join request. Status is PENDING until the
+     * class owner approves; {@code use_count} is not incremented here.
+     */
+    public static Enrollment createPending(User user, Long classId,
+                                           JoinedVia joinedVia, Long inviteCodeId) {
+        Enrollment e = new Enrollment(user, classId, joinedVia.name(), inviteCodeId);
+        e.status = STATUS_PENDING;
+        return e;
+    }
+
+    /**
+     * Revives a REMOVED enrollment as ACTIVE (lecturer-initiated re-add paths).
+     * Invite re-join after REMOVED uses {@link #markPending} instead.
      */
     public void reactivateVia(String joinedVia, Long inviteCodeId) {
         this.status = STATUS_ACTIVE;
@@ -140,22 +135,34 @@ public class Enrollment {
         this.completedAt = null;
     }
 
-    /**
-     * Type-safe overload of {@link #reactivateVia(String, Long)} that accepts the
-     * {@link JoinedVia} enum directly. The string variant is kept for backward
-     * compatibility with older call sites.
-     */
+    /** Type-safe overload of {@link #reactivateVia(String, Long)}. */
     public void reactivateVia(JoinedVia joinedVia, Long inviteCodeId) {
         reactivateVia(joinedVia.name(), inviteCodeId);
     }
 
     /**
-     * Soft-removes this enrollment by setting its status to
-     * {@code REMOVED}. The row is retained so the user can later
-     * re-join (which reactivates the same row via
-     * {@link #reactivateVia}, preserving the unique
-     * {@code (user_id, class_id)} key).
+     * Opens or re-opens a join request as PENDING (REJECTED/REMOVED re-request,
+     * or channel refresh on an existing pending row).
      */
+    public void markPending(JoinedVia joinedVia, Long inviteCodeId) {
+        this.status = STATUS_PENDING;
+        this.joinedVia = joinedVia.name();
+        this.inviteCodeId = inviteCodeId;
+        this.completedAt = null;
+    }
+
+    /** Owner approved the request — student becomes an ACTIVE member. */
+    public void activateFromPending() {
+        this.status = STATUS_ACTIVE;
+        this.completedAt = null;
+    }
+
+    /** Owner rejected the request; row is retained for re-request. */
+    public void markRejected() {
+        this.status = STATUS_REJECTED;
+    }
+
+    /** Soft-removes membership; row kept for later re-join under unique key. */
     public void markRemoved() {
         this.status = STATUS_REMOVED;
     }

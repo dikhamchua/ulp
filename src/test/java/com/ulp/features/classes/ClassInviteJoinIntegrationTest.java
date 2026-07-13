@@ -245,9 +245,10 @@ class ClassInviteJoinIntegrationTest {
 
     @Test
     @WithUserDetails("student@ulp.edu.vn")
-    void join_by_code_happy_path_creates_active_enrollment() throws Exception {
+    void join_by_code_happy_path_creates_pending_enrollment() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "JoinHappy");
         String code = activeCode(c.getId());
+        long useBefore = inviteRepository.findByCode(code).orElseThrow().getUseCount();
 
         mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code))
                 .andExpect(status().is3xxRedirection())
@@ -255,8 +256,10 @@ class ClassInviteJoinIntegrationTest {
 
         Optional<Enrollment> row = enrollmentRepository.findByUserIdAndClassId(student.getId(), c.getId());
         assertThat(row).isPresent();
-        assertThat(row.get().getStatus()).isEqualTo("ACTIVE");
+        assertThat(row.get().getStatus()).isEqualTo("PENDING");
         assertThat(row.get().getJoinedVia()).isEqualTo("CODE");
+        // use_count increments only on approve, not on request
+        assertThat(inviteRepository.findByCode(code).orElseThrow().getUseCount()).isEqualTo(useBefore);
     }
 
     @Test
@@ -308,8 +311,12 @@ class ClassInviteJoinIntegrationTest {
         ClassEntity c = createClassViaController(lecturer.getId(), "DupJoin");
         String code = activeCode(c.getId());
 
-        mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code))
-                .andExpect(status().is3xxRedirection());
+        // Seed ACTIVE membership, then re-join should no-op.
+        em.createNativeQuery(
+                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                        + "VALUES (:u, :c, 'ACTIVE', 'CODE')")
+                .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
+        em.flush(); em.clear();
 
         long useCountAfterFirst = inviteRepository.findByCode(code).orElseThrow().getUseCount();
 
@@ -319,11 +326,31 @@ class ClassInviteJoinIntegrationTest {
 
         long useCountAfterSecond = inviteRepository.findByCode(code).orElseThrow().getUseCount();
         assertThat(useCountAfterSecond).isEqualTo(useCountAfterFirst);
+        assertThat(enrollmentRepository.findByUserIdAndClassId(student.getId(), c.getId())
+                .orElseThrow().getStatus()).isEqualTo("ACTIVE");
     }
 
     @Test
     @WithUserDetails("student@ulp.edu.vn")
-    void re_join_after_removed_revives_existing_row() throws Exception {
+    void join_when_already_pending_is_idempotent() throws Exception {
+        ClassEntity c = createClassViaController(lecturer.getId(), "DupPending");
+        String code = activeCode(c.getId());
+
+        mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code))
+                .andExpect(status().is3xxRedirection());
+
+        mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/my/classes"));
+
+        assertThat(enrollmentRepository.findByUserIdAndClassId(student.getId(), c.getId())
+                .orElseThrow().getStatus()).isEqualTo("PENDING");
+        assertThat(inviteRepository.findByCode(code).orElseThrow().getUseCount()).isZero();
+    }
+
+    @Test
+    @WithUserDetails("student@ulp.edu.vn")
+    void re_join_after_removed_becomes_pending_again() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "ReviveJoin");
         String code = activeCode(c.getId());
 
@@ -334,13 +361,13 @@ class ClassInviteJoinIntegrationTest {
                 .findByUserIdAndClassId(student.getId(), c.getId()).orElseThrow();
         Long rowId = row.getId();
 
-        // Leave the class.
+        // Leave the class (PENDING → REMOVED).
         mockMvc.perform(post("/my/classes/" + c.getId() + "/leave").with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
         em.flush(); em.clear();
 
-        // Re-join.
+        // Re-join → PENDING again (not auto ACTIVE).
         mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code))
                 .andExpect(status().is3xxRedirection());
 
@@ -349,7 +376,7 @@ class ClassInviteJoinIntegrationTest {
         Enrollment revived = enrollmentRepository
                 .findByUserIdAndClassId(student.getId(), c.getId()).orElseThrow();
         assertThat(revived.getId()).isEqualTo(rowId);
-        assertThat(revived.getStatus()).isEqualTo("ACTIVE");
+        assertThat(revived.getStatus()).isEqualTo("PENDING");
     }
 
     @Test
@@ -404,9 +431,12 @@ class ClassInviteJoinIntegrationTest {
     @WithUserDetails("student@ulp.edu.vn")
     void leave_happy_path_marks_removed() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "LeaveHappy");
-        String code = activeCode(c.getId());
-        mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code))
-                .andExpect(status().is3xxRedirection());
+        // Seed ACTIVE enrollment directly (leave requires admitted membership).
+        em.createNativeQuery(
+                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                        + "VALUES (:u, :c, 'ACTIVE', 'CODE')")
+                .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
+        em.flush(); em.clear();
 
         mockMvc.perform(post("/my/classes/" + c.getId() + "/leave").with(csrf()))
                 .andExpect(status().is3xxRedirection())
@@ -452,7 +482,7 @@ class ClassInviteJoinIntegrationTest {
      *   <li>upon successful form login, be redirected automatically back to
      *       {@code /j/{token}} (the saved request) instead of the home page;</li>
      *   <li>have the join completed and land on {@code /my/classes}
-     *       with an {@code ACTIVE} enrollment marked {@code joined_via=LINK}.</li>
+     *       with a {@code PENDING} enrollment marked {@code joined_via=LINK}.</li>
      * </ol>
      *
      * <p>This exercises the {@code defaultSuccessUrl("/", false)} setting in
@@ -502,7 +532,7 @@ class ClassInviteJoinIntegrationTest {
         Enrollment enrollment = enrollmentRepository
                 .findByUserIdAndClassId(student.getId(), c.getId())
                 .orElseThrow();
-        assertThat(enrollment.getStatus()).isEqualTo("ACTIVE");
+        assertThat(enrollment.getStatus()).isEqualTo("PENDING");
         assertThat(enrollment.getJoinedVia()).isEqualTo("LINK");
     }
 
@@ -526,6 +556,98 @@ class ClassInviteJoinIntegrationTest {
         Enrollment row = enrollmentRepository
                 .findByUserIdAndClassId(student.getId(), c.getId()).orElseThrow();
         assertThat(row.getJoinedVia()).isEqualTo("LINK");
+        assertThat(row.getStatus()).isEqualTo("PENDING");
+    }
+
+    // ───────────────── Approve / reject ─────────────────
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void owner_approves_pending_makes_active_and_increments_use_count() throws Exception {
+        ClassEntity c = createClassViaController(lecturer.getId(), "ApproveHappy");
+        String code = activeCode(c.getId());
+
+        // Student requests join (need student session — use service path via native insert PENDING).
+        em.createNativeQuery(
+                "INSERT INTO enrollments(user_id, class_id, status, joined_via, invite_code_id) "
+                        + "VALUES (:u, :c, 'PENDING', 'CODE', "
+                        + "(SELECT id FROM class_invite_codes WHERE class_id = :c AND type='CODE' AND is_active=1 LIMIT 1))")
+                .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
+        em.flush(); em.clear();
+
+        long useBefore = inviteRepository.findByClassIdAndTypeAndActiveTrue(c.getId(), "CODE")
+                .orElseThrow().getUseCount();
+
+        mockMvc.perform(post("/lecturer/classes/" + c.getId() + "/members/"
+                        + student.getId() + "/approve").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/lecturer/classes/" + c.getId() + "/members"));
+
+        em.flush(); em.clear();
+        Enrollment row = enrollmentRepository
+                .findByUserIdAndClassId(student.getId(), c.getId()).orElseThrow();
+        assertThat(row.getStatus()).isEqualTo("ACTIVE");
+        long useAfter = inviteRepository.findByClassIdAndTypeAndActiveTrue(c.getId(), "CODE")
+                .orElseThrow().getUseCount();
+        assertThat(useAfter).isEqualTo(useBefore + 1);
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void owner_rejects_pending_marks_rejected_without_use_count() throws Exception {
+        ClassEntity c = createClassViaController(lecturer.getId(), "RejectHappy");
+        em.createNativeQuery(
+                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                        + "VALUES (:u, :c, 'PENDING', 'CODE')")
+                .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
+        em.flush(); em.clear();
+
+        long useBefore = inviteRepository.findByClassIdAndTypeAndActiveTrue(c.getId(), "CODE")
+                .orElseThrow().getUseCount();
+
+        mockMvc.perform(post("/lecturer/classes/" + c.getId() + "/members/"
+                        + student.getId() + "/reject").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/lecturer/classes/" + c.getId() + "/members"));
+
+        em.flush(); em.clear();
+        Enrollment row = enrollmentRepository
+                .findByUserIdAndClassId(student.getId(), c.getId()).orElseThrow();
+        assertThat(row.getStatus()).isEqualTo("REJECTED");
+        long useAfter = inviteRepository.findByClassIdAndTypeAndActiveTrue(c.getId(), "CODE")
+                .orElseThrow().getUseCount();
+        assertThat(useAfter).isEqualTo(useBefore);
+    }
+
+    @Test
+    @WithUserDetails("head@ulp.edu.vn")
+    void non_owner_cannot_approve() throws Exception {
+        ClassEntity c = createClassViaController(lecturer.getId(), "NonOwnerApprove");
+        em.createNativeQuery(
+                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                        + "VALUES (:u, :c, 'PENDING', 'CODE')")
+                .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
+        em.flush(); em.clear();
+
+        mockMvc.perform(post("/lecturer/classes/" + c.getId() + "/members/"
+                        + student.getId() + "/approve").with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void members_tab_shows_pending_count() throws Exception {
+        ClassEntity c = createClassViaController(lecturer.getId(), "MembersPending");
+        em.createNativeQuery(
+                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                        + "VALUES (:u, :c, 'PENDING', 'CODE')")
+                .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
+        em.flush(); em.clear();
+
+        mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/members"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Chờ duyệt")))
+                .andExpect(content().string(containsString(student.getFullName())));
     }
 
     // ───────────────── Lecturer can use student routes ─────────────────
