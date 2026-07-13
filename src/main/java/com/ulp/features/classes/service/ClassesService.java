@@ -2,8 +2,10 @@ package com.ulp.features.classes.service;
 
 import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
+import com.ulp.entities.ClassInviteCode;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
+import com.ulp.features.classes.repository.ClassInviteCodeRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
@@ -17,9 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Business service for class CRUD operations on the lecturer-facing screens.
@@ -49,14 +53,17 @@ import java.util.Map;
 public class ClassesService {
 
     private final ClassRepository classRepository;
+    private final ClassInviteCodeRepository inviteCodeRepository;
     private final ClassActivityWriter activityWriter;
     private final ClassCreator creator;
 
     public ClassesService(ClassRepository classRepository,
+                          ClassInviteCodeRepository inviteCodeRepository,
                           ClassActivityWriter activityWriter,
                           ClassCodeGenerator codeGenerator,
                           InviteCodeService inviteCodeService) {
         this.classRepository = classRepository;
+        this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
         this.creator = new ClassCreator(classRepository, activityWriter,
                 codeGenerator, inviteCodeService);
@@ -83,11 +90,32 @@ public class ClassesService {
                 : classRepository.findAllBy(pageable);
 
         List<ClassEntity> content = page.getContent();
+        // List UI "Mã lớp" is the shareable 6-char invite CODE, not classes.code (5-char).
+        Map<Long, String> inviteCodes = loadActiveInviteCodes(content);
         List<ClassRow> rows = new ArrayList<>(content.size());
         for (int i = 0; i < content.size(); i++) {
-            rows.add(ClassRowMapper.toRow(content.get(i), i));
+            ClassEntity entity = content.get(i);
+            String displayCode = inviteCodes.getOrDefault(entity.getId(), entity.getCode());
+            rows.add(ClassRowMapper.toRow(entity, i, displayCode));
         }
         return new PageImpl<>(rows, pageable, page.getTotalElements());
+    }
+
+    /** Batch-loads active CODE invite tokens for the given classes (one query). */
+    private Map<Long, String> loadActiveInviteCodes(List<ClassEntity> content) {
+        Map<Long, String> byClassId = new HashMap<>();
+        if (content.isEmpty()) {
+            return byClassId;
+        }
+        for (ClassEntity entity : content) {
+            inviteCodeRepository
+                    .findByClassIdAndTypeAndActiveTrue(entity.getId(), ClassInviteCode.TYPE_CODE)
+                    .map(ClassInviteCode::getCode)
+                    .ifPresent(code -> byClassId.put(entity.getId(), code));
+        }
+        // Drop null keys defensively (should not happen for persisted entities).
+        byClassId.keySet().removeIf(Objects::isNull);
+        return byClassId;
     }
 
     /** Loads a class for editing after enforcing authorization. */

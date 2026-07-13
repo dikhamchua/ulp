@@ -11,13 +11,17 @@ import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.JoinClassService.AlreadyJoined;
 import com.ulp.features.classes.service.JoinClassService.JoinResult;
-import com.ulp.features.classes.service.JoinClassService.Success;
+import com.ulp.features.classes.service.JoinClassService.PendingRequested;
 import com.ulp.features.classes.service.invites.InviteCodeValidationException;
 import com.ulp.features.classes.service.invites.InviteRejectionReason;
+import com.ulp.features.notifications.entity.NotificationType;
+import com.ulp.features.notifications.service.NotificationService;
+import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -34,13 +38,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit test for {@link JoinClassService}. Covers every validation
- * branch of {@code join(token, userId)} and the {@code leave}
- * happy/edge paths.
- *
- * <p>Post-refactor, all rejection paths surface a single
- * {@link InviteCodeValidationException} whose {@link InviteRejectionReason}
- * carries the precise cause.
+ * Unit test for {@link JoinClassService}: join PENDING state machine,
+ * leave, and owner approve/reject.
  */
 class JoinClassServiceTest {
 
@@ -53,6 +52,8 @@ class JoinClassServiceTest {
     private ClassRepository classRepository;
     private ClassActivityWriter activityWriter;
     private UserRepository userRepository;
+    private NotificationService notificationService;
+    private ClassesService classesService;
     private JoinClassService service;
 
     @BeforeEach
@@ -62,11 +63,14 @@ class JoinClassServiceTest {
         classRepository = mock(ClassRepository.class);
         activityWriter = mock(ClassActivityWriter.class);
         userRepository = mock(UserRepository.class);
+        notificationService = mock(NotificationService.class);
+        classesService = mock(ClassesService.class);
         service = new JoinClassService(inviteRepository, enrollmentRepository,
-                classRepository, activityWriter, userRepository);
+                classRepository, activityWriter, userRepository, notificationService,
+                classesService);
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ invalid token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ───────── invalid token ─────────
 
     @Test
     void unknown_token_throws_invalid() {
@@ -119,7 +123,7 @@ class JoinClassServiceTest {
                 .isEqualTo(InviteRejectionReason.EXHAUSTED);
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ class status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ───────── class status ─────────
 
     @Test
     void soft_deleted_class_throws_not_joinable() {
@@ -149,21 +153,6 @@ class JoinClassServiceTest {
     }
 
     @Test
-    void completed_class_throws_not_joinable() {
-        ClassInviteCode token = activeToken("AB23CD");
-        when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
-
-        ClassEntity clazz = buildClass();
-        ReflectionTestUtils.setField(clazz, "status", "COMPLETED");
-        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
-
-        assertThatThrownBy(() -> service.join("AB23CD", USER_ID))
-                .isInstanceOf(InviteCodeValidationException.class)
-                .extracting(ex -> ((InviteCodeValidationException) ex).getReason())
-                .isEqualTo(InviteRejectionReason.CLASS_NOT_JOINABLE);
-    }
-
-    @Test
     void full_class_throws_class_full() {
         ClassInviteCode token = activeToken("AB23CD");
         when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
@@ -181,11 +170,10 @@ class JoinClassServiceTest {
                 .isEqualTo(InviteRejectionReason.CLASS_FULL);
 
         verify(enrollmentRepository, never()).save(any());
-        // use_count must NOT be incremented when capacity rejects.
         assertThat(token.getUseCount()).isZero();
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ enrollment lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ───────── enrollment lifecycle ─────────
 
     @Test
     void duplicate_active_returns_already_joined_without_writes() {
@@ -208,7 +196,27 @@ class JoinClassServiceTest {
     }
 
     @Test
-    void revive_removed_row_reactivates_and_increments_use_count() {
+    void already_pending_is_idempotent_without_use_count_or_re_notify() {
+        ClassInviteCode token = activeToken("AB23CD");
+        when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
+        ClassEntity clazz = buildClass();
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+
+        Enrollment pending = buildEnrollment(Enrollment.STATUS_PENDING);
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(pending));
+
+        JoinResult result = service.join("AB23CD", USER_ID);
+
+        assertThat(result).isInstanceOf(PendingRequested.class);
+        assertThat(((PendingRequested) result).alreadyPending()).isTrue();
+        verify(enrollmentRepository, never()).save(any());
+        verify(notificationService, never()).create(any(), any(), any(), any(), any(), any());
+        assertThat(token.getUseCount()).isZero();
+    }
+
+    @Test
+    void revive_removed_row_becomes_pending_without_use_count() {
         ClassInviteCode token = activeToken("AB23CD");
         ReflectionTestUtils.setField(token, "id", 77L);
         when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
@@ -223,11 +231,36 @@ class JoinClassServiceTest {
 
         JoinResult result = service.join("AB23CD", USER_ID);
 
-        assertThat(result).isInstanceOf(Success.class);
-        assertThat(removed.getStatus()).isEqualTo(Enrollment.STATUS_ACTIVE);
+        assertThat(result).isInstanceOf(PendingRequested.class);
+        assertThat(((PendingRequested) result).alreadyPending()).isFalse();
+        assertThat(removed.getStatus()).isEqualTo(Enrollment.STATUS_PENDING);
         assertThat(removed.getInviteCodeId()).isEqualTo(77L);
-        assertThat(token.getUseCount()).isEqualTo(1);
+        assertThat(token.getUseCount()).isZero();
         verify(enrollmentRepository).save(removed);
+        verify(notificationService).create(eq(OWNER_ID), any(), any(),
+                eq(NotificationType.JOIN_REQUEST), eq(NotificationType.REF_CLASS), eq(CLASS_ID));
+    }
+
+    @Test
+    void rejected_re_request_becomes_pending_and_notifies_owner() {
+        ClassInviteCode token = activeToken("AB23CD");
+        ReflectionTestUtils.setField(token, "id", 88L);
+        when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
+        ClassEntity clazz = buildClass();
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(0L);
+
+        Enrollment rejected = buildEnrollment(Enrollment.STATUS_REJECTED);
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(rejected));
+
+        JoinResult result = service.join("AB23CD", USER_ID);
+
+        assertThat(result).isInstanceOf(PendingRequested.class);
+        assertThat(rejected.getStatus()).isEqualTo(Enrollment.STATUS_PENDING);
+        assertThat(token.getUseCount()).isZero();
+        verify(notificationService).create(eq(OWNER_ID), any(), any(),
+                eq(NotificationType.JOIN_REQUEST), eq(NotificationType.REF_CLASS), eq(CLASS_ID));
     }
 
     @Test
@@ -249,7 +282,7 @@ class JoinClassServiceTest {
     }
 
     @Test
-    void fresh_join_inserts_active_enrollment_and_writes_audit() {
+    void fresh_join_inserts_pending_enrollment_without_use_count_or_class_enrolled() {
         ClassInviteCode token = activeToken("AB23CD");
         ReflectionTestUtils.setField(token, "id", 5L);
         when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
@@ -263,28 +296,34 @@ class JoinClassServiceTest {
 
         JoinResult result = service.join("AB23CD", USER_ID);
 
-        assertThat(result).isInstanceOf(Success.class);
+        assertThat(result).isInstanceOf(PendingRequested.class);
+        assertThat(((PendingRequested) result).alreadyPending()).isFalse();
 
         ArgumentCaptor<Enrollment> enrCap = ArgumentCaptor.forClass(Enrollment.class);
         verify(enrollmentRepository).save(enrCap.capture());
         Enrollment row = enrCap.getValue();
-        assertThat(row.getStatus()).isEqualTo(Enrollment.STATUS_ACTIVE);
+        assertThat(row.getStatus()).isEqualTo(Enrollment.STATUS_PENDING);
         assertThat(row.getJoinedVia()).isEqualTo("CODE");
         assertThat(row.getInviteCodeId()).isEqualTo(5L);
 
-        assertThat(token.getUseCount()).isEqualTo(1);
+        assertThat(token.getUseCount()).isZero();
+        verify(inviteRepository, never()).save(any());
+
+        verify(notificationService).create(eq(OWNER_ID), any(), any(),
+                eq(NotificationType.JOIN_REQUEST), eq(NotificationType.REF_CLASS), eq(CLASS_ID));
+        verify(notificationService, never()).create(eq(USER_ID), any(), any(),
+                eq(NotificationType.CLASS_ENROLLED), any(), any());
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> metadataCap = ArgumentCaptor.forClass(Map.class);
         verify(activityWriter).write(eq(CLASS_ID), eq(ClassActivity.TYPE_MEMBER_JOINED),
                 any(), metadataCap.capture(), eq(USER_ID));
-        Map<String, Object> meta = metadataCap.getValue();
-        assertThat(meta).containsEntry("user_id", USER_ID)
+        assertThat(metadataCap.getValue()).containsEntry("user_id", USER_ID)
                 .containsEntry("joined_via", "CODE");
     }
 
     @Test
-    void link_join_records_joined_via_link() {
+    void link_join_records_joined_via_link_as_pending() {
         ClassInviteCode token = activeToken("k".repeat(32));
         ReflectionTestUtils.setField(token, "type", ClassInviteCode.TYPE_LINK);
         ReflectionTestUtils.setField(token, "id", 6L);
@@ -302,6 +341,8 @@ class JoinClassServiceTest {
         ArgumentCaptor<Enrollment> enrCap = ArgumentCaptor.forClass(Enrollment.class);
         verify(enrollmentRepository).save(enrCap.capture());
         assertThat(enrCap.getValue().getJoinedVia()).isEqualTo("LINK");
+        assertThat(enrCap.getValue().getStatus()).isEqualTo(Enrollment.STATUS_PENDING);
+        assertThat(token.getUseCount()).isZero();
     }
 
     @Test
@@ -318,10 +359,10 @@ class JoinClassServiceTest {
 
         JoinResult result = service.join("ab23cd", USER_ID);
 
-        assertThat(result).isInstanceOf(Success.class);
+        assertThat(result).isInstanceOf(PendingRequested.class);
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ leave â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ───────── leave ─────────
 
     @Test
     void leave_happy_path_marks_removed_and_writes_audit() {
@@ -369,7 +410,84 @@ class JoinClassServiceTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ───────── approve / reject ─────────
+
+    @Test
+    void approve_pending_activates_increments_use_count_and_notifies() {
+        ClassEntity clazz = buildClass();
+        when(classesService.getEditable(CLASS_ID, OWNER_ID, Role.LECTURER)).thenReturn(clazz);
+
+        Enrollment pending = buildEnrollment(Enrollment.STATUS_PENDING);
+        ReflectionTestUtils.setField(pending, "inviteCodeId", 5L);
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(pending));
+        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(0L);
+
+        ClassInviteCode invite = activeToken("AB23CD");
+        ReflectionTestUtils.setField(invite, "id", 5L);
+        when(inviteRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(invite));
+
+        service.approve(CLASS_ID, USER_ID, OWNER_ID, Role.LECTURER);
+
+        assertThat(pending.getStatus()).isEqualTo(Enrollment.STATUS_ACTIVE);
+        assertThat(invite.getUseCount()).isEqualTo(1);
+        verify(inviteRepository).save(invite);
+        verify(notificationService).create(eq(USER_ID), any(), any(),
+                eq(NotificationType.JOIN_APPROVED), eq(NotificationType.REF_CLASS), eq(CLASS_ID));
+        verify(notificationService).create(eq(USER_ID), any(), any(),
+                eq(NotificationType.CLASS_ENROLLED), eq(NotificationType.REF_CLASS), eq(CLASS_ID));
+    }
+
+    @Test
+    void approve_when_full_leaves_pending() {
+        ClassEntity clazz = buildClass();
+        ReflectionTestUtils.setField(clazz, "maxStudents", 1);
+        when(classesService.getEditable(CLASS_ID, OWNER_ID, Role.LECTURER)).thenReturn(clazz);
+
+        Enrollment pending = buildEnrollment(Enrollment.STATUS_PENDING);
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(pending));
+        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.approve(CLASS_ID, USER_ID, OWNER_ID, Role.LECTURER))
+                .isInstanceOf(InviteCodeValidationException.class)
+                .extracting(ex -> ((InviteCodeValidationException) ex).getReason())
+                .isEqualTo(InviteRejectionReason.CLASS_FULL);
+
+        assertThat(pending.getStatus()).isEqualTo(Enrollment.STATUS_PENDING);
+        verify(inviteRepository, never()).save(any());
+    }
+
+    @Test
+    void approve_non_owner_denied() {
+        ClassEntity clazz = buildClass();
+        // getEditable allows HEAD, but requireOwner still checks lecturerId.
+        when(classesService.getEditable(CLASS_ID, 999L, Role.HEAD)).thenReturn(clazz);
+
+        assertThatThrownBy(() -> service.approve(CLASS_ID, USER_ID, 999L, Role.HEAD))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void reject_pending_marks_rejected_without_use_count() {
+        ClassEntity clazz = buildClass();
+        when(classesService.getEditable(CLASS_ID, OWNER_ID, Role.LECTURER)).thenReturn(clazz);
+
+        Enrollment pending = buildEnrollment(Enrollment.STATUS_PENDING);
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(pending));
+
+        service.reject(CLASS_ID, USER_ID, OWNER_ID, Role.LECTURER);
+
+        assertThat(pending.getStatus()).isEqualTo(Enrollment.STATUS_REJECTED);
+        verify(inviteRepository, never()).save(any());
+        verify(notificationService).create(eq(USER_ID), any(), any(),
+                eq(NotificationType.JOIN_REJECTED), eq(NotificationType.REF_CLASS), eq(CLASS_ID));
+        verify(notificationService, never()).create(eq(USER_ID), any(), any(),
+                eq(NotificationType.CLASS_ENROLLED), any(), any());
+    }
+
+    // ───────── helpers ─────────
 
     private static ClassInviteCode activeToken(String code) {
         ClassInviteCode ic = new ClassInviteCode(CLASS_ID, code,

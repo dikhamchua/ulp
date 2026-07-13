@@ -18,11 +18,8 @@ import java.util.Map;
 /**
  * Read service that powers {@code GET /my/classes}.
  *
- * <p>Returns the caller's ACTIVE enrollments, joined to the class
- * row (filtered by {@code is_deleted=0} via {@code @SQLRestriction}
- * on {@link ClassEntity}) and the lecturer's full name (via
- * {@link UserRepository}). Soft-deleted classes are filtered out;
- * REMOVED / COMPLETED enrollments do not appear.
+ * <p>ACTIVE enrollments appear as full class rows; PENDING enrollments appear
+ * as "đang chờ duyệt" without content entry links.
  */
 @Service
 public class StudentClassesService {
@@ -47,26 +44,31 @@ public class StudentClassesService {
         this.userRepository = userRepository;
     }
 
-    /**
-     * Returns the caller's currently-ACTIVE enrolled classes, most
-     * recent join first. Soft-deleted classes are hidden.
-     */
+    /** ACTIVE enrolled classes, most recent join first. Soft-deleted classes hidden. */
     @Transactional(readOnly = true)
     public List<EnrolledClassRow> listEnrolledClasses(Long userId) {
-        List<Enrollment> enrollments = enrollmentRepository
-                .findAllByUserIdAndStatusOrderByJoinedAtDesc(userId, Enrollment.STATUS_ACTIVE);
+        return mapRows(enrollmentRepository
+                .findAllByUserIdAndStatusOrderByJoinedAtDesc(userId, Enrollment.STATUS_ACTIVE));
+    }
+
+    /** PENDING join requests for the student (awaiting owner approval). */
+    @Transactional(readOnly = true)
+    public List<EnrolledClassRow> listPendingClasses(Long userId) {
+        return mapRows(enrollmentRepository
+                .findAllByUserIdAndStatusOrderByJoinedAtDesc(userId, Enrollment.STATUS_PENDING));
+    }
+
+    private List<EnrolledClassRow> mapRows(List<Enrollment> enrollments) {
         if (enrollments.isEmpty()) {
             return List.of();
         }
 
-        // Bulk-load the class rows; @SQLRestriction filters soft-deleted.
         List<Long> classIds = enrollments.stream().map(Enrollment::getClassId).distinct().toList();
         Map<Long, ClassEntity> classById = new HashMap<>();
         for (ClassEntity c : classRepository.findAllById(classIds)) {
             classById.put(c.getId(), c);
         }
 
-        // Bulk-load lecturer names.
         List<Long> lecturerIds = classById.values().stream()
                 .map(ClassEntity::getLecturerId).distinct().toList();
         Map<Long, String> lecturerNames = new HashMap<>();
@@ -78,7 +80,8 @@ public class StudentClassesService {
         int idx = 0;
         for (Enrollment e : enrollments) {
             ClassEntity c = classById.get(e.getClassId());
-            if (c == null) continue; // class soft-deleted â†’ hide row
+            // Soft-deleted class → hide row.
+            if (c == null) continue;
             String lecName = lecturerNames.getOrDefault(c.getLecturerId(), "—");
             String gradient = gradientFor(idx++);
             rows.add(new EnrolledClassRow(

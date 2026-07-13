@@ -26,22 +26,30 @@ final class ClassRowMapper {
      * derived from {@code index} so different pages can repeat colours —
      * intentional and matches the audit's "good enough" tolerance for the
      * cosmetic ordering of class thumbnails.
+     *
+     * @param displayCode code shown under the class name (prefer active invite CODE)
      */
-    static ClassRow toRow(ClassEntity e, int index) {
+    static ClassRow toRow(ClassEntity e, int index, String displayCode) {
         // TODO Sprint 3/5: wire real counts from enrollments/lessons/assignments/lesson_attachments
         int studentCount = 0;
         int lectureCount = 0;
         int assignmentCount = 0;
         int materialCount = 0;
         String createdAtIso = e.getCreatedAt() != null ? e.getCreatedAt().toString() : "";
+        String code = displayCode != null && !displayCode.isBlank() ? displayCode : e.getCode();
         return new ClassRow(
                 e.getId(),
                 e.getName(),
-                e.getCode(),
+                code,
                 ClassGradient.forIndex(index).css(),
                 studentCount, lectureCount, assignmentCount, materialCount,
                 createdAtIso
         );
+    }
+
+    /** Convenience overload when no invite code is available — falls back to {@code classes.code}. */
+    static ClassRow toRow(ClassEntity e, int index) {
+        return toRow(e, index, e.getCode());
     }
 
     /**

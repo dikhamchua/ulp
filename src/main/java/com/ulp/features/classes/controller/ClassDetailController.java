@@ -6,11 +6,15 @@ import com.ulp.features.classes.controller.support.ClassDetailModelSupport;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.service.ClassMembersService;
 import com.ulp.features.classes.service.ClassesService;
+import com.ulp.features.classes.service.JoinClassService;
 import com.ulp.features.classes.service.invites.InviteCodeService;
+import com.ulp.features.classes.service.invites.InviteCodeValidationException;
 import com.ulp.features.tests.service.LecturerExamService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -55,17 +59,20 @@ public class ClassDetailController {
     private final InviteCodeService inviteCodeService;
     private final ClassDetailModelSupport detailSupport;
     private final LecturerExamService examService;
+    private final JoinClassService joinClassService;
 
     public ClassDetailController(ClassesService classesService,
                                  ClassMembersService classMembersService,
                                  InviteCodeService inviteCodeService,
                                  ClassDetailModelSupport detailSupport,
-                                 LecturerExamService examService) {
+                                 LecturerExamService examService,
+                                 JoinClassService joinClassService) {
         this.classesService = classesService;
         this.classMembersService = classMembersService;
         this.inviteCodeService = inviteCodeService;
         this.detailSupport = detailSupport;
         this.examService = examService;
+        this.joinClassService = joinClassService;
     }
 
     /** Renders the class board (announcement) tab. */
@@ -78,7 +85,7 @@ public class ClassDetailController {
         return VIEW_CLASS_DETAIL_BOARD;
     }
 
-    /** Renders the class members tab with the full member list. */
+    /** Renders the class members tab with ACTIVE members and PENDING requests. */
     @GetMapping("/classes/{id}/members")
     public String detailMembers(@PathVariable Long id,
                                 @AuthenticationPrincipal UlpUserDetails user,
@@ -89,7 +96,50 @@ public class ClassDetailController {
                 user.getId(), user.getRole());
         model.addAttribute(ATTR_MEMBERS, view.members());
         model.addAttribute(ATTR_MEMBER_TOTAL, view.total());
+        model.addAttribute(ATTR_PENDING_MEMBERS, view.pendingMembers());
+        model.addAttribute(ATTR_PENDING_TOTAL, view.pendingTotal());
         return VIEW_CLASS_DETAIL_MEMBERS;
+    }
+
+    /** Owner approves a PENDING join request. */
+    @PostMapping("/classes/{id}/members/{userId}/approve")
+    public String approveMember(@PathVariable Long id,
+                                @PathVariable Long userId,
+                                @AuthenticationPrincipal UlpUserDetails user,
+                                RedirectAttributes ra) {
+        try {
+            joinClassService.approve(id, userId, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOIN_APPROVED);
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_JOIN_APPROVE_FAILED + ex.getMessage());
+        } catch (InviteCodeValidationException ex) {
+            // Capacity full reuses CLASS_FULL message from the validator.
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_JOIN_CLASS_FULL);
+        }
+        return "redirect:" + classUrl(id) + "/" + TAB_MEMBERS;
+    }
+
+    /** Owner rejects a PENDING join request. */
+    @PostMapping("/classes/{id}/members/{userId}/reject")
+    public String rejectMember(@PathVariable Long id,
+                               @PathVariable Long userId,
+                               @AuthenticationPrincipal UlpUserDetails user,
+                               RedirectAttributes ra) {
+        try {
+            joinClassService.reject(id, userId, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOIN_REJECTED);
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_JOIN_REJECT_FAILED + ex.getMessage());
+        }
+        return "redirect:" + classUrl(id) + "/" + TAB_MEMBERS;
     }
 
     /** Renders the class exams tab — the exams belonging to this class. */
@@ -132,13 +182,13 @@ public class ClassDetailController {
      * Handles: {@code /schedule}, {@code /roles}, {@code /groups}, {@code /assignments},
      * {@code /scores}, {@code /materials}.
      *
-     * <p>Note: {@code /lessons} is intentionally NOT mapped here — it is owned
-     * by {@code SectionsController} ({@code /lecturer/classes/{classId}/lessons})
-     * starting with ULP-4.0a. Adding both mappings would raise
+     * <p>Note: {@code /lessons} and {@code /assignments} are intentionally NOT mapped here —
+     * they are owned by {@code SectionsController} and {@code LecturerAssignmentController}
+     * respectively. Adding both mappings would raise
      * {@code IllegalStateException: Ambiguous mapping} at startup.
      */
     @GetMapping({"/classes/{id}/schedule", "/classes/{id}/roles",
-                "/classes/{id}/groups", "/classes/{id}/assignments",
+                "/classes/{id}/groups",
                 "/classes/{id}/scores",
                 "/classes/{id}/materials"})
     public String detailPlaceholder(@PathVariable Long id,

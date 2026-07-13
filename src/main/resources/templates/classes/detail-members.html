@@ -9,7 +9,7 @@
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
 <span id="flash-data"
-      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError},data-flash-info=${flashInfo}"
       style="display:none;"></span>
 
 <div class="class-detail-layout">
@@ -97,10 +97,36 @@
         Chưa có học sinh nào trong lớp. Mã mời đã hiển thị ở thanh bên (hoặc tại trang Cài đặt lớp học).
       </div>
 
-      <!-- Pending placeholder -->
+      <!-- Pending join requests -->
       <div class="pending">
-        <h4>Chờ duyệt <span>&bull; 0</span></h4>
-        <p>Yêu cầu vào lớp sẽ được hiển thị khi có học sinh dùng mã mời tham gia.</p>
+        <h4>Chờ duyệt <span th:text="'&bull; ' + ${pendingTotal != null ? pendingTotal : 0}">&bull; 0</span></h4>
+        <p th:if="${pendingTotal == null or pendingTotal == 0}">
+          Yêu cầu vào lớp sẽ được hiển thị khi có học sinh dùng mã mời tham gia.
+        </p>
+        <ul class="pending-list" th:if="${pendingTotal != null and pendingTotal > 0}">
+          <li class="pending-item" th:each="p : ${pendingMembers}">
+            <div class="stu">
+              <div class="avatar" th:style="'background:' + ${p.avatarGradient}"
+                   th:text="${p.avatarLabel}">??</div>
+              <div>
+                <div class="stu-name" th:text="${p.fullName}">Họ tên</div>
+                <div class="stu-sub" th:text="${p.email}">email</div>
+              </div>
+            </div>
+            <div class="pending-actions">
+              <form th:action="@{|/lecturer/classes/${clazz.id}/members/${p.userId}/approve|}"
+                    method="post" class="pending-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="pending-approve">Duyệt</button>
+              </form>
+              <form th:action="@{|/lecturer/classes/${clazz.id}/members/${p.userId}/reject|}"
+                    method="post" class="pending-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="pending-reject">Từ chối</button>
+              </form>
+            </div>
+          </li>
+        </ul>
       </div>
     </section>
   </main>
