@@ -118,4 +118,29 @@ class Sprint5NotificationsIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("notifications/index"));
     }
+
+    // ── Header dropdown recent feed ─────────────────────────────────
+
+    @Test
+    @WithUserDetails("student@ulp.edu.vn")
+    void recent_endpoint_returns_items_and_count() throws Exception {
+        mockMvc.perform(get("/my/notifications/recent")
+                        .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.count").isNumber());
+    }
+
+    @Test
+    @WithUserDetails("student@ulp.edu.vn")
+    void open_with_ajax_returns_json_instead_of_redirect() throws Exception {
+        mockMvc.perform(post("/my/notifications/999999/open")
+                        .param("ajax", "1")
+                        .with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ok").value(true))
+                .andExpect(jsonPath("$.redirect").exists())
+                .andExpect(jsonPath("$.count").isNumber());
+    }
 }
