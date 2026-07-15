@@ -115,18 +115,24 @@
   text-transform: uppercase;
 }
 .msg-conv-body {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 0; /* allow ellipsis inside flex item */
+  overflow: hidden;
 }
 .msg-conv-name {
+  display: block;
   font-weight: 600;
   font-size: 14px;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .msg-conv-snippet {
+  display: block;
+  max-width: 100%;
   font-size: 13px;
+  line-height: 1.3;
   color: #6b7280;
   white-space: nowrap;
   overflow: hidden;

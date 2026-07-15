@@ -81,13 +81,27 @@ public class MessagingAccess {
             return userRepository.findAllById(lecturerIds).stream()
                     .filter(u -> isLecturer(u.getRole()))
                     .filter(u -> matches(u, filter))
+                    .sorted((a, b) -> {
+                        String na = a.getFullName() != null ? a.getFullName() : a.getEmail();
+                        String nb = b.getFullName() != null ? b.getFullName() : b.getEmail();
+                        return String.CASE_INSENSITIVE_ORDER.compare(
+                                na != null ? na : "", nb != null ? nb : "");
+                    })
                     .toList();
         }
         if (isLecturer(meRole)) {
             List<Long> classIds = classRepository.findClassIdsForLecturer(meId);
             if (classIds.isEmpty()) return List.of();
+            // Full ACTIVE student roster for the lecturer's classes; optional
+            // filter is only used by server callers that still pass q.
             return enrollmentRepository.findActiveStudentsInClasses(classIds, filter).stream()
                     .filter(u -> isStudent(u.getRole()))
+                    .sorted((a, b) -> {
+                        String na = a.getFullName() != null ? a.getFullName() : a.getEmail();
+                        String nb = b.getFullName() != null ? b.getFullName() : b.getEmail();
+                        return String.CASE_INSENSITIVE_ORDER.compare(
+                                na != null ? na : "", nb != null ? nb : "");
+                    })
                     .toList();
         }
         // ADMIN or any other role is out of scope for messaging.

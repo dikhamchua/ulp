@@ -70,8 +70,8 @@
         Chọn một cuộc trò chuyện để bắt đầu.
       </div>
 
-      <!-- Compose: search eligible recipients, pick one to start a thread. -->
-      <div class="msg-compose" th:if="${compose}">
+      <!-- Compose: full eligible roster; search filters client-side (messaging.js). -->
+      <div class="msg-compose" th:if="${compose}" data-msg-compose>
         <header class="msg-thread-head">
           <a th:href="@{/my/messages}" class="msg-back" aria-label="Quay lại danh sách">
             <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -80,28 +80,28 @@
           <span class="msg-thread-name">Soạn tin nhắn mới</span>
         </header>
 
-        <!-- Search box: GET reload keeps results server-filtered through the gate. -->
-        <form class="msg-compose-search" method="get" th:action="@{/my/messages/new}">
-          <input type="search" name="q" class="msg-compose-search-input"
-                 th:value="${composeQuery}" placeholder="Tìm theo tên hoặc email..."
-                 aria-label="Tìm người nhận" autofocus />
-          <button type="submit" class="msg-compose-search-btn">Tìm</button>
-        </form>
+        <!-- Quick filter only — does not hit the server. -->
+        <div class="msg-compose-search">
+          <input type="search" class="msg-compose-search-input" data-msg-compose-q
+                 placeholder="Tìm nhanh theo tên hoặc email..."
+                 aria-label="Tìm nhanh người nhận" autofocus autocomplete="off" />
+        </div>
 
-        <div class="msg-compose-results">
-          <!-- No eligible peers (empty roster or no match for the query). -->
+        <div class="msg-compose-results" data-msg-compose-list>
           <div class="msg-empty" th:if="${#lists.isEmpty(recipients)}">
-            <span th:if="${composeQuery != null and !composeQuery.isEmpty()}">
-              Không tìm thấy người nhận phù hợp.
-            </span>
-            <span th:unless="${composeQuery != null and !composeQuery.isEmpty()}">
-              Chưa có người nhận nào bạn có thể bắt đầu trò chuyện.
-            </span>
+            Chưa có người nhận nào bạn có thể bắt đầu trò chuyện.
           </div>
 
-          <!-- Each result POSTs to /new; the gate re-validates server-side. -->
+          <!-- Empty filter result (shown by JS when query matches nothing). -->
+          <div class="msg-empty" data-msg-compose-empty style="display:none">
+            Không tìm thấy người nhận phù hợp.
+          </div>
+
+          <!-- Full gate-filtered roster; POST starts the thread. -->
           <form th:each="r : ${recipients}" class="msg-recipient" method="post"
-                th:action="@{/my/messages/new}">
+                th:action="@{/my/messages/new}"
+                th:attr="data-search=${(r.name() != null ? r.name() : '') + ' ' + (r.email() != null ? r.email() : '')}">
+            <!-- CSRF injected automatically by Spring Security for th:action forms. -->
             <input type="hidden" name="to" th:value="${r.id()}" />
             <button type="submit" class="msg-recipient-btn">
               <span class="msg-avatar" th:if="${r.avatarUrl() == null}"
@@ -127,5 +127,8 @@
 </main>
 
 <script th:src="@{/js/app.js}"></script>
+  <!-- messaging.js is loaded once from app-header (defer + SockJS/STOMP).
+       Do NOT include it again here — a second load double-binds the composer
+       and can deadlock concurrent POSTs to the same conversation. -->
 </body>
 </html>

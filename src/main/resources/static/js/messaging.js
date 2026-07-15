@@ -10,6 +10,11 @@
 (function () {
   'use strict';
 
+  // Prevent double-bind when the script is included more than once (duplicate
+  // submit handlers caused concurrent POSTs and MySQL deadlocks on send).
+  if (window.__ulpMessagingBooted) return;
+  window.__ulpMessagingBooted = true;
+
   // ── CSRF + small DOM helpers ───────────────────────────────────────────
   function meta(name) {
     var el = document.querySelector('meta[name="' + name + '"]');
@@ -78,10 +83,12 @@
   }
 
   if (composer && input && openConvId) {
+    var sending = false;
     composer.addEventListener('submit', function (e) {
       // Progressive enhancement: intercept only when fetch is usable.
       if (typeof window.fetch !== 'function') return; // fall back to native POST
       e.preventDefault();
+      if (sending) return; // ignore double-submit while in flight
       var body = (input.value || '').trim();
       clearError();
       if (!body) return;
@@ -96,9 +103,11 @@
 
       var sendBtn = composer.querySelector('[data-msg-send]');
       if (sendBtn) sendBtn.disabled = true;
+      sending = true;
 
       fetch(composer.getAttribute('action'), {
         method: 'POST',
+        credentials: 'same-origin',
         headers: headers,
         body: 'body=' + encodeURIComponent(body)
       }).then(function (res) {
@@ -111,6 +120,7 @@
       }).catch(function () {
         showError('Không gửi được tin nhắn. Vui lòng thử lại.');
       }).then(function () {
+        sending = false;
         if (sendBtn) sendBtn.disabled = false;
       });
     });
@@ -148,6 +158,36 @@
 
   // Keep the opened thread scrolled to the newest message on load.
   if (thread) scrollThreadToBottom();
+
+  // ── Compose: client-side filter over the full eligible roster ───────────
+  // Server renders every peer the caller may message; this only shows/hides
+  // rows as the user types (no network round-trip).
+  (function bindComposeFilter() {
+    var root = document.querySelector('[data-msg-compose]');
+    if (!root) return;
+    var input = root.querySelector('[data-msg-compose-q]');
+    var empty = root.querySelector('[data-msg-compose-empty]');
+    var rows = root.querySelectorAll('.msg-recipient[data-search]');
+    if (!input || !rows.length) return;
+
+    function applyFilter() {
+      var q = (input.value || '').trim().toLowerCase();
+      var visible = 0;
+      rows.forEach(function (row) {
+        var hay = (row.getAttribute('data-search') || '').toLowerCase();
+        var show = !q || hay.indexOf(q) !== -1;
+        row.style.display = show ? '' : 'none';
+        if (show) visible += 1;
+      });
+      if (empty) {
+        // Only show "no match" when the user typed something and nothing matched.
+        empty.style.display = (q && visible === 0) ? '' : 'none';
+      }
+    }
+
+    input.addEventListener('input', applyFilter);
+    input.addEventListener('search', applyFilter); // clear (x) on type=search
+  })();
 
   connectStomp();
 })();
