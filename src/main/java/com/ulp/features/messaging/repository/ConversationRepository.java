@@ -4,9 +4,11 @@ import com.ulp.entities.Conversation;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
@@ -41,4 +43,17 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
             "ORDER BY CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END ASC, " +
             "c.lastMessageAt DESC, c.createdAt DESC")
     Page<Conversation> findConversationsForUser(@Param("userId") Long userId, Pageable pageable);
+
+    /**
+     * Atomic bump of last-activity time after a message is stored. Prefer this
+     * over loading + saving the entity so concurrent sends do not deadlock on
+     * the same conversation row under Hibernate batching.
+     *
+     * @param convId conversation id
+     * @param when   timestamp of the newly sent message
+     * @return rows updated (0 or 1)
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Conversation c SET c.lastMessageAt = :when WHERE c.id = :convId")
+    int touchLastMessageAt(@Param("convId") Long convId, @Param("when") LocalDateTime when);
 }

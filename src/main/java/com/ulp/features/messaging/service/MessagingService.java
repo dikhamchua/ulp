@@ -245,9 +245,11 @@ public class MessagingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nội dung tối đa 2000 ký tự");
         }
 
-        Message saved = messageRepository.save(new Message(convId, meId, trimmed));
-        conv.touch(saved.getCreatedAt());
-        conversationRepository.save(conv);
+        // Persist the message first, then bump last_message_at with a single
+        // UPDATE (not entity merge) so concurrent sends on the same thread do
+        // not deadlock under InnoDB + Hibernate batching.
+        Message saved = messageRepository.saveAndFlush(new Message(convId, meId, trimmed));
+        conversationRepository.touchLastMessageAt(convId, saved.getCreatedAt());
 
         Long peerId = conv.peerOf(meId);
         long peerUnread = messageRepository.countUnreadForUser(peerId);

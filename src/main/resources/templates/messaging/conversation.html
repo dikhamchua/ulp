@@ -52,6 +52,7 @@
   <form class="msg-composer" method="post"
         th:action="@{|/my/messages/${conversation.convId()}|}"
         data-msg-composer>
+    <!-- CSRF is injected automatically by Spring Security for th:action forms. -->
     <p class="msg-composer-error" data-msg-error hidden></p>
     <div class="msg-composer-row">
       <textarea name="body" class="msg-composer-input" data-msg-input

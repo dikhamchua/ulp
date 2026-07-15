@@ -121,20 +121,20 @@ public class MessagingController {
     }
 
     /**
-     * Renders the "new conversation" compose surface in the thread pane: a search
-     * box plus the eligible recipients returned by {@link MessagingService}. The
-     * result list is already filtered through the recipient gate, so only peers
-     * the caller may message appear; picking one POSTs to {@code /new}.
+     * Renders the "new conversation" compose surface: full eligible roster plus a
+     * client-side filter box. Server always returns the complete gate-filtered
+     * list (no server-side {@code q}); {@code messaging.js} filters by name/email
+     * in the browser for quick pick.
      */
     @GetMapping("/new")
-    public String compose(@RequestParam(name = "q", required = false) String q,
-                          @AuthenticationPrincipal UlpUserDetails user, Model model) {
+    public String compose(@AuthenticationPrincipal UlpUserDetails user, Model model) {
         Page<ConversationRow> conversations = messagingService.listConversations(user.getId(), 0);
-        List<RecipientRow> recipients = messagingService.searchRecipients(user.getId(), user.getRole(), q);
+        // Full roster — client-side search only (see messaging.js bindComposeFilter).
+        List<RecipientRow> recipients = messagingService.searchRecipients(user.getId(), user.getRole(), null);
         model.addAttribute(ATTR_CONVERSATIONS, conversations);
         model.addAttribute(ATTR_RECIPIENTS, recipients);
         model.addAttribute(ATTR_COMPOSE, true);
-        model.addAttribute(ATTR_COMPOSE_QUERY, q == null ? "" : q);
+        model.addAttribute(ATTR_COMPOSE_QUERY, "");
         model.addAttribute(ATTR_PAGER_PARAMS, new LinkedHashMap<String, Object>());
         return VIEW_MESSAGING_INDEX;
     }
