@@ -173,6 +173,27 @@ class JoinClassServiceTest {
         assertThat(token.getUseCount()).isZero();
     }
 
+    // ───────── owner self-join guard ─────────
+
+    @Test
+    void owner_redeeming_own_invite_throws_own_class_without_writes() {
+        ClassInviteCode token = activeToken("AB23CD");
+        when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
+
+        ClassEntity clazz = buildClass();
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+
+        assertThatThrownBy(() -> service.join("AB23CD", OWNER_ID))
+                .isInstanceOf(InviteCodeValidationException.class)
+                .extracting(ex -> ((InviteCodeValidationException) ex).getReason())
+                .isEqualTo(InviteRejectionReason.OWN_CLASS);
+
+        verify(enrollmentRepository, never()).findByUserIdAndClassId(any(), any());
+        verify(enrollmentRepository, never()).save(any());
+        verify(notificationService, never()).create(any(), any(), any(), any(), any(), any());
+        assertThat(token.getUseCount()).isZero();
+    }
+
     // ───────── enrollment lifecycle ─────────
 
     @Test
