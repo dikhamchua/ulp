@@ -1,272 +1,184 @@
-# repository-harness
+# ULP — University Learning Platform
 
-Turn any software repo into an agent-ready workspace.
+Nền tảng dạy & học web cho môi trường đại học (capstone).  
+Stack: **Spring Boot 3.4.4 · Java 17 · Thymeleaf (SSR) · MySQL 8 · Flyway · Spring Security**.
 
-`repository-harness` is a repository-level operating harness for Claude Code,
-Codex, Cursor, and other coding agents. It gives agents the missing project
-context they need before they change code: where to start, what the product
-contract says, how risky the work is, what proof is required, and which
-decisions future agents should inherit.
+| | |
+|---|---|
+| App URL | http://localhost:8080 |
+| Login | http://localhost:8080/login |
+| Admin | http://localhost:8080/admin/dashboard |
 
-The app is what users touch. The harness is what agents touch.
+---
 
-## Why Star This Repo
+## Yêu cầu
 
-Star this repo if you want practical, reusable patterns for making AI-assisted
-software development more reliable, inspectable, and easier for humans to steer.
+- JDK **17+**
+- MySQL **8.0** (local hoặc Docker) — database `ulp_db`
+- Maven Wrapper (`mvnw` / `mvnw.cmd`) — không cần cài Maven global
 
-This project is exploring a simple idea:
-
-> Coding agents do not only need better prompts. They need better repositories.
-
-## The Problem
-
-Most repos are built for humans reading code in a familiar codebase. Coding
-agents usually enter with only a chat prompt and a shallow snapshot of files.
-That leads to common failure modes:
-
-- The agent edits code before understanding product intent.
-- Important constraints live only in chat history or in someone's head.
-- Validation expectations are vague or discovered too late.
-- Architecture tradeoffs are repeated instead of inherited.
-- Large requests do not get broken into reviewable story-sized work.
-
-## The Harness Approach
-
-A repository starts to have a harness when it helps an agent answer practical
-engineering questions without relying only on chat history:
-
-- What should I read first?
-- What type of work is this?
-- Which product contract does it affect?
-- How risky is the change?
-- What proof will show the work is done?
-- What decision or lesson should future agents inherit?
-
-In this repo, those answers live in:
-
-- `AGENTS.md` — the stable agent shim with local project notes and Harness
-  doc links.
-- `docs/HARNESS.md` — the human-agent collaboration model.
-- `docs/FEATURE_INTAKE.md` — tiny, normal, and high-risk work classification.
-- `docs/ARCHITECTURE.md` — architecture discovery and boundary rules.
-- `docs/TEST_MATRIX.md` — behavior-to-proof validation expectations.
-- `docs/stories/` — story packets and backlog items.
-- `docs/decisions/` — durable decisions and tradeoffs.
-- `docs/templates/` — reusable spec, story, decision, and validation templates.
-
-OpenAI describes this shift as an agent-first world where humans steer and
-agents execute:
-
-https://openai.com/index/harness-engineering/
-
-## Install Harness Into A Project
-
-From a target project directory, run:
+### MySQL bằng Docker (khuyến nghị)
 
 ```bash
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --yes
+docker run -d --name mysql-8.0.36 \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -p 3306:3306 \
+  mysql:8.0.36-debian
 ```
 
-On Windows PowerShell, run:
-
-```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Yes
-```
-
-If the target already has `AGENTS.md`, `docs/`, or `scripts/`, choose one:
+Nếu container đã có sẵn:
 
 ```bash
-# Update an existing Harness repo without moving existing files
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --merge --yes
-
-# Back up and replace AGENTS.md, docs/, and scripts/
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --override --yes
+docker start mysql-8.0.36
 ```
 
-```powershell
-# Update an existing Harness repo without moving existing files
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Merge -Yes
-
-# Back up and replace AGENTS.md, docs/, and scripts/
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Override -Yes
-```
-
-Use `--merge` when a project already has Harness and you want to append newly
-added Harness files without moving the existing `AGENTS.md`, `docs/`, or
-`scripts/` paths into backup. Existing files stay untouched; only missing
-Harness files are created.
-
-For older Harness installs whose `AGENTS.md` still contains the full generated
-operating guide, refresh it into the small stable shim:
+Tạo database:
 
 ```bash
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --merge --refresh-agent-shim --yes
+docker exec -i mysql-8.0.36 mysql -uroot -proot -e \
+  "CREATE DATABASE IF NOT EXISTS ulp_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
-The refresh backs up the existing file. If it detects the old
-Harness-generated guide, it replaces it with the shim. If the file appears
-custom, it appends or updates a marked Harness block instead of overwriting the
-project's local instructions.
+---
 
-If the project is driven with Claude Code, add `--claude`. Claude Code never
-auto-loads `AGENTS.md`, so without this the installed harness is invisible to
-fresh sessions. The flag installs (or refreshes) a `CLAUDE.md` whose marked
-Harness block `@`-imports `AGENTS.md` and `docs/FEATURE_INTAKE.md` into every
-session's context. An existing `CLAUDE.md` gets the block appended after a
-backup; plain installs without the flag never touch `CLAUDE.md`:
+## Cài đặt lần đầu
 
 ```bash
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --claude --yes
+# 1. Clone
+git clone https://github.com/dikhamchua/ulp.git
+cd ulp
+
+# 2. Config local (không commit file này)
+copy src\main\resources\application-local.properties.example ^
+     src\main\resources\application-local.properties
+# rồi điền DB_USERNAME / DB_PASSWORD
+
+# 3. Chạy app (Flyway tự migrate)
+.\mvnw.cmd spring-boot:run
 ```
 
-Or install into a specific path:
+Trên macOS/Linux:
 
 ```bash
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --directory /path/to/project --yes
+cp src/main/resources/application-local.properties.example \
+   src/main/resources/application-local.properties
+./mvnw spring-boot:run
 ```
 
-```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Directory C:\path\to\project -Yes
-```
+App lên tại **http://localhost:8080**.
 
-Use `--dry-run` on Bash or `-DryRun` on PowerShell to preview changes before
-writing files.
+---
 
-The installer also downloads the prebuilt Harness CLI for the current platform,
-verifies its `.sha256` checksum, and installs it at
-`scripts/bin/harness-cli` on macOS/Linux or `scripts/bin/harness-cli.exe` on
-Windows. The Rust CLI is the main Harness tool and stable command path.
+## Lệnh thường dùng
 
-Harness CLI release assets are published from tags by the
-`Harness CLI Release` GitHub Actions workflow. The installer expects each
-release to include `harness-cli-<platform>` and
-`harness-cli-<platform>.sha256` assets for macOS arm64, macOS x64, Linux x64,
-Linux arm64, and Windows x64. The Windows asset is
-`harness-cli-windows-x64.exe` plus `harness-cli-windows-x64.exe.sha256`.
+| Lệnh | Mục đích |
+|---|---|
+| `.\mvnw.cmd spring-boot:run` | Chạy dev |
+| `.\mvnw.cmd test` | Unit + integration tests |
+| `.\mvnw.cmd compile` | Compile only |
+| `.\mvnw.cmd clean package` | Build JAR |
 
-Merged pull requests are recorded in `CHANGELOG.md` by the
-`Post-Merge Maintenance` workflow. When a merged PR changes the Rust CLI source,
-schema, Cargo metadata, or CLI release packaging, that workflow bumps the CLI
-patch version, updates `scripts/harness-cli-release-tag`, creates a
-`harness-cli-v*` tag, and runs the Harness CLI release build for that tag.
+---
 
-## Try The Flow
+## Tài khoản test (DEV)
 
-The fastest way to understand the harness is to inspect the tiny demo:
+Seed bởi Flyway (`V5` + `V6`). Mật khẩu chung: **`password`**
 
-- `docs/demo/README.md`: shows how a simple product idea becomes product docs,
-  stories, validation expectations, and decisions before implementation starts.
+| Email | Role |
+|---|---|
+| `admin@ulp.edu.vn` | ADMIN |
+| `lecturer@ulp.edu.vn` | LECTURER |
+| `head@ulp.edu.vn` | HEAD |
+| `student@ulp.edu.vn` | STUDENT |
 
-A typical flow looks like this:
+> Chỉ dùng trên môi trường DEV. Không seed tài khoản test lên production.
+
+---
+
+## Cấu trúc chính
 
 ```text
-human intent or product spec
-  -> product contract
-  -> feature intake
-  -> story packet
-  -> validation expectations
-  -> implementation work
-  -> decision or lesson captured for future agents
+ulp/
+├── src/main/java/com/ulp/
+│   ├── features/          # feature-first packages
+│   │   ├── auth/
+│   │   ├── classes/
+│   │   ├── student/
+│   │   ├── admin/
+│   │   └── ...
+│   ├── entities/
+│   ├── security/
+│   └── shared/ / config/
+├── src/main/resources/
+│   ├── application.properties
+│   ├── application-local.properties.example
+│   ├── db/migration/      # Flyway V1…Vn
+│   ├── templates/         # Thymeleaf
+│   └── static/css|js/
+└── docs/                  # harness, decisions, stories
 ```
 
-Implementation prompts do not go straight to code. They first pass through
-feature intake, become story-sized work when needed, and then carry both product
-validation and harness maintenance expectations.
+---
 
-## Tool Registry
+## Domain chính
 
-The harness can use optional external tools (linters, code-graph servers,
-deploy checks) without depending on any of them. You register a tool as a
-provider of a *capability*, the harness scans whether it is actually present,
-and a workflow step uses whatever is equipped — an absent tool is a clean skip,
-never a failure.
+- Identity & Auth (form login, Google OAuth optional, password reset)
+- Classes & enrollment (mã mời CODE/LINK, duyệt PENDING)
+- Lessons & content (rich text / PDF / video)
+- Tests (MCQ online exams)
+- Assignments & submissions
+- Flashcards (SM-2)
+- Discussions / comments
+- Messaging & notifications
+- Admin (users, departments, settings, email SMTP)
 
-```bash
-# register a tool as a provider of a capability
-scripts/bin/harness-cli tool register --name deploy-check --kind cli \
-  --capability deploy-verification --command ./scripts/deploy-check.sh \
-  --responsibility Verification --description "Verify deploy health before release"
+---
 
-# scan presence (writes present/missing/unknown)
-scripts/bin/harness-cli tool check
+## Cấu hình quan trọng
 
-# a step looks up what is equipped for a purpose
-scripts/bin/harness-cli query tools --capability deploy-verification --status present
-```
+| Key / nguồn | Mục đích |
+|---|---|
+| `DB_USERNAME` / `DB_PASSWORD` | MySQL credentials (`application-local.properties`) |
+| `APP_BASE_URL` | Base URL (link reset password) — mặc định `http://localhost:8080` |
+| `UPLOAD_DIR` | Thư mục upload — mặc định `uploads/` |
+| `system_settings` (DB) | SMTP email — chỉnh tại `/admin/settings/email` |
+| Google OAuth keys | Optional; bỏ comment trong `application-local.properties` để bật |
 
-Kinds (`cli`, `binary`, `mcp`, `skill`, `http`) make it agent-generic: each
-agent runtime uses what it can orchestrate. See `docs/TOOL_REGISTRY.md` for the
-full model, the degrade ladder, and how to wire a tool into a flow step.
+**Quy tắc:**
 
-## Current State
+- Không commit `application-local.properties`
+- Không hard-code secret
+- Flyway sở hữu schema — `spring.jpa.hibernate.ddl-auto=validate`
+- Không sửa migration đã commit; tạo migration mới
 
-This repository is in Harness v0.
+---
 
-There is no application implementation and no baked-in product specification
-yet. The current work is the reusable project harness: the file structure,
-agent operating model, feature intake process, story templates, and validation
-expectations that help humans and agents turn a future user-provided spec into
-implementation work.
+## Roles
 
-## Product Sources
+| Role | Quyền chính |
+|---|---|
+| `STUDENT` | Học, làm bài, flashcard |
+| `LECTURER` | Tạo lớp, bài giảng, test, chấm bài |
+| `HEAD` | LECTURER + duyệt content |
+| `ADMIN` | Toàn hệ thống `/admin/**` |
 
-No product contract is currently defined.
+---
 
-When a user provides a project specification, add or reference it as the input
-spec for the first buildout, then derive smaller living artifacts from it:
+## Agent / Harness
 
-- `docs/product/`: current product contract files, created from the spec.
-- `docs/stories/`: story packets and backlog created from selected work.
-- `docs/TEST_MATRIX.md`: behavior-to-proof control panel.
-- `docs/decisions/`: durable decisions and tradeoffs.
+Repo có agent harness cho coding agents:
 
-Do not keep a project-specific spec or product breakdown in this harness until
-a real project supplies one.
+- `AGENTS.md` — shim agent
+- `CLAUDE.md` — project context cho Claude Code
+- `docs/FEATURE_INTAKE.md` — phân loại risk
+- `docs/decisions/` — decision records
+- `docs/stories/` — story packets
 
-## Repository Structure
+Chi tiết: xem `docs/HARNESS.md`.
 
-```text
-project/
-  AGENTS.md
-  README.md
-  docs/
-    HARNESS.md
-    FEATURE_INTAKE.md
-    ARCHITECTURE.md
-    TEST_MATRIX.md
-    HARNESS_BACKLOG.md
-    product/
-    stories/
-    decisions/
-    demo/
-    templates/
-  scripts/
-    README.md
-```
+---
 
-## Contributing
+## License / Ghi chú
 
-This project is early and benefits most from real-world agent failure cases,
-example harness installs, docs improvements, and reusable workflow patterns.
-See `CONTRIBUTING.md` for contribution ideas.
-
-Useful contributions include:
-
-- Show how the harness works in a real project.
-- Add missing templates or improve existing ones.
-- Propose validation patterns for different stacks.
-- Share failures where an agent made the wrong change because the repo lacked
-  context.
-- Compare harness behavior across Claude Code, Codex, Cursor, and other tools.
-
-## Share
-
-If this idea resonates, please star the repo and share it with someone building
-with coding agents.
-
-Short description:
-
-> An agent-ready repo harness for Claude Code, Codex, Cursor, and other coding
-> agents: AGENTS.md, product contracts, story packets, validation matrix, and
-> decision records.
+Capstone project — môi trường học thuật.  
+Dev only secrets & seed users; harden trước khi deploy production.
