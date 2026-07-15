@@ -84,6 +84,11 @@ public class JoinClassService {
         ClassInviteCode token = validator.resolveAndValidate(normalized);
         ClassEntity clazz = validator.loadJoinableClass(token);
 
+        // Class owner must not redeem their own invite CODE/LINK.
+        if (clazz.getLecturerId().equals(userId)) {
+            throw new InviteCodeValidationException(InviteRejectionReason.OWN_CLASS);
+        }
+
         Optional<Enrollment> existing =
                 enrollmentRepository.findByUserIdAndClassId(userId, token.getClassId());
         if (existing.isPresent()) {
