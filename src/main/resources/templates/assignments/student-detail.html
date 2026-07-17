@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${assignment.title} + ' | ' + ${clazz.name}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'assignments')}"></aside>
+
+  <main class="col">
+    <div class="detail-topbar">
+      <a th:href="@{/classes/{id}/assignments(id=${classId})}" class="btn btn-outline btn-sm">
+        &larr; Danh sách bài tập
+      </a>
+      <h1 class="detail-title" th:text="${assignment.title}">Tên bài tập</h1>
+    </div>
+
+    <section class="detail-panel">
+      <!-- Assignment info -->
+      <div class="asgn-meta">
+        <span>
+          <b>Trạng thái:</b>
+          <span class="asgn-badge"
+                th:classappend="${assignment.status == 'CLOSED'} ? 'asgn-badge--closed' : 'asgn-badge--published'"
+                th:text="${assignment.status == 'PUBLISHED'} ? 'Đang mở' : 'Đã đóng'"></span>
+        </span>
+        <span th:if="${assignment.dueDate != null}">
+          <b>Hạn nộp:</b>
+          <span th:text="${#temporals.format(assignment.dueDate, 'dd/MM/yyyy HH:mm')}"></span>
+        </span>
+        <span><b>Điểm tối đa:</b> <span th:text="${assignment.maxScore}"></span></span>
+        <span th:if="${assignment.allowLateSubmission}" class="asgn-badge">Cho phép nộp muộn</span>
+      </div>
+
+      <div class="asgn-content-box">
+        <h3>Yêu cầu</h3>
+        <div class="asgn-content-text" th:text="${assignment.description}"></div>
+      </div>
+
+      <!-- Existing submission status -->
+      <div th:if="${assignment.submissionStatus != null}" class="asgn-submission-status">
+        <h3>Bài nộp của bạn</h3>
+        <div class="asgn-meta">
+          <span>
+            <b>Trạng thái:</b>
+            <span class="asgn-badge"
+                  th:classappend="${assignment.submissionStatus == 'GRADED'} ? 'asgn-badge--published'
+                                 : 'asgn-badge--draft'"
+                  th:text="${assignment.submissionStatus == 'SUBMITTED'} ? 'Đã nộp'
+                           : (${assignment.submissionStatus == 'GRADED'} ? 'Đã chấm' : 'Nháp')"></span>
+            <span th:if="${assignment.isLate}" class="asgn-badge asgn-badge--late">Nộp muộn</span>
+          </span>
+        </div>
+
+        <!-- Show feedback link if graded -->
+        <a th:if="${assignment.submissionStatus == 'GRADED'}"
+           th:href="@{/classes/{cid}/assignments/{aid}/feedback(cid=${classId},aid=${assignment.id})}"
+           class="btn btn-outline btn-sm">Xem kết quả &amp; nhận xét</a>
+      </div>
+
+      <!-- Submit form — only show when assignment is PUBLISHED and submission is not GRADED -->
+      <div th:if="${assignment.status == 'PUBLISHED' and assignment.submissionStatus != 'GRADED'}"
+           class="asgn-submit-section">
+        <h3 th:text="${assignment.submissionStatus != null} ? 'Cập nhật bài nộp' : 'Nộp bài'">Nộp bài</h3>
+
+        <!-- Late submission warning — shown only when due date has passed and late not allowed -->
+        <div th:if="${assignment.dueDate != null and !assignment.allowLateSubmission and assignment.dueDate.isBefore(#temporals.createNow())}"
+             class="asgn-due-warning">
+          <span>Bài tập đã quá hạn và không cho phép nộp muộn.</span>
+        </div>
+
+        <form th:action="@{/classes/{cid}/assignments/{aid}/submit(cid=${classId},aid=${assignment.id})}"
+              method="post" class="asgn-form">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+          <div class="form-group">
+            <label for="content" class="form-label">Nội dung bài nộp</label>
+            <textarea id="content" name="content" class="form-input asgn-textarea" rows="8"
+                      placeholder="Nhập nội dung bài làm, đường dẫn tài liệu, hoặc ghi chú..."
+                      th:text="${assignment.submissionContent}"></textarea>
+          </div>
+
+          <div class="asgn-form-actions">
+            <button type="submit" class="btn btn-primary">Nộp bài</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Closed state: show existing submission content only -->
+      <div th:if="${assignment.status == 'CLOSED' and assignment.submissionContent != null}"
+           class="asgn-content-box">
+        <h3>Nội dung bài nộp của bạn</h3>
+        <div class="asgn-content-text" th:text="${assignment.submissionContent}"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<script th:src="@{/js/assignments.js}"></script>
+</body>
+</html>

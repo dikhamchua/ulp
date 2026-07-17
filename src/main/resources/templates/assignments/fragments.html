@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/* Assignment form fields fragment — included by lecturer-form.html for both create and edit modes. */-->
+<th:block th:fragment="formFields(f)">
+  <div class="form-group">
+    <label for="title" class="form-label">Tên bài tập <span class="required">*</span></label>
+    <input id="title" name="title" type="text" class="form-input"
+           th:value="${f.title}" maxlength="300" required>
+  </div>
+
+  <div class="form-group">
+    <label for="description" class="form-label">Mô tả / Yêu cầu <span class="required">*</span></label>
+    <textarea id="description" name="description" class="form-input asgn-textarea"
+              rows="8" th:text="${f.description}"></textarea>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label for="maxScore" class="form-label">Điểm tối đa</label>
+      <input id="maxScore" name="maxScore" type="number" class="form-input"
+             th:value="${f.maxScore}" min="0" step="0.01">
+    </div>
+    <div class="form-group">
+      <label for="dueDate" class="form-label">Hạn nộp bài</label>
+      <input id="dueDate" name="dueDate" type="datetime-local" class="form-input"
+             th:value="${f.dueDate != null} ? ${#temporals.format(f.dueDate, 'yyyy-MM-dd''T''HH:mm')} : ''">
+    </div>
+  </div>
+
+  <div class="form-group form-check">
+    <input id="allowLateSubmission" name="allowLateSubmission" type="checkbox"
+           class="form-check-input" th:checked="${f.allowLateSubmission}">
+    <label for="allowLateSubmission" class="form-check-label">Cho phép nộp muộn</label>
+  </div>
+</th:block>
+
+</body>
+</html>

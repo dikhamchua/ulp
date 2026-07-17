@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Chấm điểm | ' + ${clazz.name}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'assignments')}"></aside>
+
+  <main class="col">
+    <div class="detail-topbar">
+      <a th:href="@{/lecturer/classes/{cid}/assignments/{aid}/submissions(cid=${classId},aid=${assignment})}"
+         class="btn btn-outline btn-sm">&larr; Danh sách bài nộp</a>
+      <h1 class="detail-title">Chấm điểm</h1>
+    </div>
+
+    <section class="detail-panel">
+      <!-- Student submission info -->
+      <div class="asgn-submission-card" th:if="${submission != null}">
+        <div class="asgn-meta">
+          <span><b>Sinh viên:</b> <span th:text="${submission.studentName}"></span></span>
+          <span><b>Email:</b> <span th:text="${submission.studentEmail}"></span></span>
+          <span><b>Trạng thái:</b>
+            <span class="asgn-badge"
+                  th:classappend="${submission.status == 'GRADED'} ? 'asgn-badge--published'
+                                 : (${submission.status == 'SUBMITTED'} ? 'asgn-badge--draft' : '')"
+                  th:text="${submission.status == 'SUBMITTED'} ? 'Đã nộp'
+                           : (${submission.status == 'GRADED'} ? 'Đã chấm' : 'Nháp')"></span>
+          </span>
+          <span th:if="${submission.isLate}" class="asgn-badge asgn-badge--late">Nộp muộn</span>
+          <span th:if="${submission.submittedAt != null}">
+            <b>Thời gian nộp:</b>
+            <span th:text="${#temporals.format(submission.submittedAt, 'dd/MM/yyyy HH:mm')}"></span>
+          </span>
+        </div>
+
+        <div class="asgn-content-box">
+          <h3>Nội dung bài nộp</h3>
+          <div class="asgn-content-text"
+               th:text="${submission.content != null} ? ${submission.content} : '(Chưa có nội dung)'">
+          </div>
+        </div>
+      </div>
+
+      <!-- Grade form -->
+      <form th:action="@{/lecturer/classes/{cid}/assignments/{aid}/submissions/{sid}/grade(cid=${classId},aid=${assignment},sid=${submission.submissionId})}"
+            method="post" class="asgn-form asgn-grade-form">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+        <h3>Chấm điểm</h3>
+
+        <div class="form-group">
+          <label for="score" class="form-label">
+            Điểm <span class="required">*</span>
+            <small th:if="${submission != null}">(0 – <span th:text="${submission.maxScore}"></span>)</small>
+          </label>
+          <input id="score" name="score" type="number" class="form-input asgn-score-input"
+                 th:value="${gradeForm.score != null} ? ${gradeForm.score}
+                           : (${submission != null and submission.score != null} ? ${submission.score} : '')"
+                 th:attr="max=${submission != null} ? ${submission.maxScore} : 100"
+                 min="0" step="0.01" required>
+        </div>
+
+        <div class="form-group">
+          <label for="feedback" class="form-label">Nhận xét</label>
+          <textarea id="feedback" name="feedback" class="form-input asgn-textarea" rows="5"
+                    th:text="${gradeForm.feedback != null} ? ${gradeForm.feedback}
+                              : (${submission != null} ? ${submission.feedback} : '')"></textarea>
+        </div>
+
+        <div class="asgn-form-actions">
+          <a th:href="@{/lecturer/classes/{cid}/assignments/{aid}/submissions(cid=${classId},aid=${assignment})}"
+             class="btn btn-outline">Huỷ</a>
+          <button type="submit" class="btn btn-primary">Lưu điểm</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<script th:src="@{/js/assignments.js}"></script>
+</body>
+</html>

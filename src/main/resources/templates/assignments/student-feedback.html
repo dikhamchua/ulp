@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Kết quả bài tập | ' + ${clazz.name}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'assignments')}"></aside>
+
+  <main class="col">
+    <div class="detail-topbar">
+      <a th:href="@{/classes/{cid}/assignments/{aid}(cid=${classId},aid=${assignment.id})}"
+         class="btn btn-outline btn-sm">&larr; Chi tiết bài tập</a>
+      <h1 class="detail-title">Kết quả chấm điểm</h1>
+    </div>
+
+    <section class="detail-panel">
+      <!-- Assignment info -->
+      <div class="asgn-meta">
+        <span><b>Bài tập:</b> <span th:text="${assignment.title}"></span></span>
+        <span><b>Điểm tối đa:</b> <span th:text="${assignment.maxScore}"></span></span>
+      </div>
+
+      <!-- Not graded yet -->
+      <div th:if="${assignment.submissionStatus != 'GRADED'}" class="tab-placeholder">
+        <h2>Chưa có kết quả</h2>
+        <p>Giảng viên chưa chấm bài tập này.</p>
+      </div>
+
+      <!-- Graded result -->
+      <div th:if="${assignment.submissionStatus == 'GRADED'}" class="asgn-feedback-card">
+        <div class="asgn-score-display">
+          <span class="asgn-score-value" th:text="${assignment.score}">0</span>
+          <span class="asgn-score-max"> / <span th:text="${assignment.maxScore}"></span></span>
+        </div>
+
+        <div th:if="${assignment.isLate}" class="asgn-badge asgn-badge--late">Nộp muộn</div>
+
+        <div class="asgn-content-box" th:if="${assignment.feedback != null and !#strings.isEmpty(assignment.feedback)}">
+          <h3>Nhận xét của giảng viên</h3>
+          <div class="asgn-content-text" th:text="${assignment.feedback}"></div>
+        </div>
+
+        <div class="asgn-content-box" th:if="${assignment.submissionContent != null}">
+          <h3>Bài nộp của bạn</h3>
+          <div class="asgn-content-text" th:text="${assignment.submissionContent}"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<script th:src="@{/js/assignments.js}"></script>
+</body>
+</html>

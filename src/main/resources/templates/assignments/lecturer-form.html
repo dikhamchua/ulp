@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head((${mode} == 'create' ? 'Tạo bài tập' : 'Sửa bài tập') + ' | ' + ${clazz.name}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'assignments')}"></aside>
+
+  <main class="col">
+    <div class="detail-topbar">
+      <h1 class="detail-title"
+          th:text="${mode == 'create'} ? 'Tạo bài tập mới' : 'Chỉnh sửa bài tập'">
+        Tạo bài tập mới
+      </h1>
+    </div>
+
+    <section class="detail-panel">
+      <form th:if="${mode == 'create'}"
+            th:action="@{/lecturer/classes/{id}/assignments(id=${classId})}"
+            method="post" class="asgn-form">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <div th:replace="~{assignments/fragments :: formFields(${assignmentForm})}"></div>
+        <div class="asgn-form-actions">
+          <a th:href="@{/lecturer/classes/{id}/assignments(id=${classId})}" class="btn btn-outline">Huỷ</a>
+          <button type="submit" class="btn btn-primary">Tạo bài tập</button>
+        </div>
+      </form>
+
+      <form th:if="${mode == 'edit'}"
+            th:action="@{/lecturer/classes/{cid}/assignments/{aid}/edit(cid=${classId},aid=${assignment})}"
+            method="post" class="asgn-form">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <div th:replace="~{assignments/fragments :: formFields(${assignmentForm})}"></div>
+        <div class="asgn-form-actions">
+          <a th:href="@{/lecturer/classes/{id}/assignments(id=${classId})}" class="btn btn-outline">Huỷ</a>
+          <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/assignments.js}"></script>
+</body>
+</html>

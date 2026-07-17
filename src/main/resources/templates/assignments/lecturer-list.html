@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Bài tập | ' + ${clazz.name}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'assignments')}"></aside>
+
+  <main class="col">
+    <div class="detail-topbar">
+      <h1 class="detail-title">Bài tập</h1>
+      <a th:href="@{/lecturer/classes/{id}/assignments/new(id=${classId})}"
+         class="btn btn-primary btn-sm">+ Tạo bài tập</a>
+    </div>
+
+    <section class="detail-panel">
+      <div th:if="${#lists.isEmpty(assignments)}" class="tab-placeholder">
+        <h2>Chưa có bài tập</h2>
+        <p>Tạo bài tập đầu tiên cho lớp này.</p>
+      </div>
+
+      <table th:unless="${#lists.isEmpty(assignments)}" class="asgn-table">
+        <thead>
+          <tr>
+            <th>Tên bài tập</th>
+            <th>Trạng thái</th>
+            <th>Hạn nộp</th>
+            <th>Điểm tối đa</th>
+            <th>Nộp bài</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="a : ${assignments}">
+            <td th:text="${a.title}">Tên bài tập</td>
+            <td>
+              <span class="asgn-badge"
+                    th:classappend="${a.status == 'PUBLISHED'} ? 'asgn-badge--published'
+                                   : (${a.status == 'CLOSED'} ? 'asgn-badge--closed' : 'asgn-badge--draft')"
+                    th:text="${a.status == 'DRAFT'} ? 'Nháp'
+                             : (${a.status == 'PUBLISHED'} ? 'Đã xuất bản' : 'Đã đóng')">
+                DRAFT
+              </span>
+            </td>
+            <td th:text="${a.dueDate != null} ? ${#temporals.format(a.dueDate, 'dd/MM/yyyy HH:mm')} : '—'">
+              —
+            </td>
+            <td th:text="${a.maxScore}">100</td>
+            <td th:text="${a.submissionCount}">0</td>
+            <td class="asgn-actions">
+              <!-- View submissions -->
+              <a th:href="@{/lecturer/classes/{cid}/assignments/{aid}/submissions(cid=${classId},aid=${a.id})}"
+                 class="btn btn-sm btn-outline" title="Xem bài nộp">Bài nộp</a>
+
+              <!-- Edit (only DRAFT) -->
+              <a th:if="${a.status == 'DRAFT'}"
+                 th:href="@{/lecturer/classes/{cid}/assignments/{aid}/edit(cid=${classId},aid=${a.id})}"
+                 class="btn btn-sm btn-outline" title="Chỉnh sửa">Sửa</a>
+
+              <!-- Publish (only DRAFT) -->
+              <form th:if="${a.status == 'DRAFT'}"
+                    th:action="@{/lecturer/classes/{cid}/assignments/{aid}/publish(cid=${classId},aid=${a.id})}"
+                    method="post" style="display:inline">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="btn btn-sm btn-primary"
+                        onclick="return confirm('Xuất bản bài tập? Học sinh sẽ nhận được thông báo.')">
+                  Xuất bản
+                </button>
+              </form>
+
+              <!-- Close (only PUBLISHED) -->
+              <form th:if="${a.status == 'PUBLISHED'}"
+                    th:action="@{/lecturer/classes/{cid}/assignments/{aid}/close(cid=${classId},aid=${a.id})}"
+                    method="post" style="display:inline">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="btn btn-sm btn-danger"
+                        onclick="return confirm('Đóng bài tập? Sinh viên sẽ không thể nộp bài thêm.')">
+                  Đóng
+                </button>
+              </form>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<script th:src="@{/js/assignments.js}"></script>
+</body>
+</html>

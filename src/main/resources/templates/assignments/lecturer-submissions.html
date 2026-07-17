@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Bài nộp | ' + ${clazz.name}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'assignments')}"></aside>
+
+  <main class="col">
+    <div class="detail-topbar">
+      <a th:href="@{/lecturer/classes/{id}/assignments(id=${classId})}" class="btn btn-outline btn-sm">
+        &larr; Quay lại
+      </a>
+      <h1 class="detail-title">Danh sách bài nộp</h1>
+    </div>
+
+    <section class="detail-panel">
+      <div th:if="${#lists.isEmpty(submissions)}" class="tab-placeholder">
+        <h2>Chưa có bài nộp</h2>
+        <p>Sinh viên chưa nộp bài cho bài tập này.</p>
+      </div>
+
+      <table th:unless="${#lists.isEmpty(submissions)}" class="asgn-table">
+        <thead>
+          <tr>
+            <th>Sinh viên</th>
+            <th>Email</th>
+            <th>Trạng thái</th>
+            <th>Nộp muộn</th>
+            <th>Thời gian nộp</th>
+            <th>Điểm</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="s : ${submissions}">
+            <td th:text="${s.studentName}">Họ tên</td>
+            <td th:text="${s.studentEmail}">email@example.com</td>
+            <td>
+              <span class="asgn-badge"
+                    th:classappend="${s.status == 'GRADED'} ? 'asgn-badge--published'
+                                   : (${s.status == 'SUBMITTED'} ? 'asgn-badge--draft' : '')"
+                    th:text="${s.status == 'DRAFT'} ? 'Nháp'
+                             : (${s.status == 'SUBMITTED'} ? 'Đã nộp' : 'Đã chấm')">
+              </span>
+            </td>
+            <td th:text="${s.isLate} ? 'Có' : 'Không'">Không</td>
+            <td th:text="${s.submittedAt != null} ? ${#temporals.format(s.submittedAt, 'dd/MM/yyyy HH:mm')} : '—'">—</td>
+            <td th:text="${s.score != null} ? ${s.score} : '—'">—</td>
+            <td>
+              <a th:href="@{/lecturer/classes/{cid}/assignments/{aid}/submissions/{sid}/grade(cid=${classId},aid=${assignment},sid=${s.submissionId})}"
+                 class="btn btn-sm btn-primary">Chấm điểm</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<script th:src="@{/js/assignments.js}"></script>
+</body>
+</html>
