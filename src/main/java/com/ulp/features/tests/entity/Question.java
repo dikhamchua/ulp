@@ -34,7 +34,7 @@ public class Question {
     @Column(name = "question_type", nullable = false, length = 20)
     private String questionType;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
+    @Column(columnDefinition = "MEDIUMTEXT", nullable = false)
     private String content;
 
     @Column(columnDefinition = "TEXT")
@@ -80,6 +80,16 @@ public class Question {
 
     public boolean isMultiResponse() {
         return TYPE_MR.equals(questionType);
+    }
+
+    /** Updates author-editable fields without changing the identity / FK. */
+    public void updateContent(String questionType, String content, String explanation,
+                              BigDecimal points, Integer sortOrder) {
+        this.questionType = questionType;
+        this.content = content;
+        this.explanation = explanation;
+        this.points = points;
+        this.sortOrder = sortOrder;
     }
 
     // ── Getters ────────────────────────────────────────────────────────

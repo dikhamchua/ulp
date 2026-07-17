@@ -16,6 +16,7 @@ import com.ulp.features.tests.repository.QuestionOptionRepository;
 import com.ulp.features.tests.repository.QuestionRepository;
 import com.ulp.features.tests.repository.TestRepository;
 import com.ulp.features.tests.repository.TestResponseRepository;
+import com.ulp.common.HtmlSanitizer;
 import com.ulp.features.tests.support.ExamFormValidator;
 import com.ulp.features.tests.support.TestAccessResolver;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.ulp.common.IConstant.DEFAULT_EXAM_PAGE_SIZE;
+import static com.ulp.common.IConstant.MSG_EXAM_QUESTION_BANK_LOCKED;
 
 /**
  * Lecturer exam authoring: list owned exams, create/edit with a full question-set
@@ -141,9 +143,10 @@ public class LecturerExamService {
     }
 
     /**
-     * Creates or updates an exam. Always persists form fields (including media).
-     * Replaces the question set only when no student responses exist yet — otherwise
-     * keeps the bank intact to avoid FK violations on {@code test_responses}.
+     * Creates or updates an exam. Always persists form fields (including media)
+     * and question/option content. When student responses already exist the bank
+     * shape is locked (no add/remove/reorder of questions or options) so FK rows
+     * in {@code test_responses} stay valid — content text/HTML may still change.
      * Returns the persisted exam id.
      */
     @Transactional
@@ -159,11 +162,13 @@ public class LecturerExamService {
         applyFields(test, form);
         Test saved = testRepository.save(test);
 
-        if (!hasStudentResponses(saved.getId())) {
+        if (creating || !hasStudentResponses(saved.getId())) {
             replaceQuestions(saved.getId(), form.questions());
-            saved.setTotalQuestions(form.questions().size());
-            testRepository.save(saved);
+        } else {
+            updateQuestionContentsInPlace(saved.getId(), form.questions());
         }
+        saved.setTotalQuestions(form.questions().size());
+        testRepository.save(saved);
 
         recordSaveActivity(saved, userId, creating, previousStatus);
         return saved.getId();
@@ -175,6 +180,47 @@ public class LecturerExamService {
         if (existing.isEmpty()) return false;
         return responseRepository.existsByQuestionIdIn(
                 existing.stream().map(Question::getId).toList());
+    }
+
+    /**
+     * Updates content of an existing question bank without deleting rows.
+     * Shape (counts + ids) must match exactly; otherwise reject so graded
+     * responses keep pointing at stable option ids.
+     */
+    private void updateQuestionContentsInPlace(Long testId, List<QuestionForm> questions) {
+        List<Question> existing = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId);
+        if (existing.size() != questions.size()) {
+            throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
+        }
+        Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(existing);
+        for (int i = 0; i < existing.size(); i++) {
+            Question q = existing.get(i);
+            QuestionForm qf = questions.get(i);
+            // Require stable ids when the bank is locked (client must round-trip them).
+            if (qf.id() != null && !qf.id().equals(q.getId())) {
+                throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
+            }
+            List<QuestionOption> opts = optionsByQuestion.getOrDefault(q.getId(), List.of());
+            List<OptionForm> optForms = qf.options() == null ? List.of() : qf.options();
+            if (opts.size() != optForms.size()) {
+                throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
+            }
+            q.updateContent(defaultQuestionType(qf.type()),
+                    HtmlSanitizer.sanitize(qf.content()),
+                    trimToNull(qf.explanation()),
+                    qf.points(),
+                    i + 1);
+            questionRepository.save(q);
+            for (int j = 0; j < opts.size(); j++) {
+                QuestionOption o = opts.get(j);
+                OptionForm of = optForms.get(j);
+                if (of.id() != null && !of.id().equals(o.getId())) {
+                    throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
+                }
+                o.updateContent(HtmlSanitizer.sanitize(of.content()), of.correct(), j + 1);
+                optionRepository.save(o);
+            }
+        }
     }
 
     /**
@@ -235,12 +281,14 @@ public class LecturerExamService {
         }
         int order = 1;
         for (QuestionForm qf : questions) {
-            Question q = new Question(testId, defaultQuestionType(qf.type()), qf.content(),
+            String contentHtml = HtmlSanitizer.sanitize(qf.content());
+            Question q = new Question(testId, defaultQuestionType(qf.type()), contentHtml,
                     trimToNull(qf.explanation()), qf.points(), order++);
             Long qId = questionRepository.save(q).getId();
             int optOrder = 1;
             for (OptionForm of : qf.options()) {
-                optionRepository.save(new QuestionOption(qId, of.content(), of.correct(), optOrder++));
+                String optionHtml = HtmlSanitizer.sanitize(of.content());
+                optionRepository.save(new QuestionOption(qId, optionHtml, of.correct(), optOrder++));
             }
         }
     }

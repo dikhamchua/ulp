@@ -12,7 +12,7 @@
   <div class="lpv-banner" role="status">
     <div class="lpv-banner-text">
       <strong>Chế độ xem trước</strong>
-      <span>Đây là giao diện sinh viên sẽ thấy. Không tạo lượt làm bài và không chấm điểm.</span>
+      <span>Đây là giao diện sinh viên sẽ thấy. Bạn có thể chọn đáp án để thử, nhưng không nộp bài / không chấm điểm.</span>
     </div>
     <a class="tst-btn"
        th:href="@{'/lecturer/tests/' + ${preview.testId()} + '/edit'(tab='info')}">← Quay lại chỉnh sửa</a>
@@ -59,14 +59,15 @@
            th:src="${preview.mediaUrl()}">Trình duyệt không hỗ trợ audio.</audio>
   </div>
 
-  <!-- Reuse the student take layout; preview-only: inputs disabled + no submit. -->
+  <!-- Reuse the student take layout. Preview allows selecting options so the
+       lecturer can verify radio/checkbox UX, but never submits an attempt. -->
   <div class="tk-layout" id="tkPreview"
        th:if="${!#lists.isEmpty(preview.questions())}">
     <aside class="tk-nav" aria-label="Danh sách câu hỏi">
       <div class="tk-nav-head">
         <span class="tk-nav-title">Câu hỏi</span>
-        <span class="tk-nav-progress"
-              th:text="${#lists.size(preview.questions())} + ' câu'">0 câu</span>
+        <span class="tk-nav-progress" id="tkProgress"
+              th:text="'0/' + ${#lists.size(preview.questions())}">0/0</span>
       </div>
       <div class="tk-nav-grid" id="tkNavGrid" role="tablist">
         <button type="button"
@@ -93,14 +94,14 @@
                   th:text="${q.type() == 'MR'} ? 'Chọn nhiều đáp án' : 'Chọn một đáp án'">Loại</span>
             <span class="tk-q-points" th:text="${q.points()} + ' điểm'">1 điểm</span>
           </div>
-          <p class="tk-q-content" th:text="${q.content()}">Nội dung câu hỏi</p>
+          <div class="tk-q-content" th:utext="${q.content()}">Nội dung câu hỏi</div>
           <ul class="tk-options">
             <li class="tk-option" th:each="opt : ${q.options()}">
               <label class="tk-option-label">
                 <input th:type="${q.type() == 'MR'} ? 'checkbox' : 'radio'"
                        th:name="'q_' + ${q.id()}" th:value="${opt.id()}"
-                       class="tk-option-input" disabled>
-                <span class="tk-option-text" th:text="${opt.content()}">Đáp án</span>
+                       class="tk-option-input">
+                <span class="tk-option-text" th:utext="${opt.content()}">Đáp án</span>
               </label>
             </li>
           </ul>
@@ -110,7 +111,8 @@
       <div class="tk-actions">
         <button type="button" class="tst-btn" id="tkPrev" disabled>← Câu trước</button>
         <button type="button" class="tst-btn" id="tkNext">Câu sau →</button>
-        <button type="button" class="tst-btn tst-btn-primary" disabled title="Chỉ xem trước">Nộp bài</button>
+        <button type="button" class="tst-btn tst-btn-primary lpv-submit-disabled"
+                disabled title="Chỉ xem trước — không nộp bài">Nộp bài</button>
       </div>
     </section>
   </div>

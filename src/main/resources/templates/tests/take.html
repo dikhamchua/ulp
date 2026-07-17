@@ -81,14 +81,14 @@
                     th:text="${q.type() == 'MR'} ? 'Chọn nhiều đáp án' : 'Chọn một đáp án'">Loại</span>
               <span class="tk-q-points" th:text="${q.points()} + ' điểm'">1 điểm</span>
             </div>
-            <p class="tk-q-content" th:text="${q.content()}">Nội dung câu hỏi</p>
+            <div class="tk-q-content" th:utext="${q.content()}">Nội dung câu hỏi</div>
             <ul class="tk-options">
               <li class="tk-option" th:each="opt : ${q.options()}">
                 <label class="tk-option-label">
                   <input th:type="${q.type() == 'MR'} ? 'checkbox' : 'radio'"
                          th:name="'q_' + ${q.id()}" th:value="${opt.id()}"
                          class="tk-option-input">
-                  <span class="tk-option-text" th:text="${opt.content()}">Đáp án</span>
+                  <span class="tk-option-text" th:utext="${opt.content()}">Đáp án</span>
                 </label>
               </li>
             </ul>

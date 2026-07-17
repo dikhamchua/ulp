@@ -49,6 +49,14 @@ class HtmlSanitizerTest {
     }
 
     @Test
+    void relative_upload_image_src_is_preserved() {
+        String html = "<p><img src=\"/uploads/exams/abc.png\" alt=\"q\"></p>";
+        String cleaned = HtmlSanitizer.sanitize(html);
+        assertThat(cleaned).contains("src=\"/uploads/exams/abc.png\"");
+        assertThat(cleaned).contains("alt=\"q\"");
+    }
+
+    @Test
     void http_link_with_target_is_preserved() {
         String cleaned = HtmlSanitizer.sanitize(
                 "<a href=\"https://example.com\" target=\"_blank\">site</a>");

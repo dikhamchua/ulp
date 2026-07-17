@@ -337,9 +337,19 @@ public interface IConstant {
     String MSG_EXAM_MEDIA_YOUTUBE_INVALID = "URL YouTube không hợp lệ";
     String MSG_EXAM_MEDIA_URL_SCHEME = "URL media phải bắt đầu bằng http:// hoặc https://";
     String MSG_EXAM_MEDIA_TYPE_INVALID = "Loại media không hợp lệ";
+    String MSG_EXAM_IMAGE_EMPTY = "File ảnh rỗng";
+    String MSG_EXAM_IMAGE_TOO_LARGE = "Ảnh vượt quá giới hạn 2MB";
+    String MSG_EXAM_IMAGE_TYPE = "Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP";
+    String MSG_EXAM_IMAGE_INVALID = "Nội dung file không phải ảnh hợp lệ";
+    String MSG_QUESTION_CONTENT_BLANK = "Nội dung câu hỏi không được để trống";
+    String MSG_OPTION_CONTENT_BLANK = "Nội dung đáp án không được để trống";
     String MSG_QUESTION_NEEDS_OPTIONS = "Mỗi câu hỏi phải có ít nhất hai lựa chọn";
     String MSG_QUESTION_NEEDS_CORRECT = "Mỗi câu hỏi phải có ít nhất một đáp án đúng";
     String MSG_MCQ_ONE_CORRECT       = "Câu hỏi một đáp án (MCQ) phải có đúng một đáp án đúng";
+    String MSG_EXAM_QUESTION_BANK_LOCKED =
+            "Bài test đã có bài nộp: không thể thêm/xoá câu hỏi hoặc đáp án. Bạn vẫn có thể sửa nội dung.";
+    String MSG_EXAM_CONTENT_TOO_LARGE =
+            "Nội dung câu hỏi/đáp án quá lớn. Hãy chèn ảnh bằng nút ảnh (không dán base64).";
     String MSG_PRACTICE_EMPTY_POOL   = "Không có câu hỏi phù hợp để tạo bài luyện tập";
     String MSG_PRACTICE_INVALID_SOURCE = "Nguồn câu hỏi không hợp lệ";
 
