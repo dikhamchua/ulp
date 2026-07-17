@@ -82,7 +82,7 @@ App lên tại **http://localhost:8080**.
 
 ## Tài khoản test (DEV)
 
-Seed bởi Flyway (`V5` + `V6`). Mật khẩu chung: **`password`**
+Seed bởi Flyway (`V5` + `V6` + `V25`). Mật khẩu chung: **`123456`**
 
 | Email | Role |
 |---|---|

@@ -1,12 +1,13 @@
 -- =============================================================================
 -- ULP — V6__fix_test_user_passwords.sql
--- Dat lai mat khau cho TAT CA tai khoan test ve "password" (moi truong DEV).
+-- Dat lai mat khau cho TAT CA tai khoan test (moi truong DEV).
 --
 -- Ly do: hash seed ban dau trong V2 (admin) khong khop voi plaintext nao da biet
--- nen khong the dang nhap. Migration nay dong bo hash cho ca 4 tai khoan test
--- ve cung mot gia tri BCrypt da kiem chung cho chuoi "password".
+-- nen khong the dang nhap. Migration nay dong bo hash cho ca 4 tai khoan test.
+-- Historical value below was BCrypt for "password"; V25 later resets all users
+-- to BCrypt for "123456".
 --
--- BCrypt hash cho "password": $2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa
+-- BCrypt hash (historical "password"): $2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa
 --
 -- LUU Y: Chi dung cho moi truong DEV. O production phai dat mat khau manh rieng.
 -- =============================================================================

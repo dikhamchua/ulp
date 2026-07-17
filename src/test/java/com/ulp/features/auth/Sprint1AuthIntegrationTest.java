@@ -80,7 +80,7 @@ class Sprint1AuthIntegrationTest {
     @WithUserDetails("student@ulp.edu.vn")
     void doiMatKhau_xacNhanKhongKhop_baoLoi() throws Exception {
         mockMvc.perform(post("/change-password").with(csrf())
-                        .param("currentPassword", "password")
+                        .param("currentPassword", "123456")
                         .param("newPassword", "newpass123")
                         .param("confirmPassword", "khac-nhau"))
                 .andExpect(status().isOk());

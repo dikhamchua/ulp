@@ -5,7 +5,8 @@
 -- Muc dich: phuc vu UI testing trang chi tiet lop (tab Thanh vien).
 -- KHONG dung o production — chi cho dev/demo.
 --
--- Mat khau cho tat ca: "password"
+-- Mat khau cho tat ca: "123456" (finalized by V25).
+-- Historical BCrypt below matched earlier "password" seed; V25 re-hashes all users.
 -- BCrypt: $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy (giong V5).
 --
 -- Re-runnable: dung INSERT IGNORE de tranh duplicate email khi rerun sau khi

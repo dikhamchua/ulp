@@ -513,7 +513,7 @@ class ClassInviteJoinIntegrationTest {
                         .session(session)
                         .with(csrf())
                         .param("username", "student@ulp.edu.vn")
-                        .param("password", "password"))
+                        .param("password", "123456"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("**/j/" + linkToken + "*"));
 

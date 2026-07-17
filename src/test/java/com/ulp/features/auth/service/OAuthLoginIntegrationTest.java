@@ -257,7 +257,7 @@ class OAuthLoginIntegrationTest {
     private void seedUser(String email, boolean locked, boolean deleted) {
         User user = UserFactory.newAdminCreated(
                 email,
-                passwordEncoder.encode("password"),
+                passwordEncoder.encode("123456"),
                 "OAuth Test User",
                 Role.STUDENT,
                 /* emailVerified */ true,

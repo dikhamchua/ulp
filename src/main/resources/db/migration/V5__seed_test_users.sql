@@ -3,7 +3,8 @@
 -- Them tai khoan test cho 3 vai tro con lai (LECTURER, HEAD, STUDENT)
 -- de kiem thu phan quyen o Sprint 0.
 --
--- Mat khau cho TAT CA tai khoan test: "password"
+-- Mat khau cho TAT CA tai khoan test: "123456" (finalized by V25).
+-- Historical seed hash below was originally for "password"; V6/V25 re-hash it.
 -- BCrypt hash: $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 -- (cung hash voi admin@ulp.edu.vn trong V2)
 --

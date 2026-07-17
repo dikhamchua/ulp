@@ -49,7 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>Seed users from {@code V5__seed_test_users.sql}:
  * {@code admin@ulp.edu.vn}, {@code lecturer@ulp.edu.vn}, {@code head@ulp.edu.vn},
- * {@code student@ulp.edu.vn} — password {@code "password"} for all.
+ * {@code student@ulp.edu.vn} — password {@code "123456"} for all.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -648,7 +648,7 @@ class Sprint3UserManagementIntegrationTest {
     private User createUser(String email, Role role) {
         User u = UserFactory.newAdminCreated(
                 email,
-                passwordEncoder.encode("password"),
+                passwordEncoder.encode("123456"),
                 "Test " + role,
                 role,
                 true,

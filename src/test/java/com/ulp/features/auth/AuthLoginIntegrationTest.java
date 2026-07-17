@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * (Flyway da seed cac tai khoan test trong V2/V5). Day cung la KHUON MAU
  * test cho cac feature sau cua nhom.
  *
- * <p>Mat khau cua moi tai khoan test la "password".
+ * <p>Mat khau cua moi tai khoan test la "123456".
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -43,7 +43,7 @@ class AuthLoginIntegrationTest {
 
     @Test
     void dangNhap_dungThongTin_thanhCongVaChuyenVeTrangChu() throws Exception {
-        mockMvc.perform(formLogin("/login").user("admin@ulp.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("admin@ulp.edu.vn").password("123456"))
                 .andExpect(authenticated().withRoles("ADMIN"))
                 .andExpect(redirectedUrl("/"));
     }
@@ -57,14 +57,14 @@ class AuthLoginIntegrationTest {
 
     @Test
     void dangNhap_emailKhongTonTai_thatBai() throws Exception {
-        mockMvc.perform(formLogin("/login").user("khongton@ulp.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("khongton@ulp.edu.vn").password("123456"))
                 .andExpect(unauthenticated())
                 .andExpect(redirectedUrl("/login?error"));
     }
 
     @Test
     void dangNhap_taiKhoanStudent_mapDungRole() throws Exception {
-        mockMvc.perform(formLogin("/login").user("student@ulp.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("student@ulp.edu.vn").password("123456"))
                 .andExpect(authenticated().withRoles("STUDENT"));
     }
 
