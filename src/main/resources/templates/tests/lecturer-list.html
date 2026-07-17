@@ -40,6 +40,7 @@
         <td th:text="${exam.totalQuestions()}">0</td>
         <td class="tst-row-actions">
           <a th:href="@{|/lecturer/tests/${exam.id()}/edit|}">Sửa</a>
+          <a th:href="@{|/lecturer/tests/${exam.id()}/preview|}">Xem trước</a>
           <a th:href="@{|/lecturer/tests/${exam.id()}/monitor|}">Theo dõi</a>
           <a th:href="@{|/lecturer/tests/${exam.id()}/submissions|}">Bài nộp</a>
         </td>

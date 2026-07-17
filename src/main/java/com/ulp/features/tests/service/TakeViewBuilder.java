@@ -1,5 +1,7 @@
 package com.ulp.features.tests.service;
 
+import com.ulp.features.lessons.support.YouTubeEmbedUrl;
+import com.ulp.features.tests.dto.TestDtos.PreviewView;
 import com.ulp.features.tests.dto.TestDtos.TakeOptionView;
 import com.ulp.features.tests.dto.TestDtos.TakeQuestionView;
 import com.ulp.features.tests.dto.TestDtos.TakeView;
@@ -38,22 +40,49 @@ public class TakeViewBuilder {
 
     /** Builds the taking view for a live attempt. */
     public TakeView build(Test test, TestAttempt attempt) {
+        List<TakeQuestionView> views = buildQuestions(test, attempt.getId(), true);
+        long remaining = ExamDeadline.remainingSeconds(test, attempt, LocalDateTime.now());
+        return new TakeView(attempt.getId(), test.getId(), test.getTitle(),
+                test.getTimeMode(), remaining, test.getMediaType(), test.getMediaUrl(),
+                mediaEmbedUrl(test), views);
+    }
+
+    /**
+     * Builds a lecturer preview of the student screen. Keeps author order
+     * (no shuffle) so the owner can verify the written sequence as stored.
+     */
+    public PreviewView buildPreview(Test test) {
+        // Preview skips shuffle so the lecturer sees the authored order.
+        List<TakeQuestionView> views = buildQuestions(test, null, false);
+        return new PreviewView(test.getId(), test.getTitle(), test.getTimeMode(),
+                test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
+                test.getMediaType(), test.getMediaUrl(), mediaEmbedUrl(test), views);
+    }
+
+    private static String mediaEmbedUrl(Test test) {
+        if (!Test.MEDIA_TYPE_YOUTUBE.equals(test.getMediaType()) || test.getMediaUrl() == null) {
+            return null;
+        }
+        return YouTubeEmbedUrl.toEmbedUrl(test.getMediaUrl());
+    }
+
+    private List<TakeQuestionView> buildQuestions(Test test, Long attemptId, boolean allowShuffle) {
         List<Question> questions = questionRepository
                 .findByTestIdOrderBySortOrderAscIdAsc(test.getId());
         Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(questions);
 
         List<Question> ordered = new ArrayList<>(questions);
-        if (test.isShuffleQuestions()) {
-            DeterministicShuffle.shuffle(ordered, DeterministicShuffle.questionSeed(attempt.getId()));
+        if (allowShuffle && attemptId != null && test.isShuffleQuestions()) {
+            DeterministicShuffle.shuffle(ordered, DeterministicShuffle.questionSeed(attemptId));
         }
 
         List<TakeQuestionView> views = new ArrayList<>();
         for (Question q : ordered) {
             List<QuestionOption> opts = new ArrayList<>(
                     optionsByQuestion.getOrDefault(q.getId(), List.of()));
-            if (test.isShuffleOptions()) {
+            if (allowShuffle && attemptId != null && test.isShuffleOptions()) {
                 DeterministicShuffle.shuffle(opts,
-                        DeterministicShuffle.optionSeed(attempt.getId(), q.getId()));
+                        DeterministicShuffle.optionSeed(attemptId, q.getId()));
             }
             List<TakeOptionView> optViews = opts.stream()
                     .map(o -> new TakeOptionView(o.getId(), o.getContent()))
@@ -61,10 +90,7 @@ public class TakeViewBuilder {
             views.add(new TakeQuestionView(q.getId(), q.getQuestionType(), q.getContent(),
                     q.getPoints(), optViews));
         }
-
-        long remaining = ExamDeadline.remainingSeconds(test, attempt, LocalDateTime.now());
-        return new TakeView(attempt.getId(), test.getId(), test.getTitle(),
-                test.getTimeMode(), remaining, views);
+        return views;
     }
 
     private Map<Long, List<QuestionOption>> loadOptions(List<Question> questions) {

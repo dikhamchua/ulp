@@ -301,6 +301,7 @@ public interface IConstant {
     String VIEW_TEST_READINESS     = "tests/readiness";
     String VIEW_TEST_LECTURER_LIST = "tests/lecturer-list";
     String VIEW_TEST_LECTURER_FORM = "tests/lecturer-form";
+    String VIEW_TEST_LECTURER_PREVIEW = "tests/lecturer-preview";
     String VIEW_STUDENT_CLASS_TESTS = "student/class-tests";
 
     // Model attribute keys.
@@ -316,6 +317,7 @@ public interface IConstant {
     String ATTR_MONITOR      = "monitor";
     String ATTR_SUBMISSIONS  = "submissions";
     String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
+    String ATTR_PREVIEW      = "preview";
 
     // Readiness band labels (Vietnamese UI text).
     String BAND_NOT_READY = "Chưa sẵn sàng";
@@ -330,6 +332,11 @@ public interface IConstant {
     String MSG_EXAM_TITLE_BLANK      = "Tiêu đề bài test không được để trống";
     String MSG_EXAM_NEEDS_CLASS      = "Vui lòng chọn lớp cho bài test";
     String MSG_EXAM_NEEDS_QUESTIONS  = "Bài test phải có ít nhất một câu hỏi";
+    String MSG_EXAM_MEDIA_URL_REQUIRED = "Vui lòng nhập URL media khi đã chọn loại media";
+    String MSG_EXAM_MEDIA_TYPE_REQUIRED = "Vui lòng chọn loại media khi đã nhập URL";
+    String MSG_EXAM_MEDIA_YOUTUBE_INVALID = "URL YouTube không hợp lệ";
+    String MSG_EXAM_MEDIA_URL_SCHEME = "URL media phải bắt đầu bằng http:// hoặc https://";
+    String MSG_EXAM_MEDIA_TYPE_INVALID = "Loại media không hợp lệ";
     String MSG_QUESTION_NEEDS_OPTIONS = "Mỗi câu hỏi phải có ít nhất hai lựa chọn";
     String MSG_QUESTION_NEEDS_CORRECT = "Mỗi câu hỏi phải có ít nhất một đáp án đúng";
     String MSG_MCQ_ONE_CORRECT       = "Câu hỏi một đáp án (MCQ) phải có đúng một đáp án đúng";

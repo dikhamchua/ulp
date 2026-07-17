@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Xem trước: ' + ${preview.title()}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-take.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-lecturer-preview.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<main class="tk-page lpv-page">
+  <div class="lpv-banner" role="status">
+    <div class="lpv-banner-text">
+      <strong>Chế độ xem trước</strong>
+      <span>Đây là giao diện sinh viên sẽ thấy. Không tạo lượt làm bài và không chấm điểm.</span>
+    </div>
+    <a class="tst-btn"
+       th:href="@{'/lecturer/tests/' + ${preview.testId()} + '/edit'(tab='info')}">← Quay lại chỉnh sửa</a>
+  </div>
+
+  <div class="tk-bar">
+    <h1 class="tk-title" th:text="${preview.title()}">Bài test</h1>
+    <div class="tk-timer lpv-meta">
+      <span class="tk-timer-label">Kiểu tính giờ</span>
+      <span class="tk-timer-value lpv-meta-value"
+            th:text="${preview.timeMode() == 'INDIVIDUAL'
+                      ? ((preview.durationMinutes() != null ? preview.durationMinutes() : 0) + ' phút / SV')
+                      : 'Cửa sổ cố định'}">—</span>
+    </div>
+  </div>
+
+  <div class="lpv-schedule" th:if="${preview.startAt() != null or preview.endAt() != null}">
+    <span th:if="${preview.startAt() != null}">
+      Mở:
+      <em th:text="${#temporals.format(preview.startAt(), 'HH:mm dd/MM/yyyy')}">—</em>
+    </span>
+    <span th:if="${preview.endAt() != null}">
+      Đóng:
+      <em th:text="${#temporals.format(preview.endAt(), 'HH:mm dd/MM/yyyy')}">—</em>
+    </span>
+  </div>
+
+  <div class="tk-empty" th:if="${#lists.isEmpty(preview.questions())}">
+    Bài test này chưa có câu hỏi.
+  </div>
+
+  <div class="tk-media" th:if="${preview.mediaType() != null and preview.mediaUrl() != null}">
+    <div class="tk-media-frame" th:if="${preview.mediaType() == 'YOUTUBE' and preview.mediaEmbedUrl() != null}">
+      <iframe class="tk-media-player"
+              th:src="${preview.mediaEmbedUrl()}"
+              title="Media YouTube"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+              loading="lazy"></iframe>
+    </div>
+    <video class="tk-media-player" controls th:if="${preview.mediaType() == 'VIDEO'}"
+           th:src="${preview.mediaUrl()}">Trình duyệt không hỗ trợ video.</video>
+    <audio class="tk-media-player tk-media-audio" controls th:if="${preview.mediaType() == 'AUDIO'}"
+           th:src="${preview.mediaUrl()}">Trình duyệt không hỗ trợ audio.</audio>
+  </div>
+
+  <!-- Reuse the student take layout; preview-only: inputs disabled + no submit. -->
+  <div class="tk-layout" id="tkPreview"
+       th:if="${!#lists.isEmpty(preview.questions())}">
+    <aside class="tk-nav" aria-label="Danh sách câu hỏi">
+      <div class="tk-nav-head">
+        <span class="tk-nav-title">Câu hỏi</span>
+        <span class="tk-nav-progress"
+              th:text="${#lists.size(preview.questions())} + ' câu'">0 câu</span>
+      </div>
+      <div class="tk-nav-grid" id="tkNavGrid" role="tablist">
+        <button type="button"
+                class="tk-nav-item"
+                th:each="q, qi : ${preview.questions()}"
+                th:attr="data-index=${qi.index},data-qid=${q.id()}"
+                th:classappend="${qi.index == 0} ? ' is-active'"
+                th:text="${qi.count}"
+                th:aria-label="'Câu ' + ${qi.count}"
+                role="tab">1</button>
+      </div>
+    </aside>
+
+    <section class="tk-main">
+      <ol class="tk-questions">
+        <li class="tk-question"
+            th:each="q, qi : ${preview.questions()}"
+            th:attr="data-qid=${q.id()},data-type=${q.type()},data-index=${qi.index}"
+            th:classappend="${qi.index == 0} ? ' is-active'"
+            th:hidden="${qi.index != 0}">
+          <div class="tk-q-head">
+            <span class="tk-q-index" th:text="'Câu ' + ${qi.count}">Câu 1</span>
+            <span class="tk-q-type"
+                  th:text="${q.type() == 'MR'} ? 'Chọn nhiều đáp án' : 'Chọn một đáp án'">Loại</span>
+            <span class="tk-q-points" th:text="${q.points()} + ' điểm'">1 điểm</span>
+          </div>
+          <p class="tk-q-content" th:text="${q.content()}">Nội dung câu hỏi</p>
+          <ul class="tk-options">
+            <li class="tk-option" th:each="opt : ${q.options()}">
+              <label class="tk-option-label">
+                <input th:type="${q.type() == 'MR'} ? 'checkbox' : 'radio'"
+                       th:name="'q_' + ${q.id()}" th:value="${opt.id()}"
+                       class="tk-option-input" disabled>
+                <span class="tk-option-text" th:text="${opt.content()}">Đáp án</span>
+              </label>
+            </li>
+          </ul>
+        </li>
+      </ol>
+
+      <div class="tk-actions">
+        <button type="button" class="tst-btn" id="tkPrev" disabled>← Câu trước</button>
+        <button type="button" class="tst-btn" id="tkNext">Câu sau →</button>
+        <button type="button" class="tst-btn tst-btn-primary" disabled title="Chỉ xem trước">Nộp bài</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/test-take.js}"></script>
+</body>
+</html>

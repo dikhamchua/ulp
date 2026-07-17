@@ -36,6 +36,7 @@ public final class LecturerTestDtos {
                            String type, String status, String timeMode,
                            Integer durationMinutes, LocalDateTime startAt, LocalDateTime endAt,
                            BigDecimal passingScore, boolean shuffleQuestions, boolean shuffleOptions,
+                           String mediaType, String mediaUrl,
                            List<QuestionForm> questions) {
     }
 

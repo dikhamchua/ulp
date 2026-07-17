@@ -30,6 +30,8 @@
     <div class="detail-toolbar">
       <a th:href="@{/lecturer/tests}" class="toolbar-back">← Quay lại</a>
       <span class="toolbar-spacer"></span>
+      <a class="toolbar-secondary"
+         th:href="@{'/lecturer/tests/' + ${test.id()} + '/preview'}">Xem trước</a>
       <button type="submit" form="lfForm" id="lfSave" class="toolbar-save"
               th:disabled="${activeDetailTab != 'info'}">Lưu bài test</button>
     </div>
@@ -139,6 +141,20 @@
         <div class="lf-field lf-checks">
           <label class="lf-check"><input type="checkbox" id="lfShuffleQ"> Trộn câu hỏi</label>
           <label class="lf-check"><input type="checkbox" id="lfShuffleO"> Trộn đáp án</label>
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfMediaType">Media (tuỳ chọn)</label>
+          <select class="lf-input" id="lfMediaType">
+            <option value="">— Không có media —</option>
+            <option value="YOUTUBE">YouTube</option>
+            <option value="VIDEO">Video (URL ngoài)</option>
+            <option value="AUDIO">Audio (URL ngoài)</option>
+          </select>
+        </div>
+        <div class="lf-field lf-col-2">
+          <label class="lf-label" for="lfMediaUrl">URL media</label>
+          <input class="lf-input" id="lfMediaUrl" type="url" maxlength="1000"
+                 placeholder="https://www.youtube.com/watch?v=... hoặc URL video/audio">
         </div>
       </div>
     </section>

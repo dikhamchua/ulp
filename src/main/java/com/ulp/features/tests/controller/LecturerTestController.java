@@ -7,6 +7,7 @@ import com.ulp.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ulp.features.tests.dto.LecturerTestDtos.ExamHeader;
 import com.ulp.features.tests.dto.LecturerTestDtos.LecturerExamRow;
 import com.ulp.features.tests.dto.LecturerTestDtos.SaveResult;
+import com.ulp.features.tests.dto.TestDtos.PreviewView;
 import com.ulp.features.tests.service.ExamMonitorService;
 import com.ulp.features.tests.service.LecturerExamService;
 import com.ulp.security.Roles;
@@ -41,6 +42,7 @@ import static com.ulp.common.IConstant.ATTR_LED_CLASSES;
 import static com.ulp.common.IConstant.ATTR_MODE;
 import static com.ulp.common.IConstant.ATTR_MONITOR;
 import static com.ulp.common.IConstant.ATTR_PAGER_PARAMS;
+import static com.ulp.common.IConstant.ATTR_PREVIEW;
 import static com.ulp.common.IConstant.ATTR_SUBMISSIONS;
 import static com.ulp.common.IConstant.ATTR_TEST;
 import static com.ulp.common.IConstant.ATTR_TEST_ACTIVITIES_PAGE;
@@ -53,6 +55,7 @@ import static com.ulp.common.IConstant.TAB_MONITOR;
 import static com.ulp.common.IConstant.TAB_SUBMISSIONS;
 import static com.ulp.common.IConstant.VIEW_TEST_LECTURER_FORM;
 import static com.ulp.common.IConstant.VIEW_TEST_LECTURER_LIST;
+import static com.ulp.common.IConstant.VIEW_TEST_LECTURER_PREVIEW;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.badRequest;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.forbidden;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.internalError;
@@ -109,6 +112,18 @@ public class LecturerTestController {
         model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(user.getId()));
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         return VIEW_TEST_LECTURER_FORM;
+    }
+
+    /**
+     * Student-style preview of an owned exam. Read-only: no attempt is started
+     * and answers cannot be submitted. Used from the edit toolbar "Xem trước".
+     */
+    @GetMapping("/{id}/preview")
+    public String preview(@PathVariable Long id,
+                          @AuthenticationPrincipal UlpUserDetails user, Model model) {
+        PreviewView preview = examService.previewAsStudent(id, user.getId());
+        model.addAttribute(ATTR_PREVIEW, preview);
+        return VIEW_TEST_LECTURER_PREVIEW;
     }
 
     /**

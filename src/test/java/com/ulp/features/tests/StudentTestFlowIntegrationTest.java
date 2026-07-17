@@ -181,7 +181,7 @@ class StudentTestFlowIntegrationTest {
                 new QuestionForm(null, "MR", "Chọn A và B", null, new BigDecimal("3.00"), mr));
         return new ExamForm(null, "Đề kiểm tra JUnit", "mô tả", classId, "MOCK", "PUBLISHED",
                 "FIXED_WINDOW", null, LocalDateTime.now().minusHours(1), endAt,
-                new BigDecimal("1.00"), false, false, questions);
+                new BigDecimal("1.00"), false, false, null, null, questions);
     }
 
     private void enroll(User u, ClassEntity clazz) {

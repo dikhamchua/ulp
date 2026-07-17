@@ -44,6 +44,7 @@
           <td th:text="${exam.endAt() != null ? #temporals.format(exam.endAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
           <td class="tst-row-actions">
             <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='info')}">Sửa</a>
+            <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/preview'}">Xem trước</a>
             <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='monitor')}">Theo dõi</a>
             <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='submissions')}">Bài nộp</a>
           </td>
