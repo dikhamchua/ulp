@@ -7,6 +7,8 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-lecturer-form.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-monitor.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-submissions.css}">
+  <link class="page-css" rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
@@ -72,7 +74,10 @@
        Rendered in create mode (no tabs) and on the edit "info" tab. The
        form JS (test-lecturer-form.js) no-ops when #lfForm is absent. -->
   <form th:if="${mode == 'create' or activeDetailTab == 'info'}"
-        id="lfForm" th:attr="data-save-url=@{/lecturer/tests/save},data-list-url=@{/lecturer/tests}">
+         id="lfForm"
+         th:attr="data-save-url=@{/lecturer/tests/save},
+                  data-list-url=@{/lecturer/tests},
+                  data-image-url=@{/lecturer/tests/images}">
     <!-- Exam payload for the builder to hydrate from. Lives inside #tabPanel so
          an AJAX tab swap carries the fresh JSON; read by id, never executed. -->
     <script type="application/json" id="lfData" th:inline="javascript">/*[[${examForm}]]*/ null</script>
@@ -310,7 +315,8 @@
       <input class="lf-input lf-q-points" type="number" step="0.01" min="0" value="1" title="Điểm">
       <button type="button" class="lf-icon-btn lf-q-remove" title="Xoá câu hỏi">✕</button>
     </div>
-    <textarea class="lf-input lf-q-content" rows="2" placeholder="Nội dung câu hỏi"></textarea>
+    <div class="lf-q-editor"></div>
+    <textarea class="lf-q-content" hidden></textarea>
     <textarea class="lf-input lf-q-explanation" rows="1" placeholder="Giải thích (tuỳ chọn)"></textarea>
     <div class="lf-options"></div>
     <button type="button" class="tst-btn lf-add-option">+ Thêm đáp án</button>
@@ -320,12 +326,19 @@
 
 <template id="lfOptionTpl">
   <div class="lf-option">
-    <input type="checkbox" class="lf-o-correct" title="Đáp án đúng">
-    <input class="lf-input lf-o-content" type="text" placeholder="Nội dung đáp án">
+    <label class="lf-o-mark" title="Đánh dấu đáp án đúng">
+      <input type="checkbox" class="lf-o-correct">
+      <span class="lf-o-letter" aria-hidden="true">A</span>
+    </label>
+    <div class="lf-o-body">
+      <div class="lf-o-editor"></div>
+      <textarea class="lf-o-content" hidden></textarea>
+    </div>
     <button type="button" class="lf-icon-btn lf-o-remove" title="Xoá đáp án">✕</button>
   </div>
 </template>
 
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/flashcard-common.js}"></script>
 <script th:src="@{/js/test-lecturer-form.js}"></script>

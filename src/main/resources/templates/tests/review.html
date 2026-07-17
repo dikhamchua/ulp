@@ -45,14 +45,14 @@
         <span class="rv-q-index" th:text="'Câu ' + ${qi.count}">Câu 1</span>
         <span class="rv-q-flag" th:text="${q.correct()} ? 'Đúng' : 'Sai'">Đúng</span>
       </div>
-      <p class="rv-q-content" th:text="${q.content()}">Nội dung câu hỏi</p>
+      <div class="rv-q-content" th:utext="${q.content()}">Nội dung câu hỏi</div>
       <ul class="rv-options">
         <li class="rv-option" th:each="opt : ${q.options()}"
             th:classappend="(${opt.correct()} ? ' is-correct' : '') + (${opt.selected()} ? ' is-selected' : '')">
           <span class="rv-option-mark" th:if="${opt.correct()}">✓</span>
           <span class="rv-option-mark rv-option-wrong"
                 th:if="${opt.selected() and !opt.correct()}">✗</span>
-          <span class="rv-option-text" th:text="${opt.content()}">Đáp án</span>
+          <span class="rv-option-text" th:utext="${opt.content()}">Đáp án</span>
           <span class="rv-option-tag" th:if="${opt.selected()}">Bạn chọn</span>
         </li>
       </ul>

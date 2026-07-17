@@ -10,6 +10,7 @@ import com.ulp.features.tests.entity.Test;
 import java.util.List;
 import java.util.Set;
 
+import static com.ulp.common.IConstant.MSG_EXAM_CONTENT_TOO_LARGE;
 import static com.ulp.common.IConstant.MSG_EXAM_MEDIA_TYPE_INVALID;
 import static com.ulp.common.IConstant.MSG_EXAM_MEDIA_TYPE_REQUIRED;
 import static com.ulp.common.IConstant.MSG_EXAM_MEDIA_URL_REQUIRED;
@@ -19,6 +20,8 @@ import static com.ulp.common.IConstant.MSG_EXAM_NEEDS_CLASS;
 import static com.ulp.common.IConstant.MSG_EXAM_NEEDS_QUESTIONS;
 import static com.ulp.common.IConstant.MSG_EXAM_TITLE_BLANK;
 import static com.ulp.common.IConstant.MSG_MCQ_ONE_CORRECT;
+import static com.ulp.common.IConstant.MSG_OPTION_CONTENT_BLANK;
+import static com.ulp.common.IConstant.MSG_QUESTION_CONTENT_BLANK;
 import static com.ulp.common.IConstant.MSG_QUESTION_NEEDS_CORRECT;
 import static com.ulp.common.IConstant.MSG_QUESTION_NEEDS_OPTIONS;
 
@@ -84,10 +87,27 @@ public final class ExamFormValidator {
         }
     }
 
+    /** Soft cap so oversized paste (base64 data URIs) fail with a clear 400. */
+    private static final int MAX_HTML_CHARS = 200_000;
+
     private static void validateQuestion(QuestionForm q) {
+        if (isBlank(plainText(q.content()))) {
+            throw new IllegalArgumentException(MSG_QUESTION_CONTENT_BLANK);
+        }
+        if (tooLarge(q.content())) {
+            throw new IllegalArgumentException(MSG_EXAM_CONTENT_TOO_LARGE);
+        }
         List<OptionForm> options = q.options();
         if (options == null || options.size() < 2) {
             throw new IllegalArgumentException(MSG_QUESTION_NEEDS_OPTIONS);
+        }
+        for (OptionForm o : options) {
+            if (isBlank(plainText(o.content()))) {
+                throw new IllegalArgumentException(MSG_OPTION_CONTENT_BLANK);
+            }
+            if (tooLarge(o.content())) {
+                throw new IllegalArgumentException(MSG_EXAM_CONTENT_TOO_LARGE);
+            }
         }
         long correct = options.stream().filter(OptionForm::correct).count();
         if (correct < 1) {
@@ -101,5 +121,22 @@ public final class ExamFormValidator {
 
     private static boolean isBlank(String s) {
         return s == null || s.trim().isEmpty();
+    }
+
+    private static boolean tooLarge(String html) {
+        return html != null && html.length() > MAX_HTML_CHARS;
+    }
+
+    /**
+     * Content is non-empty when it has visible text OR an embedded image
+     * (image-only Quill payloads like {@code <p><img src="..."></p>}).
+     */
+    private static String plainText(String htmlOrText) {
+        if (htmlOrText == null) return "";
+        // Image-only answers/questions are valid rich content.
+        if (htmlOrText.matches("(?is).*<img\\b[^>]*\\bsrc\\s*=.*")) {
+            return "img";
+        }
+        return htmlOrText.replaceAll("(?is)<[^>]*>", " ").replace('\u00a0', ' ').trim();
     }
 }

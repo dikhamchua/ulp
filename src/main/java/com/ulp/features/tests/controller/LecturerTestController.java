@@ -10,6 +10,7 @@ import com.ulp.features.tests.dto.LecturerTestDtos.SaveResult;
 import com.ulp.features.tests.dto.TestDtos.PreviewView;
 import com.ulp.features.tests.service.ExamMonitorService;
 import com.ulp.features.tests.service.LecturerExamService;
+import com.ulp.features.upload.ExamImageStorageService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 import java.util.Set;
@@ -85,15 +87,18 @@ public class LecturerTestController {
     private final ExamMonitorService monitorService;
     private final ClassesService classesService;
     private final ClassDetailModelSupport classDetailSupport;
+    private final ExamImageStorageService examImageStorage;
 
     public LecturerTestController(LecturerExamService examService,
                                   ExamMonitorService monitorService,
                                   ClassesService classesService,
-                                  ClassDetailModelSupport classDetailSupport) {
+                                  ClassDetailModelSupport classDetailSupport,
+                                  ExamImageStorageService examImageStorage) {
         this.examService = examService;
         this.monitorService = monitorService;
         this.classesService = classesService;
         this.classDetailSupport = classDetailSupport;
+        this.examImageStorage = examImageStorage;
     }
 
     /** Lists exams the lecturer owns (SSR numbered pager). */
@@ -191,6 +196,25 @@ public class LecturerTestController {
             return notFound(ex.getMessage());
         } catch (RuntimeException ex) {
             log.error("Failed to save exam", ex);
+            return internalError();
+        }
+    }
+
+    /**
+     * Uploads an image for embedding in question HTML (Quill toolbar).
+     * Returns {@code { url: "/uploads/exams/..." }} inside the AjaxResult data.
+     */
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file) {
+        try {
+            String url = examImageStorage.store(file);
+            return ResponseEntity.ok(AjaxResult.success(Map.of("url", url)));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (Exception ex) {
+            log.error("Failed to upload exam image", ex);
             return internalError();
         }
     }

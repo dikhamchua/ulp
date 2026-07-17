@@ -24,7 +24,7 @@ public class QuestionOption {
     @Column(name = "question_id", nullable = false)
     private Long questionId;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
+    @Column(columnDefinition = "MEDIUMTEXT", nullable = false)
     private String content;
 
     @Column(name = "is_correct", nullable = false)
@@ -39,6 +39,13 @@ public class QuestionOption {
 
     public QuestionOption(Long questionId, String content, boolean correct, Integer sortOrder) {
         this.questionId = questionId;
+        this.content = content;
+        this.correct = correct;
+        this.sortOrder = sortOrder;
+    }
+
+    /** Updates author-editable fields without changing the identity / FK. */
+    public void updateContent(String content, boolean correct, Integer sortOrder) {
         this.content = content;
         this.correct = correct;
         this.sortOrder = sortOrder;

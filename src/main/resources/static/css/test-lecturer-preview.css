@@ -51,15 +51,15 @@
   color: #374151;
 }
 
-/* Disabled options still look like the student screen, not greyed-out dead UI. */
+/* Preview allows selecting options for UX verification; only Submit stays locked. */
 .lpv-page .tk-option-label {
-  cursor: default;
-  opacity: 1;
+  cursor: pointer;
 }
 
-.lpv-page .tk-option-input:disabled {
-  opacity: 1;
-  cursor: default;
+.lpv-page .lpv-submit-disabled,
+.lpv-page .lpv-submit-disabled:disabled {
+  opacity: .55;
+  cursor: not-allowed;
 }
 
 @media (max-width: 640px) {
