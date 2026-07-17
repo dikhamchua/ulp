@@ -44,6 +44,14 @@
     Bài test này chưa có câu hỏi.
   </div>
 
+  <!-- Reading passage for reading-mode exams (HTML from description). -->
+  <div class="tk-passage"
+       th:if="${(preview.mediaType() == null or preview.mediaUrl() == null)
+                and preview.description() != null and !#strings.isEmpty(preview.description())}">
+    <div class="tk-passage-label">Nội dung bài đọc</div>
+    <div class="tk-passage-body" th:utext="${preview.description()}">Đoạn văn</div>
+  </div>
+
   <div class="tk-media" th:if="${preview.mediaType() != null and preview.mediaUrl() != null}">
     <div class="tk-media-frame" th:if="${preview.mediaType() == 'YOUTUBE' and preview.mediaEmbedUrl() != null}">
       <iframe class="tk-media-player"

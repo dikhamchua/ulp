@@ -9,6 +9,10 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-submissions.css}">
   <link class="page-css" rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+  <link class="page-css" rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
@@ -87,15 +91,38 @@
     </div>
 
     <section class="lf-panel">
+      <div class="lf-panel-head">
+        <h2 class="lf-panel-title">Thông tin chung</h2>
+      </div>
+
+      <!-- Choose exam format first: reading passage vs media-based. -->
+      <div class="lf-field lf-col-2 lf-mode-field">
+        <span class="lf-label">Hình thức bài test</span>
+        <div class="lf-mode-cards" role="radiogroup" aria-label="Hình thức bài test">
+          <label class="lf-mode-card is-selected" id="lfModeReadingCard">
+            <input type="radio" name="lfExamMode" id="lfModeReading" value="READING" checked>
+            <span class="lf-mode-icon" aria-hidden="true"><i class="fa-solid fa-book-open"></i></span>
+            <span class="lf-mode-body">
+              <strong>Bài đọc</strong>
+              <small>Có đoạn văn / nội dung đọc bằng rich editor, rồi trả lời câu hỏi</small>
+            </span>
+          </label>
+          <label class="lf-mode-card" id="lfModeMediaCard">
+            <input type="radio" name="lfExamMode" id="lfModeMedia" value="MEDIA">
+            <span class="lf-mode-icon" aria-hidden="true"><i class="fa-solid fa-circle-play"></i></span>
+            <span class="lf-mode-body">
+              <strong>Bài media</strong>
+              <small>Có YouTube / video / audio kèm theo, rồi mới làm câu hỏi</small>
+            </span>
+          </label>
+        </div>
+      </div>
+
       <div class="lf-grid">
         <div class="lf-field lf-col-2">
           <label class="lf-label" for="lfTitle">Tiêu đề</label>
           <input class="lf-input" id="lfTitle" type="text" maxlength="300">
           <small class="lf-err" id="lfTitleErr"></small>
-        </div>
-        <div class="lf-field lf-col-2">
-          <label class="lf-label" for="lfDescription">Mô tả</label>
-          <textarea class="lf-input" id="lfDescription" rows="2"></textarea>
         </div>
         <div class="lf-field">
           <label class="lf-label" for="lfClass">Lớp</label>
@@ -147,19 +174,41 @@
           <label class="lf-check"><input type="checkbox" id="lfShuffleQ"> Trộn câu hỏi</label>
           <label class="lf-check"><input type="checkbox" id="lfShuffleO"> Trộn đáp án</label>
         </div>
-        <div class="lf-field">
-          <label class="lf-label" for="lfMediaType">Media (tuỳ chọn)</label>
-          <select class="lf-input" id="lfMediaType">
-            <option value="">— Không có media —</option>
-            <option value="YOUTUBE">YouTube</option>
-            <option value="VIDEO">Video (URL ngoài)</option>
-            <option value="AUDIO">Audio (URL ngoài)</option>
-          </select>
+      </div>
+
+      <!-- Reading passage: rich-text body shown for READING mode. -->
+      <div class="lf-reading-block" id="lfReadingBlock">
+        <div class="lf-media-head">
+          <h3 class="lf-media-title">Nội dung bài đọc</h3>
+          <p class="lf-media-hint">Đoạn văn / nội dung sinh viên đọc trước khi trả lời câu hỏi. Có thể chèn ảnh, định dạng chữ.</p>
         </div>
-        <div class="lf-field lf-col-2">
-          <label class="lf-label" for="lfMediaUrl">URL media</label>
-          <input class="lf-input" id="lfMediaUrl" type="url" maxlength="1000"
-                 placeholder="https://www.youtube.com/watch?v=... hoặc URL video/audio">
+        <div class="lf-field">
+          <div class="lf-desc-editor" id="lfDescriptionEditor"></div>
+          <textarea id="lfDescription" hidden></textarea>
+        </div>
+      </div>
+
+      <!-- Media fields only when "Bài media" is selected. -->
+      <div class="lf-media-block" id="lfMediaBlock" hidden>
+        <div class="lf-media-head">
+          <h3 class="lf-media-title">Nguồn media</h3>
+          <p class="lf-media-hint">Sinh viên xem media trước/trong lúc làm bài. Câu hỏi soạn bằng rich editor bên dưới.</p>
+        </div>
+        <div class="lf-grid">
+          <div class="lf-field">
+            <label class="lf-label" for="lfMediaType">Loại media</label>
+            <select class="lf-input" id="lfMediaType">
+              <option value="YOUTUBE">YouTube</option>
+              <option value="VIDEO">Video (URL ngoài)</option>
+              <option value="AUDIO">Audio (URL ngoài)</option>
+            </select>
+          </div>
+          <div class="lf-field lf-col-2">
+            <label class="lf-label" for="lfMediaUrl">URL media</label>
+            <input class="lf-input" id="lfMediaUrl" type="url" maxlength="1000"
+                   placeholder="https://www.youtube.com/watch?v=... hoặc URL video/audio">
+            <small class="lf-err" id="lfMediaUrlErr"></small>
+          </div>
         </div>
       </div>
     </section>

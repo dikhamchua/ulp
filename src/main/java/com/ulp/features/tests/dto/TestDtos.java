@@ -52,16 +52,17 @@ public final class TestDtos {
     }
 
     /** The full taking view: attempt, exam meta, remaining seconds, questions. */
-    public record TakeView(Long attemptId, Long testId, String title, String timeMode,
-                           long remainingSeconds, String mediaType, String mediaUrl,
-                           String mediaEmbedUrl, List<TakeQuestionView> questions) {
+    public record TakeView(Long attemptId, Long testId, String title, String description,
+                           String timeMode, long remainingSeconds,
+                           String mediaType, String mediaUrl, String mediaEmbedUrl,
+                           List<TakeQuestionView> questions) {
     }
 
     /**
      * Lecturer read-only preview of the student taking screen. No attempt is
      * created; options never expose correctness so the layout matches students.
      */
-    public record PreviewView(Long testId, String title, String timeMode,
+    public record PreviewView(Long testId, String title, String description, String timeMode,
                               Integer durationMinutes, LocalDateTime startAt, LocalDateTime endAt,
                               String mediaType, String mediaUrl, String mediaEmbedUrl,
                               List<TakeQuestionView> questions) {

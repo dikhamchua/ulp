@@ -99,8 +99,22 @@
         var noQuestions = document.getElementById('lfNoQuestions');
         var timeMode = document.getElementById('lfTimeMode');
         var durationWrap = document.getElementById('lfDurationWrap');
+        var mediaBlock = document.getElementById('lfMediaBlock');
+        var readingBlock = document.getElementById('lfReadingBlock');
+        var mediaTypeEl = document.getElementById('lfMediaType');
+        var mediaUrlEl = document.getElementById('lfMediaUrl');
+        var descHost = document.getElementById('lfDescriptionEditor');
+        var descHidden = document.getElementById('lfDescription');
+        var modeReading = document.getElementById('lfModeReading');
+        var modeMedia = document.getElementById('lfModeMedia');
+        var modeReadingCard = document.getElementById('lfModeReadingCard');
+        var modeMediaCard = document.getElementById('lfModeMediaCard');
         var imageUrl = form.getAttribute('data-image-url') || '/lecturer/tests/images';
         var editId = null;
+        var descriptionQuill = null;
+        // Remember last media type when switching READING ↔ MEDIA so the lecturer
+        // does not lose the selection if they toggle by mistake.
+        var lastMediaType = 'YOUTUBE';
 
         function refreshEmptyHint() {
             var has = questionsHost.querySelectorAll('.lf-question').length > 0;
@@ -109,6 +123,96 @@
 
         function syncDuration() {
             durationWrap.style.display = timeMode.value === 'INDIVIDUAL' ? '' : 'none';
+        }
+
+        function isMediaMode() {
+            return !!(modeMedia && modeMedia.checked);
+        }
+
+        function setExamMode(mode) {
+            var media = mode === 'MEDIA';
+            if (modeReading) modeReading.checked = !media;
+            if (modeMedia) modeMedia.checked = media;
+            if (modeReadingCard) modeReadingCard.classList.toggle('is-selected', !media);
+            if (modeMediaCard) modeMediaCard.classList.toggle('is-selected', media);
+            if (readingBlock) {
+                if (media) readingBlock.setAttribute('hidden', 'hidden');
+                else readingBlock.removeAttribute('hidden');
+            }
+            if (mediaBlock) {
+                if (media) mediaBlock.removeAttribute('hidden');
+                else mediaBlock.setAttribute('hidden', 'hidden');
+            }
+            if (media && mediaTypeEl) {
+                // Ensure a concrete media type is selected when entering media mode.
+                if (!mediaTypeEl.value) mediaTypeEl.value = lastMediaType || 'YOUTUBE';
+                lastMediaType = mediaTypeEl.value;
+            }
+            if (!media && mediaTypeEl && mediaTypeEl.value) {
+                lastMediaType = mediaTypeEl.value;
+            }
+        }
+
+        function syncExamModeFromFields() {
+            // Existing exams with mediaType/mediaUrl open as MEDIA; otherwise READING.
+            var hasMedia = !!(mediaTypeEl && mediaTypeEl.value) || !!(mediaUrlEl && mediaUrlEl.value.trim());
+            setExamMode(hasMedia ? 'MEDIA' : 'READING');
+        }
+
+        function bindExamMode() {
+            if (modeReading) {
+                modeReading.addEventListener('change', function () {
+                    if (modeReading.checked) setExamMode('READING');
+                });
+            }
+            if (modeMedia) {
+                modeMedia.addEventListener('change', function () {
+                    if (modeMedia.checked) setExamMode('MEDIA');
+                });
+            }
+            // Card click (label) already toggles radio; keep selected style in sync.
+            if (modeReadingCard) {
+                modeReadingCard.addEventListener('click', function () { setExamMode('READING'); });
+            }
+            if (modeMediaCard) {
+                modeMediaCard.addEventListener('click', function () { setExamMode('MEDIA'); });
+            }
+            if (mediaTypeEl) {
+                mediaTypeEl.addEventListener('change', function () {
+                    if (mediaTypeEl.value) lastMediaType = mediaTypeEl.value;
+                });
+            }
+        }
+
+        function mountDescriptionEditor(html) {
+            if (!descHost || !descHidden) return;
+            descriptionQuill = createQuill(
+                descHost,
+                descHidden,
+                'Soạn nội dung bài đọc (có thể chèn ảnh, định dạng chữ)…',
+                [
+                    [{ header: [2, 3, false] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            );
+            if (!descriptionQuill) return;
+            if (html) {
+                var seed = html;
+                // Legacy plain-text descriptions become a paragraph for Quill.
+                if (seed && seed.indexOf('<') === -1) {
+                    seed = '<p>' + seed + '</p>';
+                }
+                descriptionQuill.root.innerHTML = seed;
+                descHidden.value = seed;
+            }
+        }
+
+        function readDescriptionHtml() {
+            if (descriptionQuill) return descriptionQuill.root.innerHTML;
+            return descHidden ? descHidden.value : '';
         }
 
         function uploadImage(file) {
@@ -404,7 +508,10 @@
             return {
                 id: editId,
                 title: val('lfTitle'),
-                description: val('lfDescription'),
+                // Reading mode stores the passage HTML; media mode keeps a plain note optional.
+                description: isMediaMode()
+                    ? (isEmptyHtml(readDescriptionHtml()) ? null : readDescriptionHtml())
+                    : (isEmptyHtml(readDescriptionHtml()) ? null : readDescriptionHtml()),
                 classId: numOrNull('lfClass'),
                 type: val('lfType'),
                 status: val('lfStatus'),
@@ -415,8 +522,9 @@
                 passingScore: numOrNull('lfPassing'),
                 shuffleQuestions: document.getElementById('lfShuffleQ').checked,
                 shuffleOptions: document.getElementById('lfShuffleO').checked,
-                mediaType: val('lfMediaType') || null,
-                mediaUrl: val('lfMediaUrl') || null,
+                // Reading mode always clears media so backend stores null/null.
+                mediaType: isMediaMode() ? (val('lfMediaType') || null) : null,
+                mediaUrl: isMediaMode() ? (val('lfMediaUrl') || null) : null,
                 questions: questions
             };
         }
@@ -424,7 +532,6 @@
         function hydrate(f) {
             editId = f.id;
             document.getElementById('lfTitle').value = f.title || '';
-            document.getElementById('lfDescription').value = f.description || '';
             if (f.classId != null) document.getElementById('lfClass').value = f.classId;
             if (f.type) document.getElementById('lfType').value = f.type;
             if (f.status) document.getElementById('lfStatus').value = f.status;
@@ -435,11 +542,17 @@
             if (f.passingScore != null) document.getElementById('lfPassing').value = f.passingScore;
             document.getElementById('lfShuffleQ').checked = !!f.shuffleQuestions;
             document.getElementById('lfShuffleO').checked = !!f.shuffleOptions;
-            document.getElementById('lfMediaType').value = f.mediaType || '';
-            document.getElementById('lfMediaUrl').value = f.mediaUrl || '';
+            if (mediaTypeEl) {
+                mediaTypeEl.value = f.mediaType || '';
+                if (f.mediaType) lastMediaType = f.mediaType;
+            }
+            if (mediaUrlEl) mediaUrlEl.value = f.mediaUrl || '';
+            mountDescriptionEditor(f.description || '');
+            syncExamModeFromFields();
             (f.questions || []).forEach(function (q) { addQuestion(q); });
         }
 
+        bindExamMode();
         timeMode.addEventListener('change', syncDuration);
         document.getElementById('lfAddQuestion').addEventListener('click', function () {
             addQuestion(null);
@@ -447,6 +560,7 @@
 
         function rewriteAllDataImages() {
             var editors = [];
+            if (descriptionQuill) editors.push(descriptionQuill);
             questionsHost.querySelectorAll('.lf-question').forEach(function (qEl) {
                 if (qEl._quill) editors.push(qEl._quill);
                 qEl.querySelectorAll('.lf-option').forEach(function (oEl) {
@@ -471,6 +585,16 @@
             rewriteAllDataImages().then(function (ok) {
                 if (!ok) return;
                 var payload = collect();
+                if (isMediaMode()) {
+                    if (!payload.mediaType) {
+                        toast('error', 'Vui lòng chọn loại media');
+                        return;
+                    }
+                    if (!payload.mediaUrl) {
+                        toast('error', 'Vui lòng nhập URL media');
+                        return;
+                    }
+                }
                 var emptyQ = payload.questions.some(function (q) { return isEmptyHtml(q.content); });
                 if (emptyQ) {
                     toast('error', 'Nội dung câu hỏi không được để trống');
@@ -512,6 +636,9 @@
         if (data) {
             hydrate(data);
         } else {
+            // Create mode defaults to reading passage + empty question set.
+            mountDescriptionEditor('');
+            setExamMode('READING');
             addQuestion(null);
         }
         syncDuration();

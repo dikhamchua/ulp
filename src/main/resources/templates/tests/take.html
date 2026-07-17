@@ -28,6 +28,14 @@
       Bài test này chưa có câu hỏi.
     </div>
 
+    <!-- Reading passage (HTML) for reading-mode exams; media band for media exams. -->
+    <div class="tk-passage"
+         th:if="${(take.mediaType() == null or take.mediaUrl() == null)
+                  and take.description() != null and !#strings.isEmpty(take.description())}">
+      <div class="tk-passage-label">Nội dung bài đọc</div>
+      <div class="tk-passage-body" th:utext="${take.description()}">Đoạn văn</div>
+    </div>
+
     <div class="tk-media" th:if="${take.mediaType() != null and take.mediaUrl() != null}">
       <div class="tk-media-frame" th:if="${take.mediaType() == 'YOUTUBE' and take.mediaEmbedUrl() != null}">
         <iframe class="tk-media-player"

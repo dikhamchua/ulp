@@ -30,6 +30,44 @@
   font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; color: #b91c1c;
 }
 
+/* ── Reading passage band (full-width above tk-layout) ─────────────── */
+.tk-passage {
+  margin-bottom: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.tk-passage-label {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.tk-passage-body {
+  font-size: 15px;
+  line-height: 1.65;
+  color: #111827;
+}
+.tk-passage-body p { margin: 0 0 10px; }
+.tk-passage-body p:last-child { margin-bottom: 0; }
+.tk-passage-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 10px 0;
+  display: block;
+}
+.tk-passage-body ul,
+.tk-passage-body ol { margin: 0 0 10px 1.25em; padding: 0; }
+.tk-passage-body h2,
+.tk-passage-body h3 {
+  margin: 0 0 8px;
+  line-height: 1.3;
+}
+
 /* ── Optional media band (full-width above tk-layout) ──────────────── */
 .tk-media {
   margin-bottom: 16px;
