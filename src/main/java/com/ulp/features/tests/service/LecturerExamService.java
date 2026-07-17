@@ -250,7 +250,9 @@ public class LecturerExamService {
 
     private void applyFields(Test test, ExamForm form) {
         test.setTitle(form.title().trim());
-        test.setDescription(trimToNull(form.description()));
+        // Description may hold a reading-passage HTML body from the Quill editor.
+        String description = trimToNull(form.description());
+        test.setDescription(description == null ? null : HtmlSanitizer.sanitize(description));
         test.setClassId(form.classId());
         test.setType(defaultType(form.type()));
         test.setStatus(form.status() == null ? Test.STATUS_DRAFT : form.status());

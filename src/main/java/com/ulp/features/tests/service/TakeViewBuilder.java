@@ -43,8 +43,8 @@ public class TakeViewBuilder {
         List<TakeQuestionView> views = buildQuestions(test, attempt.getId(), true);
         long remaining = ExamDeadline.remainingSeconds(test, attempt, LocalDateTime.now());
         return new TakeView(attempt.getId(), test.getId(), test.getTitle(),
-                test.getTimeMode(), remaining, test.getMediaType(), test.getMediaUrl(),
-                mediaEmbedUrl(test), views);
+                test.getDescription(), test.getTimeMode(), remaining,
+                test.getMediaType(), test.getMediaUrl(), mediaEmbedUrl(test), views);
     }
 
     /**
@@ -54,8 +54,8 @@ public class TakeViewBuilder {
     public PreviewView buildPreview(Test test) {
         // Preview skips shuffle so the lecturer sees the authored order.
         List<TakeQuestionView> views = buildQuestions(test, null, false);
-        return new PreviewView(test.getId(), test.getTitle(), test.getTimeMode(),
-                test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
+        return new PreviewView(test.getId(), test.getTitle(), test.getDescription(),
+                test.getTimeMode(), test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getMediaType(), test.getMediaUrl(), mediaEmbedUrl(test), views);
     }
 

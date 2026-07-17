@@ -45,6 +45,112 @@
 .lf-check { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 .lf-err { color: #dc2626; font-size: 12px; min-height: 14px; }
 
+/* Exam format picker: reading vs media. Choose first, then fill the rest. */
+.lf-mode-field { margin-bottom: 16px; }
+.lf-mode-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.lf-mode-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 14px 14px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fbfcfd;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+  user-select: none;
+}
+.lf-mode-card:hover {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+.lf-mode-card.is-selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+.lf-mode-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.lf-mode-icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  font-size: 16px;
+  line-height: 1;
+  color: #4b5563;
+}
+.lf-mode-icon i { font-size: 16px; }
+.lf-mode-card.is-selected .lf-mode-icon {
+  border-color: #93c5fd;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.lf-mode-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.lf-mode-body strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+.lf-mode-body small {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #6b7280;
+}
+
+.lf-reading-block,
+.lf-media-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed #e5e7eb;
+}
+.lf-reading-block[hidden],
+.lf-media-block[hidden] { display: none !important; }
+.lf-media-head { margin-bottom: 12px; }
+.lf-media-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+.lf-media-hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Description / reading-passage rich editor (same family as question editor). */
+.lf-desc-editor { background: #fff; border-radius: 8px; }
+.lf-desc-editor .ql-toolbar.ql-snow {
+  border: 1px solid #d0d7de; border-radius: 8px 8px 0 0; background: #f8fafc;
+}
+.lf-desc-editor .ql-container.ql-snow {
+  border: 1px solid #d0d7de; border-top: 0; border-radius: 0 0 8px 8px;
+  min-height: 140px; font-size: 14px; font-family: inherit;
+}
+.lf-desc-editor .ql-editor { min-height: 140px; line-height: 1.55; }
+.lf-desc-editor .ql-editor img {
+  max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; display: block;
+}
+.lf-desc-editor .ql-editor.ql-blank::before { font-style: normal; color: #9ca3af; }
+
 .lf-questions { display: flex; flex-direction: column; gap: 16px; }
 .lf-question { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; background: #fbfcfd; }
 .lf-q-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
@@ -216,4 +322,5 @@
 
 @media (max-width: 640px) {
   .lf-grid { grid-template-columns: 1fr; }
+  .lf-mode-cards { grid-template-columns: 1fr; }
 }
