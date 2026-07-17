@@ -1,9 +1,5 @@
-/* Lecturer exam builder (Epic #11): add/remove questions + options, mark
- * correct (MCQ enforces a single correct client-side), toggle the duration
- * field by time_mode, and save the whole exam as one JSON payload on submit
- * (single submit orchestrator; deferred save). Question content uses Quill
- * rich text with server image upload. Field errors render inline; top-level
- * errors go through UlpToast.
+/* Lecturer exam form orchestration (Epic #11): hydrate/collect/submit.
+ * Depends on window.LfQuill, window.LfBuilder, window.LfMode.
  *
  * Exposes window.LfForm.mount() so the AJAX tab orchestrator
  * (test-detail-tabs.js) can (re)initialise the builder after swapping the
@@ -41,18 +37,6 @@
         return iso ? String(iso).slice(0, 16) : '';
     }
 
-    function isEmptyHtml(html) {
-        if (!html) return true;
-        // Image-only Quill payloads (e.g. <p><img src="..."></p>) are valid content.
-        if (/<img\b[^>]*\bsrc\s*=/i.test(String(html))) return false;
-        var text = String(html)
-            .replace(/<[^>]*>/g, ' ')
-            .replace(/&nbsp;/gi, ' ')
-            .replace(/\u00a0/g, ' ')
-            .trim();
-        return text.length === 0;
-    }
-
     function readExamData() {
         var el = document.getElementById('lfData');
         if (!el) return null;
@@ -65,453 +49,54 @@
         }
     }
 
-    function waitForQuill(cb) {
-        if (window.Quill) {
-            cb();
-            return;
-        }
-        var tries = 0;
-        var t = setInterval(function () {
-            tries += 1;
-            if (window.Quill || tries > 80) {
-                clearInterval(t);
-                if (window.Quill) cb();
-                else toast('error', 'Không tải được trình soạn thảo. Tải lại trang.');
-            }
-        }, 50);
-    }
-
     function mount() {
         var form = document.getElementById('lfForm');
         if (!form) return;
         if (form.dataset.lfMounted === '1') return;
         form.dataset.lfMounted = '1';
 
-        waitForQuill(function () {
+        window.LfQuill.waitForQuill(function () {
             mountWithQuill(form);
         });
     }
 
     function mountWithQuill(form) {
-        var qTpl = document.getElementById('lfQuestionTpl');
-        var oTpl = document.getElementById('lfOptionTpl');
         var questionsHost = document.getElementById('lfQuestions');
-        var noQuestions = document.getElementById('lfNoQuestions');
-        var timeMode = document.getElementById('lfTimeMode');
-        var durationWrap = document.getElementById('lfDurationWrap');
-        var mediaBlock = document.getElementById('lfMediaBlock');
-        var readingBlock = document.getElementById('lfReadingBlock');
-        var mediaTypeEl = document.getElementById('lfMediaType');
-        var mediaUrlEl = document.getElementById('lfMediaUrl');
-        var descHost = document.getElementById('lfDescriptionEditor');
-        var descHidden = document.getElementById('lfDescription');
-        var modeReading = document.getElementById('lfModeReading');
-        var modeMedia = document.getElementById('lfModeMedia');
-        var modeReadingCard = document.getElementById('lfModeReadingCard');
-        var modeMediaCard = document.getElementById('lfModeMediaCard');
         var imageUrl = form.getAttribute('data-image-url') || '/lecturer/tests/images';
         var editId = null;
-        var descriptionQuill = null;
-        // Remember last media type when switching READING ↔ MEDIA so the lecturer
-        // does not lose the selection if they toggle by mistake.
-        var lastMediaType = 'YOUTUBE';
 
-        function refreshEmptyHint() {
-            var has = questionsHost.querySelectorAll('.lf-question').length > 0;
-            if (noQuestions) noQuestions.style.display = has ? 'none' : '';
-        }
+        var builder = window.LfBuilder.create({
+            qTpl: document.getElementById('lfQuestionTpl'),
+            oTpl: document.getElementById('lfOptionTpl'),
+            questionsHost: questionsHost,
+            noQuestions: document.getElementById('lfNoQuestions'),
+            imageUrl: imageUrl
+        });
 
-        function syncDuration() {
-            durationWrap.style.display = timeMode.value === 'INDIVIDUAL' ? '' : 'none';
-        }
-
-        function isMediaMode() {
-            return !!(modeMedia && modeMedia.checked);
-        }
-
-        function setExamMode(mode) {
-            var media = mode === 'MEDIA';
-            if (modeReading) modeReading.checked = !media;
-            if (modeMedia) modeMedia.checked = media;
-            if (modeReadingCard) modeReadingCard.classList.toggle('is-selected', !media);
-            if (modeMediaCard) modeMediaCard.classList.toggle('is-selected', media);
-            if (readingBlock) {
-                if (media) readingBlock.setAttribute('hidden', 'hidden');
-                else readingBlock.removeAttribute('hidden');
-            }
-            if (mediaBlock) {
-                if (media) mediaBlock.removeAttribute('hidden');
-                else mediaBlock.setAttribute('hidden', 'hidden');
-            }
-            if (media && mediaTypeEl) {
-                // Ensure a concrete media type is selected when entering media mode.
-                if (!mediaTypeEl.value) mediaTypeEl.value = lastMediaType || 'YOUTUBE';
-                lastMediaType = mediaTypeEl.value;
-            }
-            if (!media && mediaTypeEl && mediaTypeEl.value) {
-                lastMediaType = mediaTypeEl.value;
-            }
-        }
-
-        function syncExamModeFromFields() {
-            // Existing exams with mediaType/mediaUrl open as MEDIA; otherwise READING.
-            var hasMedia = !!(mediaTypeEl && mediaTypeEl.value) || !!(mediaUrlEl && mediaUrlEl.value.trim());
-            setExamMode(hasMedia ? 'MEDIA' : 'READING');
-        }
-
-        function bindExamMode() {
-            if (modeReading) {
-                modeReading.addEventListener('change', function () {
-                    if (modeReading.checked) setExamMode('READING');
-                });
-            }
-            if (modeMedia) {
-                modeMedia.addEventListener('change', function () {
-                    if (modeMedia.checked) setExamMode('MEDIA');
-                });
-            }
-            // Card click (label) already toggles radio; keep selected style in sync.
-            if (modeReadingCard) {
-                modeReadingCard.addEventListener('click', function () { setExamMode('READING'); });
-            }
-            if (modeMediaCard) {
-                modeMediaCard.addEventListener('click', function () { setExamMode('MEDIA'); });
-            }
-            if (mediaTypeEl) {
-                mediaTypeEl.addEventListener('change', function () {
-                    if (mediaTypeEl.value) lastMediaType = mediaTypeEl.value;
-                });
-            }
-        }
-
-        function mountDescriptionEditor(html) {
-            if (!descHost || !descHidden) return;
-            descriptionQuill = createQuill(
-                descHost,
-                descHidden,
-                'Soạn nội dung bài đọc (có thể chèn ảnh, định dạng chữ)…',
-                [
-                    [{ header: [2, 3, false] }],
-                    ['bold', 'italic', 'underline'],
-                    [{ list: 'ordered' }, { list: 'bullet' }],
-                    ['link', 'image'],
-                    ['clean']
-                ]
-            );
-            if (!descriptionQuill) return;
-            if (html) {
-                var seed = html;
-                // Legacy plain-text descriptions become a paragraph for Quill.
-                if (seed && seed.indexOf('<') === -1) {
-                    seed = '<p>' + seed + '</p>';
-                }
-                descriptionQuill.root.innerHTML = seed;
-                descHidden.value = seed;
-            }
-        }
-
-        function readDescriptionHtml() {
-            if (descriptionQuill) return descriptionQuill.root.innerHTML;
-            return descHidden ? descHidden.value : '';
-        }
-
-        function uploadImage(file) {
-            var fd = new FormData();
-            fd.append('file', file);
-            return window.FcCommon.postForm(imageUrl, fd).then(function (res) {
-                if (res && res.data && res.data.url) return res.data.url;
-                throw new Error('Tải ảnh thất bại');
-            });
-        }
-
-        function insertImageAtCursor(quill, url) {
-            var range = quill.getSelection(true);
-            var index = range ? range.index : quill.getLength();
-            quill.insertEmbed(index, 'image', url, 'user');
-            quill.setSelection(index + 1);
-        }
-
-        function imageHandler(quill) {
-            var input = document.createElement('input');
-            input.setAttribute('type', 'file');
-            input.setAttribute('accept', 'image/jpeg,image/png,image/webp');
-            input.click();
-            input.onchange = function () {
-                var file = input.files && input.files[0];
-                if (!file) return;
-                uploadImage(file)
-                    .then(function (url) { insertImageAtCursor(quill, url); })
-                    .catch(function (err) {
-                        toast('error', err.message || 'Tải ảnh thất bại');
-                    });
-            };
-        }
-
-        function dataUrlToFile(dataUrl) {
-            var parts = String(dataUrl).split(',');
-            if (parts.length < 2) return null;
-            var meta = parts[0];
-            var mimeMatch = /data:(.*?);base64/i.exec(meta);
-            var mime = (mimeMatch && mimeMatch[1]) || 'image/png';
-            if (mime.indexOf('image/') !== 0) return null;
-            try {
-                var binary = atob(parts[1]);
-                var len = binary.length;
-                var bytes = new Uint8Array(len);
-                for (var i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-                var ext = mime === 'image/jpeg' ? 'jpg' : (mime === 'image/webp' ? 'webp' : 'png');
-                return new File([bytes], 'paste.' + ext, { type: mime });
-            } catch (err) {
-                return null;
-            }
-        }
-
-        // Replace any data:image... already in the editor with uploaded /uploads/... URLs.
-        function rewriteDataImages(quill) {
-            var imgs = quill.root.querySelectorAll('img[src^="data:image"]');
-            if (!imgs.length) return Promise.resolve(true);
-            var chain = Promise.resolve(true);
-            Array.prototype.forEach.call(imgs, function (img) {
-                chain = chain.then(function () {
-                    var file = dataUrlToFile(img.getAttribute('src'));
-                    if (!file) {
-                        img.remove();
-                        return true;
-                    }
-                    return uploadImage(file).then(function (url) {
-                        img.setAttribute('src', url);
-                        return true;
-                    });
-                });
-            });
-            return chain.catch(function (err) {
-                toast('error', err.message || 'Tải ảnh thất bại');
-                return false;
-            });
-        }
-
-        // Paste/drop images go through the same upload endpoint (no huge data: URIs).
-        function bindImagePaste(quill, hidden) {
-            quill.root.addEventListener('paste', function (e) {
-                var items = e.clipboardData && e.clipboardData.items;
-                if (items) {
-                    for (var i = 0; i < items.length; i++) {
-                        var item = items[i];
-                        if (!item.type || item.type.indexOf('image/') !== 0) continue;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        var file = item.getAsFile();
-                        if (!file) return;
-                        uploadImage(file)
-                            .then(function (url) { insertImageAtCursor(quill, url); })
-                            .catch(function (err) {
-                                toast('error', err.message || 'Tải ảnh thất bại');
-                            });
-                        return;
-                    }
-                }
-                // HTML paste may embed data:image; rewrite after Quill inserts it.
-                setTimeout(function () {
-                    rewriteDataImages(quill).then(function (ok) {
-                        if (ok) hidden.value = quill.root.innerHTML;
-                    });
-                }, 0);
-            });
-        }
-
-        function createQuill(host, hidden, placeholder, toolbar) {
-            if (!host || !hidden || host.dataset.quillMounted === '1') return null;
-            host.dataset.quillMounted = '1';
-            var quill = new window.Quill(host, {
-                theme: 'snow',
-                placeholder: placeholder,
-                modules: {
-                    toolbar: {
-                        container: toolbar,
-                        handlers: {
-                            image: function () {
-                                imageHandler(quill);
-                            }
-                        }
-                    }
-                }
-            });
-            quill.on('text-change', function () {
-                hidden.value = quill.root.innerHTML;
-            });
-            bindImagePaste(quill, hidden);
-            return quill;
-        }
-
-        function mountQuestionEditor(qEl, html) {
-            var host = qEl.querySelector('.lf-q-editor');
-            var hidden = qEl.querySelector('.lf-q-content');
-            var quill = createQuill(host, hidden, 'Nội dung câu hỏi (có thể chèn ảnh)', [
-                [{ header: [2, 3, false] }],
-                ['bold', 'italic', 'underline'],
-                [{ list: 'ordered' }, { list: 'bullet' }],
-                ['link', 'image'],
-                ['clean']
-            ]);
-            if (!quill) return;
-            if (html) {
-                quill.root.innerHTML = html;
-                hidden.value = html;
-            }
-            qEl._quill = quill;
-        }
-
-        function optionLetter(index) {
-            // A..Z then fallback to number for unusually long option lists.
-            return index < 26 ? String.fromCharCode(65 + index) : String(index + 1);
-        }
-
-        function refreshOptionLabels(qEl) {
-            qEl.querySelectorAll('.lf-option').forEach(function (oEl, i) {
-                var letter = oEl.querySelector('.lf-o-letter');
-                if (letter) letter.textContent = optionLetter(i);
-            });
-        }
-
-        function syncOptionCorrectState(oEl) {
-            var checked = !!(oEl.querySelector('.lf-o-correct') || {}).checked;
-            oEl.classList.toggle('is-correct', checked);
-        }
-
-        function mountOptionEditor(oEl, html) {
-            var host = oEl.querySelector('.lf-o-editor');
-            var hidden = oEl.querySelector('.lf-o-content');
-            var quill = createQuill(host, hidden, 'Nội dung đáp án…', [
-                ['bold', 'italic', 'underline'],
-                ['link', 'image'],
-                ['clean']
-            ]);
-            if (!quill) return;
-            if (html) {
-                // Plain legacy text becomes a paragraph so Quill/edit stays consistent.
-                var seed = html;
-                if (seed && seed.indexOf('<') === -1) {
-                    seed = '<p>' + seed + '</p>';
-                }
-                quill.root.innerHTML = seed;
-                hidden.value = seed;
-            }
-            oEl._quill = quill;
-
-            // Compact UX: show formatting toolbar only while this answer is active.
-            quill.root.addEventListener('focus', function () {
-                oEl.classList.add('is-active');
-            });
-            quill.root.addEventListener('blur', function () {
-                // Delay so toolbar clicks still count as interaction on this row.
-                setTimeout(function () {
-                    if (!oEl.contains(document.activeElement)) {
-                        oEl.classList.remove('is-active');
-                    }
-                }, 120);
-            });
-            oEl.addEventListener('mousedown', function () {
-                oEl.classList.add('is-active');
-            });
-        }
-
-        function readEditorHtml(el, hiddenSelector, quillProp) {
-            if (el[quillProp]) {
-                return el[quillProp].root.innerHTML;
-            }
-            var hidden = el.querySelector(hiddenSelector);
-            return hidden ? hidden.value : '';
-        }
-
-        function addOption(qEl, data) {
-            var node = oTpl.content.firstElementChild.cloneNode(true);
-            // Keep stable option ids so save can update in place after students submit.
-            node.dataset.optionId = data && data.id != null ? String(data.id) : '';
-            if (data) {
-                node.querySelector('.lf-o-correct').checked = !!data.correct;
-            }
-            syncOptionCorrectState(node);
-            var correctCb = node.querySelector('.lf-o-correct');
-            correctCb.addEventListener('change', function () {
-                if (qEl.querySelector('.lf-q-type').value === 'MCQ' && correctCb.checked) {
-                    qEl.querySelectorAll('.lf-option').forEach(function (other) {
-                        var cb = other.querySelector('.lf-o-correct');
-                        if (cb && cb !== correctCb) {
-                            cb.checked = false;
-                            syncOptionCorrectState(other);
-                        }
-                    });
-                }
-                syncOptionCorrectState(node);
-            });
-            node.querySelector('.lf-o-remove').addEventListener('click', function () {
-                node.remove();
-                refreshOptionLabels(qEl);
-            });
-            qEl.querySelector('.lf-options').appendChild(node);
-            mountOptionEditor(node, data ? (data.content || '') : '');
-            refreshOptionLabels(qEl);
-        }
-
-        function addQuestion(data) {
-            var node = qTpl.content.firstElementChild.cloneNode(true);
-            // Keep stable question ids so save can update in place after students submit.
-            node.dataset.questionId = data && data.id != null ? String(data.id) : '';
-            questionsHost.appendChild(node);
-            if (data) {
-                node.querySelector('.lf-q-type').value = data.type || 'MCQ';
-                node.querySelector('.lf-q-explanation').value = data.explanation || '';
-                node.querySelector('.lf-q-points').value = data.points != null ? data.points : 1;
-                mountQuestionEditor(node, data.content || '');
-                (data.options || []).forEach(function (o) { addOption(node, o); });
-            } else {
-                mountQuestionEditor(node, '');
-                addOption(node, null);
-                addOption(node, null);
-            }
-            node.querySelector('.lf-add-option').addEventListener('click', function () {
-                addOption(node, null);
-            });
-            node.querySelector('.lf-q-remove').addEventListener('click', function () {
-                node.remove();
-                refreshEmptyHint();
-            });
-            refreshEmptyHint();
-        }
-
-        function parseId(value) {
-            if (value == null || value === '') return null;
-            var n = Number(value);
-            return Number.isFinite(n) ? n : null;
-        }
+        var mode = window.LfMode.create({
+            mediaBlock: document.getElementById('lfMediaBlock'),
+            readingBlock: document.getElementById('lfReadingBlock'),
+            mediaTypeEl: document.getElementById('lfMediaType'),
+            mediaUrlEl: document.getElementById('lfMediaUrl'),
+            modeReading: document.getElementById('lfModeReading'),
+            modeMedia: document.getElementById('lfModeMedia'),
+            modeReadingCard: document.getElementById('lfModeReadingCard'),
+            modeMediaCard: document.getElementById('lfModeMediaCard'),
+            timeMode: document.getElementById('lfTimeMode'),
+            durationWrap: document.getElementById('lfDurationWrap'),
+            descHost: document.getElementById('lfDescriptionEditor'),
+            descHidden: document.getElementById('lfDescription'),
+            imageUrl: imageUrl
+        });
 
         function collect() {
-            var questions = [];
-            questionsHost.querySelectorAll('.lf-question').forEach(function (qEl) {
-                var options = [];
-                qEl.querySelectorAll('.lf-option').forEach(function (oEl) {
-                    options.push({
-                        id: parseId(oEl.dataset.optionId),
-                        content: readEditorHtml(oEl, '.lf-o-content', '_quill'),
-                        correct: oEl.querySelector('.lf-o-correct').checked
-                    });
-                });
-                questions.push({
-                    id: parseId(qEl.dataset.questionId),
-                    type: qEl.querySelector('.lf-q-type').value,
-                    content: readEditorHtml(qEl, '.lf-q-content', '_quill'),
-                    explanation: qEl.querySelector('.lf-q-explanation').value.trim(),
-                    points: Number(qEl.querySelector('.lf-q-points').value || 1),
-                    options: options
-                });
-            });
             return {
                 id: editId,
                 title: val('lfTitle'),
                 // Reading mode stores the passage HTML; media mode keeps a plain note optional.
-                description: isMediaMode()
-                    ? (isEmptyHtml(readDescriptionHtml()) ? null : readDescriptionHtml())
-                    : (isEmptyHtml(readDescriptionHtml()) ? null : readDescriptionHtml()),
+                description: window.LfQuill.isEmptyHtml(mode.readDescriptionHtml())
+                    ? null
+                    : mode.readDescriptionHtml(),
                 classId: numOrNull('lfClass'),
                 type: val('lfType'),
                 status: val('lfStatus'),
@@ -523,9 +108,9 @@
                 shuffleQuestions: document.getElementById('lfShuffleQ').checked,
                 shuffleOptions: document.getElementById('lfShuffleO').checked,
                 // Reading mode always clears media so backend stores null/null.
-                mediaType: isMediaMode() ? (val('lfMediaType') || null) : null,
-                mediaUrl: isMediaMode() ? (val('lfMediaUrl') || null) : null,
-                questions: questions
+                mediaType: mode.isMediaMode() ? (val('lfMediaType') || null) : null,
+                mediaUrl: mode.isMediaMode() ? (val('lfMediaUrl') || null) : null,
+                questions: builder.collectQuestions()
             };
         }
 
@@ -542,36 +127,27 @@
             if (f.passingScore != null) document.getElementById('lfPassing').value = f.passingScore;
             document.getElementById('lfShuffleQ').checked = !!f.shuffleQuestions;
             document.getElementById('lfShuffleO').checked = !!f.shuffleOptions;
-            if (mediaTypeEl) {
-                mediaTypeEl.value = f.mediaType || '';
-                if (f.mediaType) lastMediaType = f.mediaType;
-            }
-            if (mediaUrlEl) mediaUrlEl.value = f.mediaUrl || '';
-            mountDescriptionEditor(f.description || '');
-            syncExamModeFromFields();
-            (f.questions || []).forEach(function (q) { addQuestion(q); });
+            mode.applyMediaFields(f);
+            mode.mountDescriptionEditor(f.description || '');
+            mode.syncExamModeFromFields();
+            (f.questions || []).forEach(function (q) { builder.addQuestion(q); });
         }
 
-        bindExamMode();
-        timeMode.addEventListener('change', syncDuration);
+        mode.bind();
         document.getElementById('lfAddQuestion').addEventListener('click', function () {
-            addQuestion(null);
+            builder.addQuestion(null);
         });
 
         function rewriteAllDataImages() {
             var editors = [];
-            if (descriptionQuill) editors.push(descriptionQuill);
-            questionsHost.querySelectorAll('.lf-question').forEach(function (qEl) {
-                if (qEl._quill) editors.push(qEl._quill);
-                qEl.querySelectorAll('.lf-option').forEach(function (oEl) {
-                    if (oEl._quill) editors.push(oEl._quill);
-                });
-            });
+            var descQuill = mode.descriptionQuill();
+            if (descQuill) editors.push(descQuill);
+            builder.listQuills().forEach(function (q) { editors.push(q); });
             var chain = Promise.resolve(true);
             editors.forEach(function (quill) {
                 chain = chain.then(function (ok) {
                     if (!ok) return false;
-                    return rewriteDataImages(quill);
+                    return window.LfQuill.rewriteDataImages(quill, imageUrl);
                 });
             });
             return chain;
@@ -585,7 +161,7 @@
             rewriteAllDataImages().then(function (ok) {
                 if (!ok) return;
                 var payload = collect();
-                if (isMediaMode()) {
+                if (mode.isMediaMode()) {
                     if (!payload.mediaType) {
                         toast('error', 'Vui lòng chọn loại media');
                         return;
@@ -595,13 +171,17 @@
                         return;
                     }
                 }
-                var emptyQ = payload.questions.some(function (q) { return isEmptyHtml(q.content); });
+                var emptyQ = payload.questions.some(function (q) {
+                    return window.LfQuill.isEmptyHtml(q.content);
+                });
                 if (emptyQ) {
                     toast('error', 'Nội dung câu hỏi không được để trống');
                     return;
                 }
                 var emptyO = payload.questions.some(function (q) {
-                    return (q.options || []).some(function (o) { return isEmptyHtml(o.content); });
+                    return (q.options || []).some(function (o) {
+                        return window.LfQuill.isEmptyHtml(o.content);
+                    });
                 });
                 if (emptyO) {
                     toast('error', 'Nội dung đáp án không được để trống');
@@ -637,12 +217,12 @@
             hydrate(data);
         } else {
             // Create mode defaults to reading passage + empty question set.
-            mountDescriptionEditor('');
-            setExamMode('READING');
-            addQuestion(null);
+            mode.mountDescriptionEditor('');
+            mode.setExamMode('READING');
+            builder.addQuestion(null);
         }
-        syncDuration();
-        refreshEmptyHint();
+        mode.syncDuration();
+        builder.refreshEmptyHint();
     }
 
     window.LfForm = { mount: mount };

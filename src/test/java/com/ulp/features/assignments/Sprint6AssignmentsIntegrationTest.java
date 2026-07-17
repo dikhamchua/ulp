@@ -7,7 +7,8 @@ import com.ulp.entities.UserFactory;
 import com.ulp.features.assignments.dto.AssignmentDtos.AssignmentForm;
 import com.ulp.features.assignments.dto.AssignmentDtos.GradeForm;
 import com.ulp.features.assignments.dto.AssignmentDtos.SubmitForm;
-import com.ulp.features.assignments.service.AssignmentService;
+import com.ulp.features.assignments.service.LecturerAssignmentService;
+import com.ulp.features.assignments.service.StudentAssignmentService;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
@@ -48,7 +49,8 @@ class Sprint6AssignmentsIntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private ClassRepository classRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
-    @Autowired private AssignmentService assignmentService;
+    @Autowired private LecturerAssignmentService lecturerAssignmentService;
+    @Autowired private StudentAssignmentService studentAssignmentService;
 
     private User lecturer;
     private User student;
@@ -231,12 +233,12 @@ class Sprint6AssignmentsIntegrationTest {
         AssignmentForm form = new AssignmentForm(
                 null, "Past due no late", "Desc", BigDecimal.valueOf(100),
                 LocalDateTime.now().minusDays(1), false);
-        assignmentService.create(classId, form, lecturer.getId(), Role.LECTURER);
-        Long aid = assignmentService
+        lecturerAssignmentService.create(classId, form, lecturer.getId(), Role.LECTURER);
+        Long aid = lecturerAssignmentService
                 .listForLecturer(classId, lecturer.getId(), Role.LECTURER)
                 .stream().filter(r -> "Past due no late".equals(r.title()))
                 .findFirst().orElseThrow().id();
-        assignmentService.publish(classId, aid, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.publish(classId, aid, lecturer.getId(), Role.LECTURER);
 
         // Controller must redirect (3xx) with a flash error, not a 500.
         mockMvc.perform(post("/classes/{id}/assignments/{aid}/submit", classId, aid)
@@ -251,12 +253,12 @@ class Sprint6AssignmentsIntegrationTest {
     void student_resubmit_after_graded_returns_redirect_not_5xx() throws Exception {
         Long aid = createAndPublishAssignment();
         // First submission.
-        assignmentService.submit(classId, aid, new SubmitForm("Bài làm"), student.getId());
+        studentAssignmentService.submit(classId, aid, new SubmitForm("Bài làm"), student.getId());
         // Grade the submission.
-        Long sid = assignmentService
+        Long sid = lecturerAssignmentService
                 .listSubmissions(classId, aid, lecturer.getId(), Role.LECTURER)
                 .get(0).submissionId();
-        assignmentService.grade(classId, aid, sid,
+        lecturerAssignmentService.grade(classId, aid, sid,
                 new GradeForm(BigDecimal.valueOf(80), "OK"),
                 lecturer.getId(), Role.LECTURER);
 
@@ -286,15 +288,15 @@ class Sprint6AssignmentsIntegrationTest {
     private Long createDraftAssignment() {
         AssignmentForm form = new AssignmentForm(
                 null, "Test assignment", "Mô tả", BigDecimal.valueOf(100), null, false);
-        assignmentService.create(classId, form, lecturer.getId(), Role.LECTURER);
-        return assignmentService
+        lecturerAssignmentService.create(classId, form, lecturer.getId(), Role.LECTURER);
+        return lecturerAssignmentService
                 .listForLecturer(classId, lecturer.getId(), Role.LECTURER)
                 .get(0).id();
     }
 
     private Long createAndPublishAssignment() {
         Long aid = createDraftAssignment();
-        assignmentService.publish(classId, aid, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.publish(classId, aid, lecturer.getId(), Role.LECTURER);
         return aid;
     }
 

@@ -35,4 +35,7 @@ public interface AssignmentSubmissionRepository extends JpaRepository<Assignment
      */
     @Query("SELECT s FROM AssignmentSubmission s WHERE s.assignmentId = :assignmentId ORDER BY s.submittedAt DESC")
     List<AssignmentSubmission> findAllByAssignmentId(@Param("assignmentId") Long assignmentId);
+
+    /** Counts submissions for an assignment (list row badge; avoids loading entities). */
+    long countByAssignmentId(Long assignmentId);
 }

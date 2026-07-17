@@ -3,7 +3,7 @@ package com.ulp.features.assignments.controller;
 import com.ulp.entities.ClassEntity;
 import com.ulp.features.assignments.dto.AssignmentDtos.AssignmentForm;
 import com.ulp.features.assignments.dto.AssignmentDtos.GradeForm;
-import com.ulp.features.assignments.service.AssignmentService;
+import com.ulp.features.assignments.service.LecturerAssignmentService;
 import com.ulp.features.classes.controller.support.ClassDetailModelSupport;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.security.Roles;
@@ -28,7 +28,7 @@ import static com.ulp.common.IConstant.*;
  * Lecturer-facing controller for the assignments feature (Sprint 6, #70).
  *
  * <p>All endpoints are scoped to {@code /lecturer/classes/{classId}/assignments}.
- * Ownership is enforced in {@link AssignmentService} — non-owner receives 404
+ * Ownership is enforced in {@link LecturerAssignmentService} — non-owner receives 404
  * (no existence leak). Flash messages drain to UlpToast via the page-level JS.
  *
  * <p>PRG (Post-Redirect-Get) pattern is used for all mutations.
@@ -38,11 +38,11 @@ import static com.ulp.common.IConstant.*;
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
 public class LecturerAssignmentController {
 
-    private final AssignmentService assignmentService;
+    private final LecturerAssignmentService assignmentService;
     private final ClassRepository classRepository;
     private final ClassDetailModelSupport modelSupport;
 
-    public LecturerAssignmentController(AssignmentService assignmentService,
+    public LecturerAssignmentController(LecturerAssignmentService assignmentService,
                                         ClassRepository classRepository,
                                         ClassDetailModelSupport modelSupport) {
         this.assignmentService = assignmentService;
