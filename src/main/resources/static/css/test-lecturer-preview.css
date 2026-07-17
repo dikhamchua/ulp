@@ -1,0 +1,70 @@
+/* Lecturer student-style exam preview (read-only). */
+
+.lpv-page { padding-top: 16px; max-width: 1100px; }
+
+.lpv-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+}
+
+.lpv-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lpv-banner-text strong {
+  font-size: 14px;
+  color: #1e3a8a;
+}
+
+.lpv-banner-text span {
+  font-size: 13px;
+  color: #1d4ed8;
+}
+
+.lpv-meta .lpv-meta-value {
+  color: #1f2937;
+  font-size: 15px;
+}
+
+.lpv-schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: -4px 0 16px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.lpv-schedule em {
+  font-style: normal;
+  font-weight: 700;
+  color: #374151;
+}
+
+/* Disabled options still look like the student screen, not greyed-out dead UI. */
+.lpv-page .tk-option-label {
+  cursor: default;
+  opacity: 1;
+}
+
+.lpv-page .tk-option-input:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .lpv-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

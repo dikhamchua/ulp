@@ -157,6 +157,8 @@
                 passingScore: numOrNull('lfPassing'),
                 shuffleQuestions: document.getElementById('lfShuffleQ').checked,
                 shuffleOptions: document.getElementById('lfShuffleO').checked,
+                mediaType: val('lfMediaType') || null,
+                mediaUrl: val('lfMediaUrl') || null,
                 questions: questions
             };
         }
@@ -175,6 +177,8 @@
             if (f.passingScore != null) document.getElementById('lfPassing').value = f.passingScore;
             document.getElementById('lfShuffleQ').checked = !!f.shuffleQuestions;
             document.getElementById('lfShuffleO').checked = !!f.shuffleOptions;
+            document.getElementById('lfMediaType').value = f.mediaType || '';
+            document.getElementById('lfMediaUrl').value = f.mediaUrl || '';
             (f.questions || []).forEach(function (q) { addQuestion(q); });
         }
 

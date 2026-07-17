@@ -38,6 +38,10 @@ public class Test {
     public static final String TIME_MODE_FIXED_WINDOW = "FIXED_WINDOW";
     public static final String TIME_MODE_INDIVIDUAL = "INDIVIDUAL";
 
+    public static final String MEDIA_TYPE_YOUTUBE = "YOUTUBE";
+    public static final String MEDIA_TYPE_VIDEO = "VIDEO";
+    public static final String MEDIA_TYPE_AUDIO = "AUDIO";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -83,6 +87,12 @@ public class Test {
 
     @Column(name = "time_mode", nullable = false, length = 20)
     private String timeMode = TIME_MODE_FIXED_WINDOW;
+
+    @Column(name = "media_type", length = 20)
+    private String mediaType;
+
+    @Column(name = "media_url", length = 1000)
+    private String mediaUrl;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -149,6 +159,8 @@ public class Test {
     public void setStartAt(LocalDateTime startAt) { this.startAt = startAt; }
     public void setEndAt(LocalDateTime endAt) { this.endAt = endAt; }
     public void setTimeMode(String timeMode) { this.timeMode = timeMode; }
+    public void setMediaType(String mediaType) { this.mediaType = mediaType; }
+    public void setMediaUrl(String mediaUrl) { this.mediaUrl = mediaUrl; }
 
     // ── Getters ────────────────────────────────────────────────────────
 
@@ -167,6 +179,8 @@ public class Test {
     public LocalDateTime getStartAt() { return startAt; }
     public LocalDateTime getEndAt() { return endAt; }
     public String getTimeMode() { return timeMode; }
+    public String getMediaType() { return mediaType; }
+    public String getMediaUrl() { return mediaUrl; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public boolean isDeleted() { return deleted; }

@@ -144,6 +144,7 @@
 /* Save + Delete inherit Back's outlined shape (padding, radius, font-size,
    white background) so the toolbar reads as one button row. Color signals
    semantics via text + border, not fill. */
+.detail-toolbar .toolbar-secondary,
 .detail-toolbar .toolbar-save,
 .detail-toolbar .toolbar-delete {
   display: inline-flex;
@@ -156,6 +157,17 @@
   cursor: pointer;
   background: var(--color-bg);
   border: 1px solid;
+}
+
+.detail-toolbar .toolbar-secondary {
+  border-color: var(--color-border-medium);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.detail-toolbar .toolbar-secondary:hover {
+  background: var(--color-neutral-soft);
+  color: var(--color-text);
 }
 
 .detail-toolbar .toolbar-save {

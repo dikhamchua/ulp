@@ -28,30 +28,79 @@
       Bài test này chưa có câu hỏi.
     </div>
 
-    <ol class="tk-questions">
-      <li class="tk-question" th:each="q, qi : ${take.questions()}"
-          th:attr="data-qid=${q.id()},data-type=${q.type()}">
-        <div class="tk-q-head">
-          <span class="tk-q-index" th:text="'Câu ' + ${qi.count}">Câu 1</span>
-          <span class="tk-q-type" th:text="${q.type() == 'MR'} ? 'Chọn nhiều đáp án' : 'Chọn một đáp án'">Loại</span>
-          <span class="tk-q-points" th:text="${q.points()} + ' điểm'">1 điểm</span>
-        </div>
-        <p class="tk-q-content" th:text="${q.content()}">Nội dung câu hỏi</p>
-        <ul class="tk-options">
-          <li class="tk-option" th:each="opt : ${q.options()}">
-            <label class="tk-option-label">
-              <input th:type="${q.type() == 'MR'} ? 'checkbox' : 'radio'"
-                     th:name="'q_' + ${q.id()}" th:value="${opt.id()}"
-                     class="tk-option-input">
-              <span class="tk-option-text" th:text="${opt.content()}">Đáp án</span>
-            </label>
-          </li>
-        </ul>
-      </li>
-    </ol>
+    <div class="tk-media" th:if="${take.mediaType() != null and take.mediaUrl() != null}">
+      <div class="tk-media-frame" th:if="${take.mediaType() == 'YOUTUBE' and take.mediaEmbedUrl() != null}">
+        <iframe class="tk-media-player"
+                th:src="${take.mediaEmbedUrl()}"
+                title="Media YouTube"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+                loading="lazy"></iframe>
+      </div>
+      <video class="tk-media-player" controls th:if="${take.mediaType() == 'VIDEO'}"
+             th:src="${take.mediaUrl()}">Trình duyệt không hỗ trợ video.</video>
+      <audio class="tk-media-player tk-media-audio" controls th:if="${take.mediaType() == 'AUDIO'}"
+             th:src="${take.mediaUrl()}">Trình duyệt không hỗ trợ audio.</audio>
+    </div>
 
-    <div class="tk-actions">
-      <button type="submit" class="tst-btn tst-btn-primary" id="tkSubmit">Nộp bài</button>
+    <div class="tk-layout" th:if="${!#lists.isEmpty(take.questions())}">
+      <!-- Left: question navigator (Q1, Q2, ...) -->
+      <aside class="tk-nav" aria-label="Danh sách câu hỏi">
+        <div class="tk-nav-head">
+          <span class="tk-nav-title">Câu hỏi</span>
+          <span class="tk-nav-progress" id="tkProgress"
+                th:text="'0/' + ${#lists.size(take.questions())}">0/0</span>
+        </div>
+        <div class="tk-nav-grid" id="tkNavGrid" role="tablist">
+          <button type="button"
+                  class="tk-nav-item"
+                  th:each="q, qi : ${take.questions()}"
+                  th:attr="data-index=${qi.index},data-qid=${q.id()}"
+                  th:classappend="${qi.index == 0} ? ' is-active'"
+                  th:text="${qi.count}"
+                  th:aria-label="'Câu ' + ${qi.count}"
+                  role="tab">1</button>
+        </div>
+        <div class="tk-nav-legend">
+          <span><i class="tk-dot is-answered"></i> Đã trả lời</span>
+          <span><i class="tk-dot is-active"></i> Đang xem</span>
+        </div>
+      </aside>
+
+      <!-- Right: one question at a time -->
+      <section class="tk-main">
+        <ol class="tk-questions">
+          <li class="tk-question"
+              th:each="q, qi : ${take.questions()}"
+              th:attr="data-qid=${q.id()},data-type=${q.type()},data-index=${qi.index}"
+              th:classappend="${qi.index == 0} ? ' is-active'"
+              th:hidden="${qi.index != 0}">
+            <div class="tk-q-head">
+              <span class="tk-q-index" th:text="'Câu ' + ${qi.count}">Câu 1</span>
+              <span class="tk-q-type"
+                    th:text="${q.type() == 'MR'} ? 'Chọn nhiều đáp án' : 'Chọn một đáp án'">Loại</span>
+              <span class="tk-q-points" th:text="${q.points()} + ' điểm'">1 điểm</span>
+            </div>
+            <p class="tk-q-content" th:text="${q.content()}">Nội dung câu hỏi</p>
+            <ul class="tk-options">
+              <li class="tk-option" th:each="opt : ${q.options()}">
+                <label class="tk-option-label">
+                  <input th:type="${q.type() == 'MR'} ? 'checkbox' : 'radio'"
+                         th:name="'q_' + ${q.id()}" th:value="${opt.id()}"
+                         class="tk-option-input">
+                  <span class="tk-option-text" th:text="${opt.content()}">Đáp án</span>
+                </label>
+              </li>
+            </ul>
+          </li>
+        </ol>
+
+        <div class="tk-actions">
+          <button type="button" class="tst-btn" id="tkPrev" disabled>← Câu trước</button>
+          <button type="button" class="tst-btn" id="tkNext">Câu sau →</button>
+          <button type="submit" class="tst-btn tst-btn-primary" id="tkSubmit">Nộp bài</button>
+        </div>
+      </section>
     </div>
   </form>
 </main>

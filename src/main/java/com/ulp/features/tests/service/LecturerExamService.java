@@ -8,12 +8,14 @@ import com.ulp.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ulp.features.tests.dto.LecturerTestDtos.LecturerExamRow;
 import com.ulp.features.tests.dto.LecturerTestDtos.OptionForm;
 import com.ulp.features.tests.dto.LecturerTestDtos.QuestionForm;
+import com.ulp.features.tests.dto.TestDtos.PreviewView;
 import com.ulp.features.tests.entity.Question;
 import com.ulp.features.tests.entity.QuestionOption;
 import com.ulp.features.tests.entity.Test;
 import com.ulp.features.tests.repository.QuestionOptionRepository;
 import com.ulp.features.tests.repository.QuestionRepository;
 import com.ulp.features.tests.repository.TestRepository;
+import com.ulp.features.tests.repository.TestResponseRepository;
 import com.ulp.features.tests.support.ExamFormValidator;
 import com.ulp.features.tests.support.TestAccessResolver;
 import org.springframework.data.domain.Page;
@@ -41,22 +43,28 @@ public class LecturerExamService {
     private final TestRepository testRepository;
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository optionRepository;
+    private final TestResponseRepository responseRepository;
     private final ClassRepository classRepository;
     private final TestAccessResolver accessResolver;
     private final TestActivityWriter activityWriter;
+    private final TakeViewBuilder takeViewBuilder;
 
     public LecturerExamService(TestRepository testRepository,
                                QuestionRepository questionRepository,
                                QuestionOptionRepository optionRepository,
+                               TestResponseRepository responseRepository,
                                ClassRepository classRepository,
                                TestAccessResolver accessResolver,
-                               TestActivityWriter activityWriter) {
+                               TestActivityWriter activityWriter,
+                               TakeViewBuilder takeViewBuilder) {
         this.testRepository = testRepository;
         this.questionRepository = questionRepository;
         this.optionRepository = optionRepository;
+        this.responseRepository = responseRepository;
         this.classRepository = classRepository;
         this.accessResolver = accessResolver;
         this.activityWriter = activityWriter;
+        this.takeViewBuilder = takeViewBuilder;
     }
 
     /** One page of exams the lecturer owns (created or leads the class). */
@@ -119,13 +127,24 @@ public class LecturerExamService {
                 test.getClassId(), test.getType(), test.getStatus(), test.getTimeMode(),
                 test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getPassingScore(), test.isShuffleQuestions(), test.isShuffleOptions(),
-                qForms);
+                test.getMediaType(), test.getMediaUrl(), qForms);
     }
 
     /**
-     * Creates or updates an exam and replaces its question set. Validates first
-     * (nothing persists on a validation error), enforces class ownership, then
-     * re-derives {@code total_questions}. Returns the persisted exam id.
+     * Builds a student-style preview of an owned exam without starting an attempt.
+     * Ownership is enforced via {@link TestAccessResolver#requireManageable}.
+     */
+    @Transactional(readOnly = true)
+    public PreviewView previewAsStudent(Long testId, Long userId) {
+        Test test = accessResolver.requireManageable(testId, userId);
+        return takeViewBuilder.buildPreview(test);
+    }
+
+    /**
+     * Creates or updates an exam. Always persists form fields (including media).
+     * Replaces the question set only when no student responses exist yet — otherwise
+     * keeps the bank intact to avoid FK violations on {@code test_responses}.
+     * Returns the persisted exam id.
      */
     @Transactional
     public Long save(Long userId, ExamForm form) {
@@ -140,12 +159,22 @@ public class LecturerExamService {
         applyFields(test, form);
         Test saved = testRepository.save(test);
 
-        replaceQuestions(saved.getId(), form.questions());
-        saved.setTotalQuestions(form.questions().size());
-        testRepository.save(saved);
+        if (!hasStudentResponses(saved.getId())) {
+            replaceQuestions(saved.getId(), form.questions());
+            saved.setTotalQuestions(form.questions().size());
+            testRepository.save(saved);
+        }
 
         recordSaveActivity(saved, userId, creating, previousStatus);
         return saved.getId();
+    }
+
+    /** True when any current question already has a student response. */
+    private boolean hasStudentResponses(Long testId) {
+        List<Question> existing = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId);
+        if (existing.isEmpty()) return false;
+        return responseRepository.existsByQuestionIdIn(
+                existing.stream().map(Question::getId).toList());
     }
 
     /**
@@ -186,6 +215,15 @@ public class LecturerExamService {
         test.setPassingScore(form.passingScore());
         test.setShuffleQuestions(form.shuffleQuestions());
         test.setShuffleOptions(form.shuffleOptions());
+        String mediaType = trimToNull(form.mediaType());
+        String mediaUrl = trimToNull(form.mediaUrl());
+        if (mediaType == null && mediaUrl == null) {
+            test.setMediaType(null);
+            test.setMediaUrl(null);
+        } else {
+            test.setMediaType(mediaType);
+            test.setMediaUrl(mediaUrl);
+        }
     }
 
     /** Deletes existing questions/options and inserts the submitted set in order. */
