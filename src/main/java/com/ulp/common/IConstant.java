@@ -392,6 +392,16 @@ public interface IConstant {
     String MSG_GRADE_SCORE_INVALID   = "Điểm phải nằm trong khoảng 0 đến điểm tối đa";
     String MSG_ASSIGNMENT_INVALID_TRANSITION = "Không thể thực hiện thao tác này với trạng thái hiện tại";
     String MSG_NOT_ENROLLED          = "Bạn không thuộc lớp này";
+    String MSG_ASSIGNMENT_TITLE_BLANK = "Tiêu đề không được để trống";
+    String MSG_ASSIGNMENT_MAX_SCORE_NEGATIVE = "Điểm tối đa không được âm";
+
+    // Notification titles/bodies for assignment events (lecturer/student services).
+    String MSG_NOTIF_ASSIGNMENT_PUBLISHED_TITLE = "Bài tập mới được xuất bản";
+    String MSG_NOTIF_ASSIGNMENT_PUBLISHED_BODY_PREFIX = "Bài tập \"";
+    String MSG_NOTIF_ASSIGNMENT_PUBLISHED_BODY_SUFFIX = "\" vừa được xuất bản.";
+    String MSG_NOTIF_ASSIGNMENT_GRADED_TITLE = "Bài tập đã được chấm điểm";
+    String MSG_NOTIF_ASSIGNMENT_GRADED_BODY_PREFIX = "Bài tập \"";
+    String MSG_NOTIF_ASSIGNMENT_GRADED_BODY_MID = "\" của bạn đã được chấm. Điểm: ";
 
     // ───────── Notifications (Sprint 5, #63/#64) ─────────────────────
     // Route prefix / canonical URL.

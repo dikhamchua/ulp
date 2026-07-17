@@ -12,10 +12,8 @@ import com.ulp.features.tests.dto.TestDtos.PreviewView;
 import com.ulp.features.tests.entity.Question;
 import com.ulp.features.tests.entity.QuestionOption;
 import com.ulp.features.tests.entity.Test;
-import com.ulp.features.tests.repository.QuestionOptionRepository;
 import com.ulp.features.tests.repository.QuestionRepository;
 import com.ulp.features.tests.repository.TestRepository;
-import com.ulp.features.tests.repository.TestResponseRepository;
 import com.ulp.common.HtmlSanitizer;
 import com.ulp.features.tests.support.ExamFormValidator;
 import com.ulp.features.tests.support.TestAccessResolver;
@@ -32,41 +30,38 @@ import java.util.List;
 import java.util.Map;
 
 import static com.ulp.common.IConstant.DEFAULT_EXAM_PAGE_SIZE;
-import static com.ulp.common.IConstant.MSG_EXAM_QUESTION_BANK_LOCKED;
 
 /**
  * Lecturer exam authoring: list owned exams, create/edit with a full question-set
  * replacement, and re-derive {@code total_questions}. Ownership is enforced via
- * {@link TestAccessResolver#requireManageable}.
+ * {@link TestAccessResolver#requireManageable}. Question-bank persistence is
+ * delegated to {@link ExamQuestionBankWriter}.
  */
 @Service
 public class LecturerExamService {
 
     private final TestRepository testRepository;
     private final QuestionRepository questionRepository;
-    private final QuestionOptionRepository optionRepository;
-    private final TestResponseRepository responseRepository;
     private final ClassRepository classRepository;
     private final TestAccessResolver accessResolver;
     private final TestActivityWriter activityWriter;
     private final TakeViewBuilder takeViewBuilder;
+    private final ExamQuestionBankWriter questionBankWriter;
 
     public LecturerExamService(TestRepository testRepository,
                                QuestionRepository questionRepository,
-                               QuestionOptionRepository optionRepository,
-                               TestResponseRepository responseRepository,
                                ClassRepository classRepository,
                                TestAccessResolver accessResolver,
                                TestActivityWriter activityWriter,
-                               TakeViewBuilder takeViewBuilder) {
+                               TakeViewBuilder takeViewBuilder,
+                               ExamQuestionBankWriter questionBankWriter) {
         this.testRepository = testRepository;
         this.questionRepository = questionRepository;
-        this.optionRepository = optionRepository;
-        this.responseRepository = responseRepository;
         this.classRepository = classRepository;
         this.accessResolver = accessResolver;
         this.activityWriter = activityWriter;
         this.takeViewBuilder = takeViewBuilder;
+        this.questionBankWriter = questionBankWriter;
     }
 
     /** One page of exams the lecturer owns (created or leads the class). */
@@ -116,7 +111,7 @@ public class LecturerExamService {
         Test test = accessResolver.requireManageable(testId, userId);
         List<Question> questions = questionRepository
                 .findByTestIdOrderBySortOrderAscIdAsc(testId);
-        Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(questions);
+        Map<Long, List<QuestionOption>> optionsByQuestion = questionBankWriter.loadOptions(questions);
         List<QuestionForm> qForms = new ArrayList<>();
         for (Question q : questions) {
             List<OptionForm> optForms = optionsByQuestion.getOrDefault(q.getId(), List.of())
@@ -162,65 +157,16 @@ public class LecturerExamService {
         applyFields(test, form);
         Test saved = testRepository.save(test);
 
-        if (creating || !hasStudentResponses(saved.getId())) {
-            replaceQuestions(saved.getId(), form.questions());
+        if (creating || !questionBankWriter.hasStudentResponses(saved.getId())) {
+            questionBankWriter.replaceQuestions(saved.getId(), form.questions());
         } else {
-            updateQuestionContentsInPlace(saved.getId(), form.questions());
+            questionBankWriter.updateQuestionContentsInPlace(saved.getId(), form.questions());
         }
         saved.setTotalQuestions(form.questions().size());
         testRepository.save(saved);
 
         recordSaveActivity(saved, userId, creating, previousStatus);
         return saved.getId();
-    }
-
-    /** True when any current question already has a student response. */
-    private boolean hasStudentResponses(Long testId) {
-        List<Question> existing = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId);
-        if (existing.isEmpty()) return false;
-        return responseRepository.existsByQuestionIdIn(
-                existing.stream().map(Question::getId).toList());
-    }
-
-    /**
-     * Updates content of an existing question bank without deleting rows.
-     * Shape (counts + ids) must match exactly; otherwise reject so graded
-     * responses keep pointing at stable option ids.
-     */
-    private void updateQuestionContentsInPlace(Long testId, List<QuestionForm> questions) {
-        List<Question> existing = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId);
-        if (existing.size() != questions.size()) {
-            throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
-        }
-        Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(existing);
-        for (int i = 0; i < existing.size(); i++) {
-            Question q = existing.get(i);
-            QuestionForm qf = questions.get(i);
-            // Require stable ids when the bank is locked (client must round-trip them).
-            if (qf.id() != null && !qf.id().equals(q.getId())) {
-                throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
-            }
-            List<QuestionOption> opts = optionsByQuestion.getOrDefault(q.getId(), List.of());
-            List<OptionForm> optForms = qf.options() == null ? List.of() : qf.options();
-            if (opts.size() != optForms.size()) {
-                throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
-            }
-            q.updateContent(defaultQuestionType(qf.type()),
-                    HtmlSanitizer.sanitize(qf.content()),
-                    trimToNull(qf.explanation()),
-                    qf.points(),
-                    i + 1);
-            questionRepository.save(q);
-            for (int j = 0; j < opts.size(); j++) {
-                QuestionOption o = opts.get(j);
-                OptionForm of = optForms.get(j);
-                if (of.id() != null && !of.id().equals(o.getId())) {
-                    throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
-                }
-                o.updateContent(HtmlSanitizer.sanitize(of.content()), of.correct(), j + 1);
-                optionRepository.save(o);
-            }
-        }
     }
 
     /**
@@ -246,8 +192,6 @@ public class LecturerExamService {
         }
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────
-
     private void applyFields(Test test, ExamForm form) {
         test.setTitle(form.title().trim());
         // Description may hold a reading-passage HTML body from the Quill editor.
@@ -271,27 +215,6 @@ public class LecturerExamService {
         } else {
             test.setMediaType(mediaType);
             test.setMediaUrl(mediaUrl);
-        }
-    }
-
-    /** Deletes existing questions/options and inserts the submitted set in order. */
-    private void replaceQuestions(Long testId, List<QuestionForm> questions) {
-        List<Question> existing = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId);
-        if (!existing.isEmpty()) {
-            optionRepository.deleteByQuestionIdIn(existing.stream().map(Question::getId).toList());
-            questionRepository.deleteByTestId(testId);
-        }
-        int order = 1;
-        for (QuestionForm qf : questions) {
-            String contentHtml = HtmlSanitizer.sanitize(qf.content());
-            Question q = new Question(testId, defaultQuestionType(qf.type()), contentHtml,
-                    trimToNull(qf.explanation()), qf.points(), order++);
-            Long qId = questionRepository.save(q).getId();
-            int optOrder = 1;
-            for (OptionForm of : qf.options()) {
-                String optionHtml = HtmlSanitizer.sanitize(of.content());
-                optionRepository.save(new QuestionOption(qId, optionHtml, of.correct(), optOrder++));
-            }
         }
     }
 
@@ -322,22 +245,8 @@ public class LecturerExamService {
         return names;
     }
 
-    private Map<Long, List<QuestionOption>> loadOptions(List<Question> questions) {
-        if (questions.isEmpty()) return Map.of();
-        List<Long> ids = questions.stream().map(Question::getId).toList();
-        Map<Long, List<QuestionOption>> map = new HashMap<>();
-        for (QuestionOption o : optionRepository.findByQuestionIdInOrderBySortOrderAscIdAsc(ids)) {
-            map.computeIfAbsent(o.getQuestionId(), k -> new ArrayList<>()).add(o);
-        }
-        return map;
-    }
-
     private static String defaultType(String type) {
         return type == null || type.isBlank() ? Test.TYPE_MOCK : type;
-    }
-
-    private static String defaultQuestionType(String type) {
-        return Question.TYPE_MR.equals(type) ? Question.TYPE_MR : Question.TYPE_MCQ;
     }
 
     private static String trimToNull(String s) {

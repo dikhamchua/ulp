@@ -12,7 +12,8 @@ import com.ulp.features.assignments.dto.AssignmentDtos.StudentAssignmentRow;
 import com.ulp.features.assignments.dto.AssignmentDtos.SubmissionRow;
 import com.ulp.features.assignments.dto.AssignmentDtos.SubmitForm;
 import com.ulp.features.assignments.entity.AssignmentStatus;
-import com.ulp.features.assignments.service.AssignmentService;
+import com.ulp.features.assignments.service.LecturerAssignmentService;
+import com.ulp.features.assignments.service.StudentAssignmentService;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
@@ -32,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Integration tests for {@link AssignmentService}.
+ * Integration tests for lecturer + student assignment services.
  *
  * <p>Every test creates a fresh class + enrolled student via real repositories
  * so state never bleeds across tests (all wrapped in @Transactional).
@@ -41,7 +42,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 class AssignmentServiceTest {
 
-    @Autowired private AssignmentService assignmentService;
+    @Autowired private LecturerAssignmentService lecturerAssignmentService;
+    @Autowired private StudentAssignmentService studentAssignmentService;
     @Autowired private UserRepository userRepository;
     @Autowired private ClassRepository classRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
@@ -68,9 +70,9 @@ class AssignmentServiceTest {
                 null, "Bài tập 1", "Mô tả",
                 BigDecimal.valueOf(100), null, false);
 
-        assignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
 
-        List<AssignmentRow> rows = assignmentService.listForLecturer(
+        List<AssignmentRow> rows = lecturerAssignmentService.listForLecturer(
                 clazz.getId(), lecturer.getId(), Role.LECTURER);
         assertThat(rows).hasSize(1);
         assertThat(rows.get(0).status()).isEqualTo(AssignmentStatus.DRAFT);
@@ -83,7 +85,7 @@ class AssignmentServiceTest {
         AssignmentForm form = new AssignmentForm(null, "X", "Y", BigDecimal.TEN, null, false);
 
         assertThatThrownBy(() ->
-                assignmentService.create(clazz.getId(), form, other.getId(), Role.LECTURER))
+                lecturerAssignmentService.create(clazz.getId(), form, other.getId(), Role.LECTURER))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
@@ -94,13 +96,13 @@ class AssignmentServiceTest {
         AssignmentForm form = new AssignmentForm(
                 null, "Bài tập pub", "Mô tả",
                 BigDecimal.valueOf(100), null, false);
-        assignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
-        Long aid = assignmentService.listForLecturer(
+        lecturerAssignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
+        Long aid = lecturerAssignmentService.listForLecturer(
                 clazz.getId(), lecturer.getId(), Role.LECTURER).get(0).id();
 
-        assignmentService.publish(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.publish(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
 
-        AssignmentRow row = assignmentService
+        AssignmentRow row = lecturerAssignmentService
                 .listForLecturer(clazz.getId(), lecturer.getId(), Role.LECTURER).get(0);
         assertThat(row.status()).isEqualTo(AssignmentStatus.PUBLISHED);
     }
@@ -109,9 +111,9 @@ class AssignmentServiceTest {
     void close_transitions_published_to_closed() {
         Long aid = createAndPublish("Bài tập close");
 
-        assignmentService.close(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.close(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
 
-        AssignmentRow row = assignmentService
+        AssignmentRow row = lecturerAssignmentService
                 .listForLecturer(clazz.getId(), lecturer.getId(), Role.LECTURER).get(0);
         assertThat(row.status()).isEqualTo(AssignmentStatus.CLOSED);
     }
@@ -119,12 +121,12 @@ class AssignmentServiceTest {
     @Test
     void close_on_draft_throws_illegal_state() {
         AssignmentForm form = new AssignmentForm(null, "X", "Y", BigDecimal.TEN, null, false);
-        assignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
-        Long aid = assignmentService.listForLecturer(
+        lecturerAssignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
+        Long aid = lecturerAssignmentService.listForLecturer(
                 clazz.getId(), lecturer.getId(), Role.LECTURER).get(0).id();
 
         assertThatThrownBy(() ->
-                assignmentService.close(clazz.getId(), aid, lecturer.getId(), Role.LECTURER))
+                lecturerAssignmentService.close(clazz.getId(), aid, lecturer.getId(), Role.LECTURER))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -134,9 +136,9 @@ class AssignmentServiceTest {
     void submit_creates_submitted_status() {
         Long aid = createAndPublish("Bài tập submit");
 
-        assignmentService.submit(clazz.getId(), aid, new SubmitForm("Nội dung bài làm"), student.getId());
+        studentAssignmentService.submit(clazz.getId(), aid, new SubmitForm("Nội dung bài làm"), student.getId());
 
-        List<StudentAssignmentRow> rows = assignmentService
+        List<StudentAssignmentRow> rows = studentAssignmentService
                 .listPublishedForStudent(clazz.getId(), student.getId());
         assertThat(rows).hasSize(1);
         assertThat(rows.get(0).submissionStatus()).isEqualTo(AssignmentStatus.SUB_SUBMITTED);
@@ -145,17 +147,17 @@ class AssignmentServiceTest {
     @Test
     void submit_after_graded_throws_illegal_state() {
         Long aid = createAndPublish("Bài tập grade guard");
-        assignmentService.submit(clazz.getId(), aid, new SubmitForm("Bài làm"), student.getId());
+        studentAssignmentService.submit(clazz.getId(), aid, new SubmitForm("Bài làm"), student.getId());
 
-        List<SubmissionRow> subs = assignmentService
+        List<SubmissionRow> subs = lecturerAssignmentService
                 .listSubmissions(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
         Long sid = subs.get(0).submissionId();
-        assignmentService.grade(clazz.getId(), aid, sid,
+        lecturerAssignmentService.grade(clazz.getId(), aid, sid,
                 new GradeForm(BigDecimal.valueOf(90), "Tốt"),
                 lecturer.getId(), Role.LECTURER);
 
         assertThatThrownBy(() ->
-                assignmentService.submit(clazz.getId(), aid, new SubmitForm("Nộp lại"), student.getId()))
+                studentAssignmentService.submit(clazz.getId(), aid, new SubmitForm("Nộp lại"), student.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -166,15 +168,15 @@ class AssignmentServiceTest {
                 BigDecimal.valueOf(100),
                 LocalDateTime.now().minusDays(1), // due date in the past
                 true);
-        assignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
-        Long aid = assignmentService.listForLecturer(
+        lecturerAssignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
+        Long aid = lecturerAssignmentService.listForLecturer(
                 clazz.getId(), lecturer.getId(), Role.LECTURER).get(0).id();
-        assignmentService.publish(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.publish(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
 
-        assignmentService.submit(clazz.getId(), aid, new SubmitForm("Nộp muộn"), student.getId());
+        studentAssignmentService.submit(clazz.getId(), aid, new SubmitForm("Nộp muộn"), student.getId());
 
         StudentAssignmentDetail detail =
-                assignmentService.getForStudent(clazz.getId(), aid, student.getId());
+                studentAssignmentService.getForStudent(clazz.getId(), aid, student.getId());
         assertThat(detail.isLate()).isTrue();
     }
 
@@ -185,13 +187,13 @@ class AssignmentServiceTest {
                 BigDecimal.valueOf(100),
                 LocalDateTime.now().minusDays(1),
                 false); // late NOT allowed
-        assignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
-        Long aid = assignmentService.listForLecturer(
+        lecturerAssignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
+        Long aid = lecturerAssignmentService.listForLecturer(
                 clazz.getId(), lecturer.getId(), Role.LECTURER).get(0).id();
-        assignmentService.publish(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.publish(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
 
         assertThatThrownBy(() ->
-                assignmentService.submit(clazz.getId(), aid, new SubmitForm("Nộp muộn"), student.getId()))
+                studentAssignmentService.submit(clazz.getId(), aid, new SubmitForm("Nộp muộn"), student.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -200,17 +202,17 @@ class AssignmentServiceTest {
     @Test
     void grade_sets_submission_to_graded_with_score() {
         Long aid = createAndPublish("Bài tập grading");
-        assignmentService.submit(clazz.getId(), aid, new SubmitForm("Bài làm"), student.getId());
-        Long sid = assignmentService
+        studentAssignmentService.submit(clazz.getId(), aid, new SubmitForm("Bài làm"), student.getId());
+        Long sid = lecturerAssignmentService
                 .listSubmissions(clazz.getId(), aid, lecturer.getId(), Role.LECTURER)
                 .get(0).submissionId();
 
-        assignmentService.grade(clazz.getId(), aid, sid,
+        lecturerAssignmentService.grade(clazz.getId(), aid, sid,
                 new GradeForm(BigDecimal.valueOf(85), "Khá tốt"),
                 lecturer.getId(), Role.LECTURER);
 
         StudentAssignmentDetail detail =
-                assignmentService.getForStudent(clazz.getId(), aid, student.getId());
+                studentAssignmentService.getForStudent(clazz.getId(), aid, student.getId());
         assertThat(detail.submissionStatus()).isEqualTo(AssignmentStatus.SUB_GRADED);
         assertThat(detail.score()).isEqualByComparingTo(BigDecimal.valueOf(85));
         assertThat(detail.feedback()).isEqualTo("Khá tốt");
@@ -219,14 +221,14 @@ class AssignmentServiceTest {
     @Test
     void grade_score_above_max_throws_illegal_argument() {
         Long aid = createAndPublish("Score cap test");
-        assignmentService.submit(clazz.getId(), aid, new SubmitForm("Bài làm"), student.getId());
-        Long sid = assignmentService
+        studentAssignmentService.submit(clazz.getId(), aid, new SubmitForm("Bài làm"), student.getId());
+        Long sid = lecturerAssignmentService
                 .listSubmissions(clazz.getId(), aid, lecturer.getId(), Role.LECTURER)
                 .get(0).submissionId();
 
         // max_score defaults to 100; submitting 101 must fail.
         assertThatThrownBy(() ->
-                assignmentService.grade(clazz.getId(), aid, sid,
+                lecturerAssignmentService.grade(clazz.getId(), aid, sid,
                         new GradeForm(BigDecimal.valueOf(101), null),
                         lecturer.getId(), Role.LECTURER))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -237,10 +239,10 @@ class AssignmentServiceTest {
     @Test
     void draft_assignment_not_visible_to_student() {
         AssignmentForm form = new AssignmentForm(null, "Draft only", "X", BigDecimal.TEN, null, false);
-        assignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
 
         List<StudentAssignmentRow> rows =
-                assignmentService.listPublishedForStudent(clazz.getId(), student.getId());
+                studentAssignmentService.listPublishedForStudent(clazz.getId(), student.getId());
         assertThat(rows).isEmpty();
     }
 
@@ -250,7 +252,7 @@ class AssignmentServiceTest {
         Long aid = createAndPublish("Enrolled-only");
 
         assertThatThrownBy(() ->
-                assignmentService.getForStudent(clazz.getId(), aid, stranger.getId()))
+                studentAssignmentService.getForStudent(clazz.getId(), aid, stranger.getId()))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
@@ -259,12 +261,12 @@ class AssignmentServiceTest {
     private Long createAndPublish(String title) {
         AssignmentForm form = new AssignmentForm(
                 null, title, "Mô tả", BigDecimal.valueOf(100), null, false);
-        assignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
-        Long aid = assignmentService
+        lecturerAssignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
+        Long aid = lecturerAssignmentService
                 .listForLecturer(clazz.getId(), lecturer.getId(), Role.LECTURER)
                 .stream().filter(r -> title.equals(r.title()))
                 .findFirst().orElseThrow().id();
-        assignmentService.publish(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
+        lecturerAssignmentService.publish(clazz.getId(), aid, lecturer.getId(), Role.LECTURER);
         return aid;
     }
 

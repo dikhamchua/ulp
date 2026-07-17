@@ -13,6 +13,11 @@ import java.nio.file.Paths;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.ulp.common.IConstant.MSG_EXAM_IMAGE_EMPTY;
+import static com.ulp.common.IConstant.MSG_EXAM_IMAGE_INVALID;
+import static com.ulp.common.IConstant.MSG_EXAM_IMAGE_TOO_LARGE;
+import static com.ulp.common.IConstant.MSG_EXAM_IMAGE_TYPE;
+
 /**
  * Stores images embedded in exam question HTML (Quill editor) under
  * {@code uploads/exams/}. Same validation style as {@link AvatarStorageService}:
@@ -43,17 +48,17 @@ public class ExamImageStorageService {
      */
     public String store(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
+            throw new IllegalArgumentException(MSG_EXAM_IMAGE_EMPTY);
         }
         if (file.getSize() > MAX_SIZE) {
-            throw new IllegalArgumentException("File exceeds the 2 MB size limit");
+            throw new IllegalArgumentException(MSG_EXAM_IMAGE_TOO_LARGE);
         }
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("Only JPEG, PNG, or WebP images are accepted");
+            throw new IllegalArgumentException(MSG_EXAM_IMAGE_TYPE);
         }
         if (!isValidImageContent(file)) {
-            throw new IllegalArgumentException("File content does not match a valid image format");
+            throw new IllegalArgumentException(MSG_EXAM_IMAGE_INVALID);
         }
         String ext = switch (contentType) {
             case "image/jpeg" -> ".jpg";
