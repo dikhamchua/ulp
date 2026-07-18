@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +42,24 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     @Query("SELECT l.id FROM Lesson l WHERE l.status = 'PUBLISHED' AND l.sectionId IN "
             + "(SELECT s.id FROM Section s WHERE s.classId = :classId)")
     List<Long> findPublishedLessonIdsByClassId(@Param("classId") Long classId);
+
+    /**
+     * Batch variant of {@link #findPublishedLessonIdsByClassId}: returns
+     * (classId, lessonId) pairs for every PUBLISHED lesson across the given
+     * classes. Soft-deleted lessons/sections are filtered by
+     * {@code @SQLRestriction}. Callers MUST pass a non-empty collection.
+     */
+    @Query("SELECT s.classId AS classId, l.id AS lessonId FROM Lesson l, Section s "
+            + "WHERE l.sectionId = s.id AND l.status = 'PUBLISHED' "
+            + "AND s.classId IN :classIds")
+    List<ClassLessonId> findPublishedLessonIdsByClassIds(
+            @Param("classIds") Collection<Long> classIds);
+
+    /** Projection for {@link #findPublishedLessonIdsByClassIds}. */
+    interface ClassLessonId {
+        Long getClassId();
+        Long getLessonId();
+    }
 
     /** Loads a lesson scoped by section to harden the URL hierarchy. */
     Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);

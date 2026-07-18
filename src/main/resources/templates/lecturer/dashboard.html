@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Tổng quan giảng dạy', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/lecturer-dashboard.css}">
+  <link class="page-css" rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('dashboard')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
+<main class="lecturer-dash">
+  <h1 class="detail-title">Tổng quan giảng dạy</h1>
+  <p class="detail-sub">Theo dõi lớp học và tiến độ học tập trong phạm vi của bạn.</p>
+
+  <!-- ===== 4 KPI cards (full scope — ignore search/page) ===== -->
+  <div class="admin-stats">
+    <div class="stat-card">
+      <div class="stat-icon classes" aria-hidden="true">
+        <i class="fa-solid fa-school"></i>
+      </div>
+      <div class="stat-meta">
+        <h6>Tổng lớp</h6>
+        <div class="num" th:text="${teachingStats.totalClasses()}">0</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon users" aria-hidden="true">
+        <i class="fa-solid fa-users"></i>
+      </div>
+      <div class="stat-meta">
+        <h6>Tổng sinh viên</h6>
+        <div class="num" th:text="${teachingStats.totalStudents()}">0</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon departments" aria-hidden="true">
+        <i class="fa-solid fa-person-chalkboard"></i>
+      </div>
+      <div class="stat-meta">
+        <h6>Lớp đang hoạt động</h6>
+        <div class="num" th:text="${teachingStats.activeClasses()}">0</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon courses" aria-hidden="true">
+        <i class="fa-solid fa-chart-pie"></i>
+      </div>
+      <div class="stat-meta">
+        <h6>Tiến độ trung bình</h6>
+        <div class="num" th:text="${teachingStats.avgCompletionPercent()} + '%'">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Class table ===== -->
+  <section class="admin-panel ldash-panel">
+    <div class="admin-panel-head">
+      <h3>Danh sách lớp</h3>
+      <span class="sub"
+            th:text="${teachingClassRows.totalElements} + ' lớp'
+              + (${teachingQuery != null and !#strings.isEmpty(teachingQuery)} ? ' khớp tìm kiếm' : '')">
+        0 lớp
+      </span>
+    </div>
+
+    <div class="ldash-toolbar">
+      <form class="ldash-search" method="get" th:action="@{/lecturer/dashboard}">
+        <input type="hidden" name="size" th:value="${teachingSize}">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <label for="ldashSearch" class="sr-only">Tìm kiếm lớp học</label>
+        <input id="ldashSearch" type="search" name="q" th:value="${teachingQuery}"
+               placeholder="Tìm theo tên hoặc mã lớp" aria-label="Tìm theo tên hoặc mã lớp">
+      </form>
+    </div>
+
+    <table class="recent-table" th:if="${teachingClassRows.totalElements > 0}">
+      <thead>
+        <tr>
+          <th>Tên lớp</th>
+          <th class="col-code">Mã</th>
+          <th>Trạng thái</th>
+          <th class="td-center">Sĩ số</th>
+          <th class="td-center">% hoàn thành TB</th>
+          <th class="td-center">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="r : ${teachingClassRows.content}">
+          <td th:text="${r.name()}">Lớp</td>
+          <td class="col-code"><b th:text="${r.code() != null ? r.code() : '—'}">CODE</b></td>
+          <td>
+            <span class="status-pill"
+                  th:classappend="${r.status() != null ? #strings.toLowerCase(r.status()) : ''}"
+                  th:text="${r.displayStatus()}">Trạng thái</span>
+          </td>
+          <td class="td-center" th:text="${r.studentCount()}">0</td>
+          <td class="td-center" th:text="${r.avgPercent()} + '%'">0%</td>
+          <td class="td-center">
+            <a class="ldash-link"
+               th:href="@{|/lecturer/classes/${r.id()}/progress|}">Xem tiến độ</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Empty: no classes in scope at all -->
+    <div th:if="${teachingStats.totalClasses() == 0}" class="recent-empty">
+      Chưa có lớp học nào trong phạm vi của bạn.
+    </div>
+    <!-- Empty: search produced zero hits -->
+    <div th:if="${teachingStats.totalClasses() > 0 and teachingClassRows.totalElements == 0}"
+         class="recent-empty">
+      Không tìm thấy lớp nào khớp
+      “<span th:text="${teachingQuery}">từ khóa</span>”.
+    </div>
+
+    <div th:replace="~{fragments/pager :: pager(${teachingClassRows}, '/lecturer/dashboard', ${params})}"></div>
+  </section>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/lecturer-dashboard.js}"></script>
+</body>
+</html>
