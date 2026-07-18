@@ -45,8 +45,11 @@ public interface IConstant {
     String BASE_LECTURER     = "/lecturer";
     String PATH_CLASSES      = "/classes";
     String URL_CLASSES_LIST  = BASE_LECTURER + PATH_CLASSES;
+    String PATH_DASHBOARD    = "/dashboard";
+    String URL_LECTURER_DASHBOARD = BASE_LECTURER + PATH_DASHBOARD;
 
     // ───────── View names ────────────────────────────────────────────
+    String VIEW_LECTURER_DASHBOARD      = "lecturer/dashboard";
     String VIEW_CLASS_MANAGE            = "classes/manage";
     String VIEW_CLASS_FORM              = "classes/form";
     String VIEW_CLASS_DETAIL_BOARD      = "classes/detail-board";
@@ -85,6 +88,12 @@ public interface IConstant {
     String ATTR_PROGRESS_STATUS  = "progressStatus";
     String ATTR_PROGRESS_QUERY   = "progressQuery";
     String ATTR_PROGRESS_SIZE    = "progressSize";
+
+    // Lecturer teaching dashboard (ULP-9.1).
+    String ATTR_TEACHING_STATS      = "teachingStats";
+    String ATTR_TEACHING_CLASS_ROWS = "teachingClassRows";
+    String ATTR_TEACHING_QUERY      = "teachingQuery";
+    String ATTR_TEACHING_SIZE       = "teachingSize";
 
     // Additional cross-cutting model attribute keys (used by ≥2 controllers).
     String ATTR_USER          = "user";
@@ -443,6 +452,10 @@ public interface IConstant {
     // Lecturer progress dashboard — table page size (default + upper bound).
     int DEFAULT_PROGRESS_PAGE_SIZE = 10;
     int MAX_PROGRESS_PAGE_SIZE = 100;
+
+    // Lecturer teaching dashboard — class table page size (default + upper bound).
+    int DEFAULT_TEACHING_PAGE_SIZE = 10;
+    int MAX_TEACHING_PAGE_SIZE = 100;
 
     // Lesson comments — root comments per "load more" page (default + upper bound).
     // MAX caps a client-supplied ?size so a huge value can't force an oversized query.

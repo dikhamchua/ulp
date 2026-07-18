@@ -62,6 +62,23 @@ public interface LearningProgressRepository extends JpaRepository<LearningProgre
     List<LearningProgress> findByUserIdAndLessonIdIn(Long userId, Collection<Long> lessonIds);
 
     /**
+     * Returns COMPLETED (userId, lessonId) pairs among the given lesson ids.
+     * Used by the teaching dashboard so completed counts can be regrouped
+     * per-class (cross-class {@link #aggregateByLessonIds} would over-count).
+     * Callers MUST pass a non-empty collection.
+     */
+    @Query("SELECT lp.userId AS userId, lp.lessonId AS lessonId FROM LearningProgress lp "
+            + "WHERE lp.status = 'COMPLETED' AND lp.lessonId IN :lessonIds")
+    List<UserLessonId> findCompletedUserLessonPairs(
+            @Param("lessonIds") Collection<Long> lessonIds);
+
+    /** Projection for {@link #findCompletedUserLessonPairs}. */
+    interface UserLessonId {
+        Long getUserId();
+        Long getLessonId();
+    }
+
+    /**
      * Spring Data interface projection for {@link #aggregateByLessonIds}. Getter
      * names map to the query aliases ({@code userId}, {@code completedCount},
      * {@code lastActivity}).
