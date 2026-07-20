@@ -105,11 +105,16 @@ public class LibraryController {
     @PostMapping("/upload")
     public String upload(@RequestParam("file") MultipartFile file,
                          @RequestParam(name = "kind", required = false) String kind,
+                         @RequestParam(name = "returnKind", required = false) String returnKind,
                          @AuthenticationPrincipal UlpUserDetails user,
                          RedirectAttributes ra) {
+        String stayKind = blankToNull(returnKind);
         try {
             LibraryAssetRow row = libraryService.upload(user.getId(), file, kind);
             ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_LIBRARY_UPLOADED + ": " + row.title());
+            // Land on the tab matching the saved asset so a video uploaded from
+            // the Video rail is visible immediately (not only under "All").
+            return redirectLibrary(row.kind());
         } catch (IllegalArgumentException ex) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
         } catch (MaxUploadSizeExceededException ex) {
@@ -121,12 +126,14 @@ public class LibraryController {
             log.error("Unexpected library upload error for user {}", user.getId(), ex);
             ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_GENERIC_RETRY);
         }
-        return REDIRECT_LIBRARY;
+        // On failure keep the sidebar filter the lecturer was browsing.
+        return redirectLibrary(stayKind != null ? stayKind : kind);
     }
 
     @PostMapping("/{id}/rename")
     public String rename(@PathVariable Long id,
                          @RequestParam("title") String title,
+                         @RequestParam(name = "returnKind", required = false) String returnKind,
                          @AuthenticationPrincipal UlpUserDetails user,
                          RedirectAttributes ra) {
         try {
@@ -140,11 +147,12 @@ public class LibraryController {
             log.error("Failed to rename library asset {} for user {}", id, user.getId(), ex);
             ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_GENERIC_RETRY);
         }
-        return REDIRECT_LIBRARY;
+        return redirectLibrary(returnKind);
     }
 
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id,
+                         @RequestParam(name = "returnKind", required = false) String returnKind,
                          @AuthenticationPrincipal UlpUserDetails user,
                          RedirectAttributes ra) {
         try {
@@ -156,7 +164,7 @@ public class LibraryController {
             log.error("Failed to delete library asset {} for user {}", id, user.getId(), ex);
             ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_GENERIC_RETRY);
         }
-        return REDIRECT_LIBRARY;
+        return redirectLibrary(returnKind);
     }
 
     /** JSON error body for oversized uploads hitting the library page via XHR. */
@@ -172,5 +180,26 @@ public class LibraryController {
         if (kind != null && !kind.isBlank()) params.put("kind", kind.trim());
         params.put("size", size);
         return params;
+    }
+
+    /**
+     * Redirects back to the library list, optionally preserving a kind filter
+     * so the lecturer stays on the DOCUMENT / VIDEO rail they were using.
+     */
+    private static String redirectLibrary(String kind) {
+        String k = blankToNull(kind);
+        if (k == null) {
+            return REDIRECT_LIBRARY;
+        }
+        String upper = k.trim().toUpperCase();
+        if (!"DOCUMENT".equals(upper) && !"VIDEO".equals(upper)) {
+            return REDIRECT_LIBRARY;
+        }
+        return REDIRECT_LIBRARY + "?kind=" + upper;
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank()) return null;
+        return value.trim();
     }
 }
