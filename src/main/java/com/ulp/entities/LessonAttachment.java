@@ -50,6 +50,13 @@ public class LessonAttachment {
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
 
+    /**
+     * Optional FK to {@code library_assets}. When set the attachment is a
+     * reference — cascade/delete must not remove the library blob on disk.
+     */
+    @Column(name = "library_asset_id")
+    private Long libraryAssetId;
+
     /** JPA-only constructor; do not call from application code. */
     protected LessonAttachment() {
     }
@@ -66,12 +73,24 @@ public class LessonAttachment {
      */
     public LessonAttachment(Long lessonId, String originalFilename, String storedPath,
                             String mimeType, long sizeBytes, Long uploadedBy) {
+        this(lessonId, originalFilename, storedPath, mimeType, sizeBytes, uploadedBy, null);
+    }
+
+    /**
+     * Creates a library-backed or one-off attachment row.
+     *
+     * @param libraryAssetId optional library asset id (null for classic uploads)
+     */
+    public LessonAttachment(Long lessonId, String originalFilename, String storedPath,
+                            String mimeType, long sizeBytes, Long uploadedBy,
+                            Long libraryAssetId) {
         this.lessonId = lessonId;
         this.originalFilename = originalFilename;
         this.storedPath = storedPath;
         this.mimeType = mimeType;
         this.sizeBytes = sizeBytes;
         this.uploadedBy = uploadedBy;
+        this.libraryAssetId = libraryAssetId;
     }
 
     @PrePersist
@@ -111,5 +130,14 @@ public class LessonAttachment {
 
     public LocalDateTime getUploadedAt() {
         return uploadedAt;
+    }
+
+    public Long getLibraryAssetId() {
+        return libraryAssetId;
+    }
+
+    /** True when this row references a personal library asset (no owned blob). */
+    public boolean isLibraryBacked() {
+        return libraryAssetId != null;
     }
 }

@@ -2,13 +2,16 @@ package com.ulp.features.lessons.controller;
 
 import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
+import com.ulp.entities.LibraryAsset;
 import com.ulp.entities.Section;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.ClassesService;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
+import com.ulp.features.library.repository.LibraryAssetRepository;
 import com.ulp.features.upload.LessonVideoStorageService;
+import com.ulp.features.upload.LibraryStorageService;
 import com.ulp.security.Role;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -62,6 +65,8 @@ public class LessonVideoStreamController {
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
     private final LessonVideoStorageService videoStorage;
+    private final LibraryStorageService libraryStorage;
+    private final LibraryAssetRepository libraryAssetRepository;
     private final ClassesService classesService;
 
     public LessonVideoStreamController(LessonRepository lessonRepository,
@@ -69,12 +74,16 @@ public class LessonVideoStreamController {
                                        EnrollmentRepository enrollmentRepository,
                                        ClassRepository classRepository,
                                        LessonVideoStorageService videoStorage,
+                                       LibraryStorageService libraryStorage,
+                                       LibraryAssetRepository libraryAssetRepository,
                                        ClassesService classesService) {
         this.lessonRepository = lessonRepository;
         this.sectionRepository = sectionRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.videoStorage = videoStorage;
+        this.libraryStorage = libraryStorage;
+        this.libraryAssetRepository = libraryAssetRepository;
         this.classesService = classesService;
     }
 
@@ -94,7 +103,7 @@ public class LessonVideoStreamController {
 
         if (!CONTENT_TYPE_VIDEO.equals(lesson.getContentType())
                 || !VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
-                || lesson.getVideoUrl() == null) {
+                || (lesson.getVideoUrl() == null && !lesson.hasLibraryVideo())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
@@ -105,7 +114,7 @@ public class LessonVideoStreamController {
 
         Path absolute;
         try {
-            absolute = videoStorage.resolveAbsolutePath(lesson.getVideoUrl());
+            absolute = resolveVideoPath(lesson);
         } catch (IllegalArgumentException ex) {
             log.warn("Lesson {} stored video path is invalid: {}", lessonId, ex.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
@@ -156,6 +165,19 @@ public class LessonVideoStreamController {
                 "bytes " + region.getPosition() + "-" + end + "/" + fileSize);
         headers.setContentLength(region.getCount());
         return new ResponseEntity<>(region, headers, HttpStatus.PARTIAL_CONTENT);
+    }
+
+    /**
+     * Prefer library asset FK when set; otherwise resolve the classic lesson
+     * video path under uploads/lessons.
+     */
+    private Path resolveVideoPath(Lesson lesson) {
+        if (lesson.hasLibraryVideo()) {
+            LibraryAsset asset = libraryAssetRepository.findById(lesson.getVideoLibraryAssetId())
+                    .orElseThrow(() -> new IllegalArgumentException("library video missing"));
+            return libraryStorage.resolveAbsolutePath(asset.getStoredPath());
+        }
+        return videoStorage.resolveAbsolutePath(lesson.getVideoUrl());
     }
 
     /** Build a bounded {@link ResourceRegion} from a single byte range. */

@@ -138,6 +138,52 @@ public class LessonContentApiController {
         }
     }
 
+    @PostMapping(value = "/pdf-from-library", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> bindPdfFromLibrary(@PathVariable Long classId,
+                                                @PathVariable Long sectionId,
+                                                @PathVariable Long lessonId,
+                                                @RequestParam("assetId") Long assetId,
+                                                @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            LessonAttachmentRow row = attachmentsService.bindPdfFromLibrary(
+                    classId, sectionId, lessonId, assetId, user.getId(), user.getRole());
+            Lesson lesson = lessonsService.getEditableLesson(classId, sectionId, lessonId,
+                    user.getId(), user.getRole());
+            return ResponseEntity.ok(summary(lesson, row.originalFilename()));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to bind library PDF for lesson {}", lessonId, ex);
+            return internalError();
+        }
+    }
+
+    @PostMapping(value = "/video-from-library", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> bindVideoFromLibrary(@PathVariable Long classId,
+                                                  @PathVariable Long sectionId,
+                                                  @PathVariable Long lessonId,
+                                                  @RequestParam("assetId") Long assetId,
+                                                  @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            Lesson lesson = lessonsService.bindVideoFromLibrary(
+                    classId, sectionId, lessonId, assetId, user.getId(), user.getRole());
+            return ResponseEntity.ok(summary(lesson, null));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to bind library video for lesson {}", lessonId, ex);
+            return internalError();
+        }
+    }
+
     @PostMapping(value = "/video-url", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> setVideoUrl(@PathVariable Long classId,
                                          @PathVariable Long sectionId,

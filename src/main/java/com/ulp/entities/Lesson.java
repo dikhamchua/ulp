@@ -81,6 +81,13 @@ public class Lesson {
     @Column(name = "video_provider", length = 20)
     private String videoProvider;
 
+    /**
+     * Optional FK to {@code library_assets} when the uploaded video is a
+     * library reference. Null for one-off lesson MP4s and external providers.
+     */
+    @Column(name = "video_library_asset_id")
+    private Long videoLibraryAssetId;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 
@@ -203,6 +210,16 @@ public class Lesson {
         this.videoProvider = videoProvider;
     }
 
+    /** Sets the optional library asset FK for an uploaded library video. */
+    public void setVideoLibraryAssetId(Long videoLibraryAssetId) {
+        this.videoLibraryAssetId = videoLibraryAssetId;
+    }
+
+    /** True when the uploaded video is backed by a library asset. */
+    public boolean hasLibraryVideo() {
+        return videoLibraryAssetId != null;
+    }
+
     /**
      * Switches the lesson's content type and nulls every column that no
      * longer belongs to the new type. Does NOT delete files — the service
@@ -227,6 +244,7 @@ public class Lesson {
         if (!CONTENT_TYPE_VIDEO.equals(newType)) {
             this.videoUrl = null;
             this.videoProvider = null;
+            this.videoLibraryAssetId = null;
         }
     }
 
@@ -277,6 +295,10 @@ public class Lesson {
 
     public String getVideoProvider() {
         return videoProvider;
+    }
+
+    public Long getVideoLibraryAssetId() {
+        return videoLibraryAssetId;
     }
 
     public Long getCreatedBy() {

@@ -19,6 +19,13 @@
     return { header: h.content, token: t.content };
   }
 
+  /** Body field pair from the page form (matches PDF/video library bind). */
+  function csrfBodyPair() {
+    var hidden = document.querySelector('input[name="_csrf"]');
+    if (!hidden) return null;
+    return { name: hidden.name, value: hidden.value };
+  }
+
   function toast(kind, message) {
     if (window.UlpToast && typeof window.UlpToast[kind] === 'function') {
       window.UlpToast[kind](message);
@@ -251,6 +258,51 @@
     });
   }
 
+  function bindFromLibrary(card) {
+    var btn = el('lessonAttachFromLibraryBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      if (!window.UlpLibraryPicker) {
+        toast('error', 'Không mở được kho học liệu');
+        return;
+      }
+      var url = btn.getAttribute('data-from-library-url') || (card.dataset.uploadUrl + '/from-library');
+      window.UlpLibraryPicker.open({
+        kind: 'DOCUMENT',
+        onSelect: function (item) {
+          if (!item || !item.id) return;
+          var csrf = csrfPair();
+          var headers = { 'Accept': 'application/json' };
+          if (csrf) headers[csrf.header] = csrf.token;
+          var body = new URLSearchParams();
+          body.set('assetId', String(item.id));
+          var pair = csrfBodyPair();
+          if (pair) body.set(pair.name, pair.value);
+          fetch(url, {
+            method: 'POST',
+            headers: headers,
+            credentials: 'same-origin',
+            body: body
+          }).then(function (res) {
+            return res.json().catch(function () { return null; })
+              .then(function (json) { return { ok: res.ok, json: json }; });
+          }).then(function (result) {
+            if (result.ok && result.json && result.json.id) {
+              var list = card.querySelector('#lessonAttachList');
+              if (list) list.appendChild(buildRow(card, result.json));
+              refreshEmptyState(card);
+              toast('success', 'Đã gắn tệp từ kho học liệu');
+            } else {
+              toast('error', (result.json && result.json.message) || 'Gắn tệp từ kho thất bại');
+            }
+          }).catch(function () {
+            toast('error', 'Không kết nối được tới server.');
+          });
+        }
+      });
+    });
+  }
+
   function init() {
     var card = el('lessonAttachmentsCard');
     if (!card) return;
@@ -261,6 +313,7 @@
     });
 
     bindDropArea(card);
+    bindFromLibrary(card);
 
     card.addEventListener('click', function (evt) {
       var btn = evt.target.closest && evt.target.closest('.latt-del');

@@ -47,9 +47,13 @@ public interface IConstant {
     String URL_CLASSES_LIST  = BASE_LECTURER + PATH_CLASSES;
     String PATH_DASHBOARD    = "/dashboard";
     String URL_LECTURER_DASHBOARD = BASE_LECTURER + PATH_DASHBOARD;
+    String PATH_LIBRARY      = "/library";
+    String URL_LIBRARY       = BASE_LECTURER + PATH_LIBRARY;
+    String URL_LIBRARY_API   = URL_LIBRARY + "/api";
 
     // ───────── View names ────────────────────────────────────────────
     String VIEW_LECTURER_DASHBOARD      = "lecturer/dashboard";
+    String VIEW_LIBRARY                 = "library/index";
     String VIEW_CLASS_MANAGE            = "classes/manage";
     String VIEW_CLASS_FORM              = "classes/form";
     String VIEW_CLASS_DETAIL_BOARD      = "classes/detail-board";
@@ -94,6 +98,15 @@ public interface IConstant {
     String ATTR_TEACHING_CLASS_ROWS = "teachingClassRows";
     String ATTR_TEACHING_QUERY      = "teachingQuery";
     String ATTR_TEACHING_SIZE       = "teachingSize";
+
+    // Personal file library (lecturer-file-library).
+    String ATTR_LIBRARY_PAGE   = "libraryPage";
+    String ATTR_LIBRARY_QUERY  = "libraryQuery";
+    String ATTR_LIBRARY_KIND   = "libraryKind";
+    String ATTR_LIBRARY_SIZE   = "librarySize";
+    String ATTR_LIBRARY_TOTAL_COUNT    = "libraryTotalCount";
+    String ATTR_LIBRARY_DOCUMENT_COUNT = "libraryDocumentCount";
+    String ATTR_LIBRARY_VIDEO_COUNT    = "libraryVideoCount";
 
     // Additional cross-cutting model attribute keys (used by ≥2 controllers).
     String ATTR_USER          = "user";
@@ -457,6 +470,10 @@ public interface IConstant {
     int DEFAULT_TEACHING_PAGE_SIZE = 10;
     int MAX_TEACHING_PAGE_SIZE = 100;
 
+    // Personal file library — SSR / picker page size.
+    int DEFAULT_LIBRARY_PAGE_SIZE = 12;
+    int MAX_LIBRARY_PAGE_SIZE = 50;
+
     // Lesson comments — root comments per "load more" page (default + upper bound).
     // MAX caps a client-supplied ?size so a huge value can't force an oversized query.
     int DEFAULT_COMMENT_PAGE_SIZE = 10;
@@ -526,4 +543,19 @@ public interface IConstant {
     String ATTR_HEAD_EMPTY        = "emptyDepartment";
     String MSG_HEAD_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
     String MSG_HEAD_REASSIGN_FAIL = "Không thể phân công giảng viên";
+
+    // ───────── Personal file library (Vietnamese UI text) ────────────
+    String MSG_LIBRARY_UPLOADED        = "Đã thêm tệp vào kho học liệu";
+    String MSG_LIBRARY_RENAMED         = "Đã đổi tên tệp trong kho";
+    String MSG_LIBRARY_DELETED         = "Đã xoá tệp khỏi kho học liệu";
+    String MSG_LIBRARY_ASSET_NOT_FOUND = "Không tìm thấy học liệu";
+    String MSG_LIBRARY_ASSET_IN_USE    =
+            "Không thể xoá: học liệu đang được dùng trong bài giảng";
+    String MSG_LIBRARY_TITLE_BLANK     = "Tên hiển thị không được để trống";
+    String MSG_LIBRARY_BIND_INVALID_KIND =
+            "Loại học liệu không phù hợp với thao tác này";
+    String MSG_LIBRARY_BIND_NOT_PDF    = "Chỉ có thể chọn tệp PDF làm nội dung chính";
+    String MSG_LIBRARY_BOUND_PDF       = "Đã gắn PDF từ kho học liệu";
+    String MSG_LIBRARY_BOUND_VIDEO     = "Đã gắn video từ kho học liệu";
+    String MSG_LIBRARY_BOUND_ATTACHMENT = "Đã gắn tệp từ kho học liệu";
 }

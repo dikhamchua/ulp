@@ -97,6 +97,30 @@ public class LessonAttachmentsApiController {
         }
     }
 
+    @PostMapping(value = "/lecturer/classes/{classId}/sections/{sectionId}/lessons/{lessonId}/attachments/from-library",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
+    public ResponseEntity<?> bindFromLibrary(@PathVariable Long classId,
+                                             @PathVariable Long sectionId,
+                                             @PathVariable Long lessonId,
+                                             @RequestParam("assetId") Long assetId,
+                                             @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            LessonAttachmentRow row = attachmentsService.bindAttachmentFromLibrary(
+                    classId, sectionId, lessonId, assetId, user.getId(), user.getRole());
+            return ResponseEntity.ok(row);
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to bind library attachment to lesson {}", lessonId, ex);
+            return internalError();
+        }
+    }
+
     @DeleteMapping(value = "/lecturer/classes/{classId}/sections/{sectionId}/lessons/{lessonId}/attachments/{attachmentId}",
             produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)

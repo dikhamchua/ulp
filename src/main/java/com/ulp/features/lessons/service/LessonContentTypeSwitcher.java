@@ -68,6 +68,8 @@ public class LessonContentTypeSwitcher {
         Long previousPdfId = lesson.getPdfAttachmentId();
         boolean hadUploadVideo = (CONTENT_TYPE_VIDEO.equals(oldType)
                 && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider()));
+        // Library videos must never be wiped from disk on type switch.
+        boolean hadLibraryVideo = hadUploadVideo && lesson.hasLibraryVideo();
 
         applyNewTypeData(lesson, form, newType);
         // switchContentTypeTo nulls fields not belonging to the new type so
@@ -77,7 +79,8 @@ public class LessonContentTypeSwitcher {
         lesson.switchContentTypeTo(newType);
         lessonRepository.saveAndFlush(lesson);
 
-        cleanupForOldType(oldType, newType, previousPdfId, hadUploadVideo, lesson.getId());
+        cleanupForOldType(oldType, newType, previousPdfId, hadUploadVideo,
+                hadLibraryVideo, lesson.getId());
     }
 
     /**
@@ -109,19 +112,24 @@ public class LessonContentTypeSwitcher {
 
     /** Drops files / FK references that no longer belong to the lesson. */
     private void cleanupForOldType(String oldType, String newType, Long previousPdfId,
-                                   boolean hadUploadVideo, Long lessonId) {
+                                   boolean hadUploadVideo, boolean hadLibraryVideo,
+                                   Long lessonId) {
         if (oldType == null || oldType.equals(newType)) return;
         if (CONTENT_TYPE_PDF.equals(oldType) && previousPdfId != null) {
             // Lesson row has already been re-typed; the FK column is now
             // NULL, but the orphan attachment row still exists. Clear any
-            // lingering reference defensively then delete the row + file.
+            // lingering reference defensively then delete the row (+ file
+            // only when the old main PDF was a one-off upload).
             lessonRepository.clearPdfAttachmentId(previousPdfId);
             attachmentRepository.findById(previousPdfId).ifPresent(att -> {
-                attachmentStorage.delete(att.getStoredPath());
+                if (!att.isLibraryBacked()) {
+                    attachmentStorage.delete(att.getStoredPath());
+                }
                 attachmentRepository.delete(att);
             });
         }
-        if (hadUploadVideo) {
+        // Only wipe the lesson video directory for one-off uploads.
+        if (hadUploadVideo && !hadLibraryVideo) {
             videoStorage.deleteByLessonId(lessonId);
         }
     }
