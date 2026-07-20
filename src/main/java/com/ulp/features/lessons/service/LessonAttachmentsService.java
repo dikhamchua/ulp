@@ -4,6 +4,7 @@ import com.ulp.entities.Enrollment;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.LessonActivity;
 import com.ulp.entities.LessonAttachment;
+import com.ulp.entities.LibraryAsset;
 import com.ulp.entities.Section;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.ClassesService;
@@ -11,8 +12,11 @@ import com.ulp.features.lessons.dto.LessonDtos.LessonAttachmentRow;
 import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
+import com.ulp.features.library.service.LibraryService;
 import com.ulp.features.upload.LessonAttachmentStorageService;
 import com.ulp.features.upload.LessonAttachmentStorageService.StoredAttachment;
+import com.ulp.features.upload.LibraryStorageService;
+import com.ulp.features.upload.UploadFileHelper;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -30,6 +34,9 @@ import static com.ulp.common.IConstant.LESSON_STATUS_PUBLISHED;
 import static com.ulp.common.IConstant.MSG_ATTACHMENT_NOT_FOUND;
 import static com.ulp.common.IConstant.MSG_FORBIDDEN_FOR_CLASS;
 import static com.ulp.common.IConstant.MSG_LESSON_NOT_FOUND;
+import static com.ulp.common.IConstant.MSG_LIBRARY_BIND_INVALID_KIND;
+import static com.ulp.common.IConstant.MSG_LIBRARY_BIND_NOT_PDF;
+import static com.ulp.entities.LibraryAsset.KIND_DOCUMENT;
 
 /**
  * Business service for lesson attachments.
@@ -50,6 +57,8 @@ public class LessonAttachmentsService {
     private final LessonRepository lessonRepository;
     private final SectionRepository sectionRepository;
     private final LessonAttachmentStorageService storage;
+    private final LibraryStorageService libraryStorage;
+    private final LibraryService libraryService;
     private final ClassesService classesService;
     private final LessonsReorderService reorderService;
     private final EnrollmentRepository enrollmentRepository;
@@ -59,6 +68,8 @@ public class LessonAttachmentsService {
                                     LessonRepository lessonRepository,
                                     SectionRepository sectionRepository,
                                     LessonAttachmentStorageService storage,
+                                    LibraryStorageService libraryStorage,
+                                    LibraryService libraryService,
                                     ClassesService classesService,
                                     LessonsReorderService reorderService,
                                     EnrollmentRepository enrollmentRepository,
@@ -67,6 +78,8 @@ public class LessonAttachmentsService {
         this.lessonRepository = lessonRepository;
         this.sectionRepository = sectionRepository;
         this.storage = storage;
+        this.libraryStorage = libraryStorage;
+        this.libraryService = libraryService;
         this.classesService = classesService;
         this.reorderService = reorderService;
         this.enrollmentRepository = enrollmentRepository;
@@ -140,17 +153,69 @@ public class LessonAttachmentsService {
 
         // Clean up old main PDF now that the new one is in place.
         if (previousMainId != null && !previousMainId.equals(saved.getId())) {
-            attachmentRepository.findById(previousMainId).ifPresent(prev -> {
-                storage.delete(prev.getStoredPath());
-                attachmentRepository.delete(prev);
-            });
+            attachmentRepository.findById(previousMainId).ifPresent(this::removeAttachmentRow);
         }
         activityWriter.write(lessonId, LessonActivity.TYPE_PDF_UPLOADED,
                 "Tải lên PDF chính: " + saved.getOriginalFilename(), userId);
         return toRow(saved);
     }
 
-    /** Hard-deletes a single attachment (DB row + on-disk file). */
+    /**
+     * Binds an owned DOCUMENT library asset (PDF MIME) as the lesson main PDF
+     * without copying disk bytes.
+     */
+    @Transactional
+    public LessonAttachmentRow bindPdfFromLibrary(Long classId, Long sectionId, Long lessonId,
+                                                   Long assetId, Long userId, Role role) {
+        classesService.getEditable(classId, userId, role);
+        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        Lesson lesson = loadLesson(sectionId, lessonId);
+        LibraryAsset asset = libraryService.getOwnedAsset(userId, assetId);
+        if (!KIND_DOCUMENT.equals(asset.getKind())
+                || !"application/pdf".equalsIgnoreCase(asset.getMimeType())) {
+            throw new IllegalArgumentException(MSG_LIBRARY_BIND_NOT_PDF);
+        }
+
+        Long previousMainId = lesson.getPdfAttachmentId();
+        LessonAttachment row = new LessonAttachment(
+                lessonId, asset.getOriginalFilename(), asset.getStoredPath(),
+                asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId());
+        LessonAttachment saved = attachmentRepository.saveAndFlush(row);
+        lesson.setPdfAttachmentId(saved.getId());
+        lessonRepository.saveAndFlush(lesson);
+
+        if (previousMainId != null && !previousMainId.equals(saved.getId())) {
+            attachmentRepository.findById(previousMainId).ifPresent(this::removeAttachmentRow);
+        }
+        activityWriter.write(lessonId, LessonActivity.TYPE_PDF_UPLOADED,
+                "Gắn PDF từ kho: " + saved.getOriginalFilename(), userId);
+        return toRow(saved);
+    }
+
+    /**
+     * Creates a supplementary attachment row referencing an owned DOCUMENT
+     * library asset (no disk copy).
+     */
+    @Transactional
+    public LessonAttachmentRow bindAttachmentFromLibrary(Long classId, Long sectionId, Long lessonId,
+                                                          Long assetId, Long userId, Role role) {
+        classesService.getEditable(classId, userId, role);
+        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        loadLesson(sectionId, lessonId);
+        LibraryAsset asset = libraryService.getOwnedAsset(userId, assetId);
+        if (!KIND_DOCUMENT.equals(asset.getKind())) {
+            throw new IllegalArgumentException(MSG_LIBRARY_BIND_INVALID_KIND);
+        }
+        LessonAttachment row = new LessonAttachment(
+                lessonId, asset.getOriginalFilename(), asset.getStoredPath(),
+                asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId());
+        LessonAttachment saved = attachmentRepository.save(row);
+        activityWriter.write(lessonId, LessonActivity.TYPE_ATTACHMENT_ADDED,
+                "Gắn tệp từ kho: " + saved.getOriginalFilename(), userId);
+        return toRow(saved);
+    }
+
+    /** Hard-deletes a single attachment row; skips disk delete when library-backed. */
     @Transactional
     public void delete(Long classId, Long sectionId, Long lessonId, Long attachmentId,
                        Long userId, Role role) {
@@ -169,15 +234,14 @@ public class LessonAttachmentsService {
             lessonRepository.clearPdfAttachmentId(attachmentId);
         }
         String removedName = att.getOriginalFilename();
-        storage.delete(att.getStoredPath());
-        attachmentRepository.delete(att);
+        removeAttachmentRow(att);
         activityWriter.write(lessonId, LessonActivity.TYPE_ATTACHMENT_REMOVED,
                 "Xoá tệp đính kèm: " + removedName, userId);
     }
 
     /**
      * Cascade cleanup invoked from {@link LessonsService#delete} BEFORE the
-     * lesson is soft-deleted. Removes every attachment row + on-disk file.
+     * lesson is soft-deleted. Removes every attachment row; library blobs stay.
      */
     @Transactional
     public void deleteAllByLesson(Long lessonId) {
@@ -185,9 +249,21 @@ public class LessonAttachmentsService {
         for (LessonAttachment att : rows) {
             // Clear FK before delete — lessons.pdf_attachment_id is RESTRICT with no ON DELETE clause.
             lessonRepository.clearPdfAttachmentId(att.getId());
+            // Skip storage.delete for library-backed rows (shared blobs).
+            removeAttachmentRow(att);
+        }
+    }
+
+    /**
+     * Removes one attachment row. Deletes the on-disk file only for one-off
+     * uploads — library-backed rows only drop the DB reference.
+     */
+    public void removeAttachmentRow(LessonAttachment att) {
+        if (att == null) return;
+        if (!att.isLibraryBacked()) {
             storage.delete(att.getStoredPath());
         }
-        if (!rows.isEmpty()) attachmentRepository.deleteByLessonId(lessonId);
+        attachmentRepository.delete(att);
     }
 
     /**
@@ -208,9 +284,21 @@ public class LessonAttachmentsService {
                 : isEnrolledStudentForPublishedLesson(classId, userId, lesson);
         if (!allowed) throw new AccessDeniedException(MSG_FORBIDDEN_FOR_CLASS);
 
-        Path absolute = storage.resolveAbsolutePath(att.getStoredPath());
+        // Dual-root: library-backed attachments resolve under uploads/library.
+        Path absolute = resolveAttachmentPath(att);
         return new DownloadHandle(absolute, att.getOriginalFilename(),
                 att.getMimeType(), att.getSizeBytes());
+    }
+
+    /**
+     * Picks library vs lesson storage from the attachment FK / path prefix.
+     * Shared with public-view so both entry points stay consistent.
+     */
+    Path resolveAttachmentPath(LessonAttachment att) {
+        if (att.isLibraryBacked() || UploadFileHelper.isLibraryStoredPath(att.getStoredPath())) {
+            return libraryStorage.resolveAbsolutePath(att.getStoredPath());
+        }
+        return storage.resolveAbsolutePath(att.getStoredPath());
     }
 
     // ── Internal helpers ───────────────────────────────────────────────

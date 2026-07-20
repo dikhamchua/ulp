@@ -6,14 +6,17 @@ import com.ulp.entities.LessonAttachment;
 import com.ulp.entities.PublicViewToken;
 import com.ulp.entities.Section;
 import com.ulp.entities.User;
-import com.ulp.entities.UserFactory;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
+import com.ulp.features.lessons.dto.LessonDtos.LessonAttachmentRow;
+import com.ulp.features.lessons.dto.LessonDtos.LessonRow;
 import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.PublicViewTokenRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.features.lessons.service.PublicViewTokenService.AttachmentHandle;
+import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
+import com.ulp.features.library.service.LibraryService;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
@@ -22,9 +25,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Files;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,16 +52,21 @@ class PublicViewTokenServiceTest {
     @Autowired private SectionRepository sectionRepository;
     @Autowired private ClassRepository classRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private LibraryService libraryService;
+    @Autowired private LessonsService lessonsService;
+    @Autowired private LessonAttachmentsService attachmentsService;
     @Autowired private EntityManager entityManager;
 
     private User lecturer;
     private LessonAttachment attachment;
+    private ClassEntity clazz;
+    private Section section;
 
     @BeforeEach
     void setUp() {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
-        ClassEntity clazz = saveClass("Token test class", "PVTCLS");
-        Section section = sectionRepository.saveAndFlush(
+        clazz = saveClass("Token test class", "PVTCLS");
+        section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         Lesson lesson = new Lesson(section.getId(), "Bài có tệp", (short) 0, lecturer.getId());
         lesson.updateContent("");
@@ -64,6 +75,10 @@ class PublicViewTokenServiceTest {
                 lesson.getId(), "slides.pptx", "stored/slides.pptx",
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 4096L, lecturer.getId()));
+    }
+
+    private static byte[] pdfBytes() {
+        return new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x37, 0x0A};
     }
 
     @Test
@@ -138,14 +153,40 @@ class PublicViewTokenServiceTest {
         assertThat(tokenRepository.findByToken(valid.getToken())).isPresent();
     }
 
+    @Test
+    void resolve_library_backed_attachment_uses_library_root_and_existing_file() throws Exception {
+        LibraryAssetRow asset = libraryService.upload(
+                lecturer.getId(),
+                new MockMultipartFile("file", "lib-slides.pdf", "application/pdf", pdfBytes()),
+                "DOCUMENT");
+        LessonRow lesson = lessonsService.create(
+                clazz.getId(), section.getId(), "Bài library view", "DRAFT", "",
+                lecturer.getId(), Role.LECTURER);
+        LessonAttachmentRow bound = attachmentsService.bindAttachmentFromLibrary(
+                clazz.getId(), section.getId(), lesson.id(), asset.id(),
+                lecturer.getId(), Role.LECTURER);
+
+        String url = tokenService.createPublicViewUrl(bound.id());
+        String token = url.substring(url.lastIndexOf('/') + 1);
+
+        AttachmentHandle handle = tokenService.resolve(token);
+
+        assertThat(handle.originalFilename()).isEqualTo("lib-slides.pdf");
+        assertThat(handle.mimeType()).isEqualTo("application/pdf");
+        assertThat(handle.absolutePath().toString()).contains("library");
+        assertThat(Files.exists(handle.absolutePath())).isTrue();
+        assertThat(Files.readAllBytes(handle.absolutePath())).startsWith("%PDF-".getBytes());
+    }
+
     private ClassEntity saveClass(String name, String code) {
         ClassEntity entity = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
                 null, null, null, 100);
-        entity.setCode(code);
+        // Unique code per run to avoid collisions with leftover rows.
+        entity.setCode(code + UUID.randomUUID().toString().substring(0, 4).toUpperCase());
         try {
             return classRepository.saveAndFlush(entity);
         } catch (DataIntegrityViolationException ex) {
-            entity.setCode(code + "x");
+            entity.setCode(code + "x" + UUID.randomUUID().toString().substring(0, 3));
             return classRepository.saveAndFlush(entity);
         }
     }

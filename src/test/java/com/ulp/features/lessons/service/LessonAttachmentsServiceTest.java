@@ -3,6 +3,7 @@ package com.ulp.features.lessons.service;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Enrollment;
 import com.ulp.entities.LessonAttachment;
+import com.ulp.entities.LibraryAsset;
 import com.ulp.entities.Section;
 import com.ulp.entities.User;
 import com.ulp.entities.UserFactory;
@@ -15,6 +16,10 @@ import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.features.lessons.service.LessonAttachmentsService.DownloadHandle;
+import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
+import com.ulp.features.library.repository.LibraryAssetRepository;
+import com.ulp.features.library.service.LibraryService;
+import com.ulp.features.upload.LibraryStorageService;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
@@ -28,6 +33,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,6 +56,9 @@ class LessonAttachmentsServiceTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
+    @Autowired private LibraryService libraryService;
+    @Autowired private LibraryAssetRepository libraryAssetRepository;
+    @Autowired private LibraryStorageService libraryStorage;
     @Autowired private EntityManager entityManager;
 
     private User lecturer;
@@ -230,6 +239,30 @@ class LessonAttachmentsServiceTest {
         var reloaded = lessonRepository.findById(lessonId).orElseThrow();
         assertThat(reloaded.getPdfAttachmentId()).isNull();
         assertThat(attachmentRepository.findById(row.id())).isEmpty();
+    }
+
+    @Test
+    void delete_library_backed_attachment_preserves_disk_file() throws Exception {
+        LibraryAssetRow asset = libraryService.upload(
+                lecturer.getId(),
+                new MockMultipartFile("file", "shared.pdf", "application/pdf", pdfBytes()),
+                "DOCUMENT");
+        LibraryAsset stored = libraryAssetRepository
+                .findByIdAndOwnerId(asset.id(), lecturer.getId()).orElseThrow();
+        Path absolute = libraryStorage.resolveAbsolutePath(stored.getStoredPath());
+        assertThat(Files.exists(absolute)).isTrue();
+
+        LessonAttachmentRow row = attachmentsService.bindAttachmentFromLibrary(
+                clazz.getId(), section.getId(), lessonId, asset.id(),
+                lecturer.getId(), Role.LECTURER);
+
+        attachmentsService.delete(clazz.getId(), section.getId(), lessonId, row.id(),
+                lecturer.getId(), Role.LECTURER);
+
+        assertThat(attachmentRepository.findById(row.id())).isEmpty();
+        assertThat(Files.exists(absolute)).isTrue();
+        assertThat(libraryAssetRepository.findByIdAndOwnerId(asset.id(), lecturer.getId()))
+                .isPresent();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

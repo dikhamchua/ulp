@@ -28,7 +28,7 @@ public interface LessonAttachmentRepository extends JpaRepository<LessonAttachme
      * files must be removed separately by the caller — see
      * {@code LessonAttachmentsService.deleteAllByLesson}.
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM LessonAttachment a WHERE a.lessonId = :lessonId")
     int deleteByLessonId(@Param("lessonId") Long lessonId);
 }

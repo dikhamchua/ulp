@@ -4,10 +4,12 @@ import com.ulp.common.HtmlSanitizer;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Lesson;
 import com.ulp.entities.LessonActivity;
+import com.ulp.entities.LibraryAsset;
 import com.ulp.features.classes.service.ClassesService;
 import com.ulp.features.lessons.dto.LessonDtos.LessonForm;
 import com.ulp.features.lessons.dto.LessonDtos.LessonRow;
 import com.ulp.features.lessons.repository.LessonRepository;
+import com.ulp.features.library.service.LibraryService;
 import com.ulp.features.upload.LessonVideoStorageService;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
@@ -22,9 +24,11 @@ import static com.ulp.common.IConstant.CONTENT_TYPE_RICHTEXT;
 import static com.ulp.common.IConstant.CONTENT_TYPE_VIDEO;
 import static com.ulp.common.IConstant.LESSON_STATUS_PUBLISHED;
 import static com.ulp.common.IConstant.MSG_LESSON_NOT_FOUND;
+import static com.ulp.common.IConstant.MSG_LIBRARY_BIND_INVALID_KIND;
 import static com.ulp.common.IConstant.VIDEO_PROVIDER_UPLOAD;
 import static com.ulp.common.IConstant.VIDEO_PROVIDER_VIMEO;
 import static com.ulp.common.IConstant.VIDEO_PROVIDER_YOUTUBE;
+import static com.ulp.entities.LibraryAsset.KIND_VIDEO;
 
 /**
  * Lesson CRUD service for the lessons tab.
@@ -56,6 +60,7 @@ public class LessonsService {
     private final LessonAttachmentsService attachmentsService;
     private final LessonContentTypeSwitcher contentTypeSwitcher;
     private final LessonVideoStorageService videoStorageService;
+    private final LibraryService libraryService;
 
     public LessonsService(LessonRepository lessonRepository,
                           ClassesService classesService,
@@ -64,7 +69,8 @@ public class LessonsService {
                           LessonsUpdateHelper updateHelper,
                           LessonAttachmentsService attachmentsService,
                           LessonContentTypeSwitcher contentTypeSwitcher,
-                          LessonVideoStorageService videoStorageService) {
+                          LessonVideoStorageService videoStorageService,
+                          LibraryService libraryService) {
         this.lessonRepository = lessonRepository;
         this.classesService = classesService;
         this.activityWriter = activityWriter;
@@ -73,6 +79,7 @@ public class LessonsService {
         this.attachmentsService = attachmentsService;
         this.contentTypeSwitcher = contentTypeSwitcher;
         this.videoStorageService = videoStorageService;
+        this.libraryService = libraryService;
     }
 
     /** Lists the lessons of a section in their authored order. Lecturers see
@@ -214,11 +221,18 @@ public class LessonsService {
         // lesson is soft-deleted — see design D2. A failure here aborts the
         // soft-delete so the lesson is never half-deleted with orphan files.
         attachmentsService.deleteAllByLesson(lessonId);
-        // VIDEO/UPLOAD: drop the MP4 file too. Safe to call when the lesson
-        // has no video — the storage service no-ops on a missing directory.
-        if (CONTENT_TYPE_VIDEO.equals(lesson.getContentType())
-                && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())) {
+        // One-off VIDEO/UPLOAD: drop the lesson MP4 dir. Library videos must
+        // never be deleted — only clear the FK on the lesson row.
+        boolean oneOffUploadVideo = CONTENT_TYPE_VIDEO.equals(lesson.getContentType())
+                && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
+                && !lesson.hasLibraryVideo();
+        if (oneOffUploadVideo) {
             videoStorageService.deleteByLessonId(lessonId);
+        }
+        // Release library video reference before soft-delete so delete-guard
+        // counts stay accurate for the library asset.
+        if (lesson.hasLibraryVideo()) {
+            lesson.setVideoLibraryAssetId(null);
         }
         lesson.markDeleted();
         lessonRepository.save(lesson);
@@ -252,6 +266,12 @@ public class LessonsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
+        // External URL replaces any previous library/one-off upload binding.
+        if (lesson.hasLibraryVideo()) {
+            lesson.setVideoLibraryAssetId(null);
+        } else if (VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())) {
+            videoStorageService.deleteByLessonId(lessonId);
+        }
         lesson.setVideoProvider(provider);
         lesson.setVideoUrl(url);
         return lessonRepository.save(lesson);
@@ -268,8 +288,37 @@ public class LessonsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
+        // Classic upload is one-off — clear any prior library video FK.
+        lesson.setVideoLibraryAssetId(null);
         lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
         lesson.setVideoUrl(relativePath);
+        return lessonRepository.save(lesson);
+    }
+
+    /**
+     * Binds an owned VIDEO library asset as the lesson uploaded video without
+     * copying disk bytes. Previous one-off lesson MP4s are wiped; library
+     * assets are never deleted.
+     */
+    @Transactional
+    public Lesson bindVideoFromLibrary(Long classId, Long sectionId, Long lessonId,
+                                       Long assetId, Long userId, Role role) {
+        classesService.getEditable(classId, userId, role);
+        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        Lesson lesson = loadLesson(sectionId, lessonId);
+        LibraryAsset asset = libraryService.getOwnedAsset(userId, assetId);
+        if (!KIND_VIDEO.equals(asset.getKind())) {
+            throw new IllegalArgumentException(MSG_LIBRARY_BIND_INVALID_KIND);
+        }
+        // Wipe previous one-off upload only — never delete library blobs.
+        if (!lesson.hasLibraryVideo()
+                && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())) {
+            videoStorageService.deleteByLessonId(lessonId);
+        }
+        lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
+        lesson.setVideoLibraryAssetId(asset.getId());
+        // Keep video_url populated for CHECK + stream fallbacks.
+        lesson.setVideoUrl(asset.getStoredPath());
         return lessonRepository.save(lesson);
     }
 
