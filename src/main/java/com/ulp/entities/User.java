@@ -87,7 +87,12 @@ public class User {
     @Column(name = "google_id", length = 100)
     private String googleId;
 
-    // â”€â”€ Sprint 3 admin-side constructor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    /** Owning department; optional for students / admins without a department. */
+    @Setter
+    @Column(name = "department_id")
+    private Long departmentId;
+
+    // ── Sprint 3 admin-side constructor ────────────────────────────────
 
     /**
      * Package-private constructor used by {@link UserFactory#newAdminCreated}.
@@ -195,6 +200,44 @@ public class User {
         this.emailVerified = emailVerified;
         this.phone = blankToNull(phone);
         this.bio = blankToNull(bio);
+    }
+
+    /**
+     * Bulk-updates admin-editable fields including optional department assignment.
+     *
+     * @param email          canonical, already-normalised email address
+     * @param fullName       display name
+     * @param role           target {@link Role}
+     * @param emailVerified  whether the admin marks the email as verified
+     * @param phone          optional phone number; blank strings stored as null
+     * @param bio            optional short biography; blank strings stored as null
+     * @param departmentId   optional department ownership
+     */
+    public void updateAdminFields(String email, String fullName, Role role,
+                                  boolean emailVerified, String phone, String bio,
+                                  Long departmentId) {
+        updateAdminFields(email, fullName, role, emailVerified, phone, bio);
+        this.departmentId = departmentId;
+    }
+
+    /**
+     * Promotes this user to HEAD of the given department.
+     * Used by admin department head assignment.
+     */
+    public void promoteToHead(Long departmentId) {
+        this.role = Role.HEAD;
+        this.departmentId = departmentId;
+    }
+
+    /**
+     * Demotes a former department head back to LECTURER.
+     * Keeps {@code departmentId} so the user remains in their department.
+     * Never demotes ADMIN.
+     */
+    public void demoteFromHeadToLecturer() {
+        if (this.role != Role.ADMIN) {
+            this.role = Role.LECTURER;
+        }
     }
 
     private static String blankToNull(String s) {

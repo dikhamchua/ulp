@@ -2,6 +2,8 @@ package com.ulp.features.classes.service;
 
 import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
+import com.ulp.entities.User;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.service.codes.ClassCodeGenerationException;
@@ -35,15 +37,18 @@ final class ClassCreator {
     private final ClassActivityWriter activityWriter;
     private final ClassCodeGenerator codeGenerator;
     private final InviteCodeService inviteCodeService;
+    private final UserRepository userRepository;
 
     ClassCreator(ClassRepository classRepository,
                  ClassActivityWriter activityWriter,
                  ClassCodeGenerator codeGenerator,
-                 InviteCodeService inviteCodeService) {
+                 InviteCodeService inviteCodeService,
+                 UserRepository userRepository) {
         this.classRepository = classRepository;
         this.activityWriter = activityWriter;
         this.codeGenerator = codeGenerator;
         this.inviteCodeService = inviteCodeService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -60,6 +65,10 @@ final class ClassCreator {
                     form.description(), form.startDate(), form.endDate(),
                     form.maxStudents());
             entity.setCode(codeGenerator.generate());
+            // Inherit department from lecturer when available so HEAD scope works.
+            userRepository.findById(userId)
+                    .map(User::getDepartmentId)
+                    .ifPresent(entity::setDepartmentId);
             try {
                 ClassEntity saved = classRepository.saveAndFlush(entity);
                 activityWriter.write(

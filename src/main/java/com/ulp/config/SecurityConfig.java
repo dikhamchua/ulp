@@ -145,6 +145,7 @@ public class SecurityConfig {
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
+                        .requestMatchers("/head/**").hasRole(Roles.HEAD)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
                         // WebSocket STOMP handshake rides the HTTP session; require auth.
                         .requestMatchers("/ws/**").authenticated()

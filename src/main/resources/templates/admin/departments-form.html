@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${mode == 'create' ? 'Admin | Tạo bộ môn' : 'Admin | Chỉnh sửa bộ môn'}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin-departments.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('departments')}"></aside>
+
+  <main class="col detail-page">
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},
+                   data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <div class="detail-toolbar">
+      <a th:href="@{/admin/departments}" class="toolbar-back">
+        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Quay lại
+      </a>
+      <span class="toolbar-spacer"></span>
+      <button type="submit" form="departmentForm" class="btn-primary toolbar-save"
+              th:disabled="${mode == 'edit' and activeDetailTab != 'info'}"
+              th:text="${mode == 'create' ? 'Tạo bộ môn' : 'Lưu'}">Lưu</button>
+    </div>
+
+    <!-- Create: static title. Edit: department name + status pill + tabs. -->
+    <th:block th:if="${mode == 'create'}">
+      <h1 class="detail-page-title">Tạo bộ môn</h1>
+    </th:block>
+    <th:block th:if="${mode == 'edit'}">
+      <h1 class="detail-page-title"
+          th:text="${form.name != null and !#strings.isEmpty(form.name) ? form.name : form.code}">
+        Bộ môn
+      </h1>
+      <div class="detail-page-meta">
+        <div class="meta-badges">
+          <span class="status-pill"
+                th:classappend="${form.active} ? 'status-active' : 'status-inactive'"
+                th:text="${form.active} ? 'Hiện' : 'Ẩn'">Hiện</span>
+        </div>
+        <span th:if="${form.code != null}">Mã:
+          <em th:text="${form.code}">CNTT</em>
+        </span>
+      </div>
+
+      <nav class="detail-tabs" aria-label="Phần chi tiết bộ môn">
+        <a class="detail-tab"
+           th:href="@{'/admin/departments/' + ${targetId} + '/edit'(tab='info')}"
+           th:classappend="${activeDetailTab == 'info'} ? 'active'">Thông tin chung</a>
+        <a class="detail-tab"
+           th:href="@{'/admin/departments/' + ${targetId} + '/edit'(tab='history')}"
+           th:classappend="${activeDetailTab == 'history'} ? 'active'">Lịch sử cập nhật</a>
+      </nav>
+    </th:block>
+
+    <div th:if="${mode == 'create' or activeDetailTab == 'info'}">
+      <form id="departmentForm"
+            th:action="${mode == 'create'} ? @{/admin/departments} : @{'/admin/departments/' + ${targetId} + '/edit'}"
+            th:object="${form}"
+            method="post"
+            class="users-form">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+        <section class="detail-card">
+          <h2 class="detail-card-title">Thông tin bộ môn</h2>
+          <div class="detail-form-grid">
+            <div class="form-row span-2">
+              <label for="nameInput">Tên bộ môn <span class="required">*</span></label>
+              <input id="nameInput" type="text" th:field="*{name}" required maxlength="200"
+                     placeholder="Ví dụ: Công nghệ thông tin">
+              <p class="field-error" th:if="${#fields.hasErrors('name')}"
+                 th:errors="*{name}">Tên lỗi</p>
+            </div>
+
+            <div class="form-row">
+              <label for="codeInput">Mã bộ môn <span class="required">*</span></label>
+              <input id="codeInput" type="text" th:field="*{code}" required maxlength="20"
+                     placeholder="CNTT">
+              <p class="field-help">Mã duy nhất, sẽ được chuẩn hoá thành chữ hoa.</p>
+              <p class="field-error" th:if="${#fields.hasErrors('code')}"
+                 th:errors="*{code}">Mã lỗi</p>
+            </div>
+
+            <div class="form-row span-3">
+              <label for="descInput">Mô tả</label>
+              <textarea id="descInput" th:field="*{description}" rows="4"
+                        placeholder="Mô tả ngắn về bộ môn (tuỳ chọn)"></textarea>
+              <p class="field-error" th:if="${#fields.hasErrors('description')}"
+                 th:errors="*{description}">Mô tả lỗi</p>
+            </div>
+
+            <div class="form-row span-3">
+              <label for="headSelect">Trưởng bộ môn</label>
+              <select id="headSelect" th:field="*{headUserId}">
+                <option value="">— Chưa gán —</option>
+                <option th:each="c : ${headCandidates}"
+                        th:value="${c.id()}"
+                        th:text="${c.fullName() + ' (' + c.email() + ') — ' + c.role()}">
+                  Candidate
+                </option>
+              </select>
+              <p class="field-help">Chỉ giảng viên / trưởng bộ môn đang hoạt động.
+                Gán sẽ nâng role lên HEAD; bỏ gán sẽ hạ role về LECTURER nếu không còn làm trưởng bộ môn nào.</p>
+            </div>
+
+            <div class="form-row span-3">
+              <div class="dept-status-toggle">
+                <div class="dept-status-toggle-text">
+                  <span class="dept-status-toggle-title">Hiển thị bộ môn</span>
+                  <span class="dept-status-toggle-help">Bật để bộ môn xuất hiện trong danh sách và form gán. Tắt để ẩn.</span>
+                </div>
+                <label class="dept-switch">
+                  <input type="checkbox" th:field="*{active}" id="activeInput">
+                  <span class="dept-switch-slider" aria-hidden="true"></span>
+                  <span class="sr-only">Hiển thị bộ môn</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Bottom actions only in create mode (edit uses toolbar Lưu). -->
+        <div class="form-actions" th:if="${mode == 'create'}">
+          <a th:href="@{/admin/departments}" class="btn-ghost">Huỷ</a>
+          <button type="submit" class="btn-primary">Tạo bộ môn</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- History tab — audit table (edit mode only). -->
+    <section class="detail-card"
+             th:if="${mode == 'edit' and activeDetailTab == 'history'}">
+      <h2 class="detail-card-title">Lịch sử cập nhật bộ môn</h2>
+
+      <div th:if="${activitiesPage == null or activitiesPage.empty}"
+           class="detail-empty" role="status" aria-live="polite">
+        Không có hoạt động quản trị nào được ghi nhận cho bộ môn này.
+      </div>
+
+      <div th:if="${activitiesPage != null and !activitiesPage.empty}">
+        <div class="admin-list-table-scroll">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Loại</th>
+                <th>Nội dung</th>
+                <th>Người thực hiện</th>
+                <th>Thời điểm</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="row : ${activitiesPage.content}">
+                <td>
+                  <span class="detail-type-badge" th:text="${row.type()}">TYPE</span>
+                </td>
+                <td th:text="${row.message() != null ? row.message() : '—'}">message</td>
+                <td th:text="${row.actorEmail() != null ? row.actorEmail() : '—'}">actor</td>
+                <td th:text="${row.createdAt() != null ? #temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm') : '—'}">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <nav th:if="${activitiesPage.totalPages > 1}" class="detail-pagination" aria-label="Phân trang">
+          <a class="page-link"
+             th:if="${!activitiesPage.first}"
+             th:href="@{'/admin/departments/' + ${targetId} + '/edit'(tab='history', page=${activitiesPage.number - 1})}">‹ Trước</a>
+          <span class="page-current"
+                th:text="'Trang ' + (${activitiesPage.number + 1}) + ' / ' + ${activitiesPage.totalPages}">Trang 1 / 1</span>
+          <a class="page-link"
+             th:if="${!activitiesPage.last}"
+             th:href="@{'/admin/departments/' + ${targetId} + '/edit'(tab='history', page=${activitiesPage.number + 1})}">Sau ›</a>
+        </nav>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin-departments.js}"></script>
+</body>
+</html>

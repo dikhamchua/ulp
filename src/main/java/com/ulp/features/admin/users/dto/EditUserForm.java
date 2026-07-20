@@ -44,7 +44,7 @@ public record EditUserForm(
                 u.getEmail(),
                 u.getFullName(),
                 u.getRole(),
-                null,
+                u.getDepartmentId(),
                 u.getPhone(),
                 u.getBio(),
                 u.isEmailVerified()

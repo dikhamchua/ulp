@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Trưởng bộ môn | Dashboard', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/head-department.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('head')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/head-sidebar :: headSidebar('dashboard')}"></aside>
+
+  <main class="col">
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},
+                   data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <h1 class="detail-title">Dashboard bộ môn</h1>
+    <p class="detail-sub" th:if="${headDepartment != null}"
+       th:text="'Tổng quan ' + ${headDepartment.name()}">Tổng quan</p>
+
+    <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
+      Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
+    </div>
+
+    <th:block th:if="${!emptyDepartment}">
+      <section class="head-kpi-grid">
+        <div class="head-kpi-card">
+          <div class="head-kpi-label">Lớp học</div>
+          <div class="head-kpi-value" th:text="${kpis.classCount()}">0</div>
+        </div>
+        <div class="head-kpi-card">
+          <div class="head-kpi-label">Giảng viên</div>
+          <div class="head-kpi-value" th:text="${kpis.lecturerCount()}">0</div>
+        </div>
+        <div class="head-kpi-card">
+          <div class="head-kpi-label">Sinh viên (ACTIVE)</div>
+          <div class="head-kpi-value" th:text="${kpis.studentCount()}">0</div>
+        </div>
+        <div class="head-kpi-card">
+          <div class="head-kpi-label">Khoá học</div>
+          <div class="head-kpi-value" th:text="${kpis.courseCount()}">0</div>
+        </div>
+      </section>
+
+      <section class="admin-list-panel" style="margin-top:1.5rem;">
+        <h2 class="detail-card-title">Lớp gần đây</h2>
+        <div th:if="${recentClasses == null or recentClasses.isEmpty()}" class="admin-list-empty">
+          Chưa có lớp nào thuộc bộ môn.
+        </div>
+        <table class="admin-list-table" th:if="${recentClasses != null and !recentClasses.isEmpty()}">
+          <thead>
+            <tr>
+              <th>Mã</th>
+              <th>Tên lớp</th>
+              <th>Giảng viên</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="c : ${recentClasses}">
+              <td><code th:text="${c.code()}">CODE</code></td>
+              <td th:text="${c.name()}">Tên</td>
+              <td th:text="${c.lecturerName()}">GV</td>
+              <td th:text="${c.status()}">STATUS</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </th:block>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/head-department.js}"></script>
+</body>
+</html>

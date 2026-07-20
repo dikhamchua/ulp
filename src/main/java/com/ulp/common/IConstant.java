@@ -491,4 +491,39 @@ public interface IConstant {
     String MSG_CATEGORY_ACTIVATED   = "Đã kích hoạt danh mục";
     String MSG_CATEGORY_DEACTIVATED = "Đã ẩn danh mục";
     String MSG_CATEGORY_NOT_FOUND   = "Không tìm thấy danh mục";
+
+    // ───────── Admin departments + HEAD shell ────────────────────────
+    String URL_ADMIN_DEPARTMENTS = "/admin/departments";
+    String VIEW_ADMIN_DEPARTMENTS      = "admin/departments";
+    String VIEW_ADMIN_DEPARTMENTS_FORM = "admin/departments-form";
+    String TAB_DEPARTMENTS = "departments";
+
+    String ATTR_DEPARTMENTS     = "departments";
+    String ATTR_HEAD_CANDIDATES = "headCandidates";
+    // Shared key "activitiesPage" — same string as users edit history tab.
+    String ATTR_ACTIVITIES_PAGE = "activitiesPage";
+
+    String MSG_DEPARTMENT_CREATED     = "Đã tạo bộ môn ";
+    String MSG_DEPARTMENT_UPDATED     = "Đã cập nhật bộ môn";
+    String MSG_DEPARTMENT_ACTIVATED   = "Đã hiện bộ môn";
+    String MSG_DEPARTMENT_DEACTIVATED = "Đã ẩn bộ môn";
+    String MSG_DEPARTMENT_NOT_FOUND   = "Không tìm thấy bộ môn";
+
+    // HEAD product area.
+    String BASE_HEAD              = "/head";
+    String URL_HEAD_DASHBOARD     = BASE_HEAD;
+    String URL_HEAD_ASSIGN        = BASE_HEAD + "/assign";
+    String URL_HEAD_REPORT        = BASE_HEAD + "/report";
+    String VIEW_HEAD_DASHBOARD    = "head/dashboard";
+    String VIEW_HEAD_ASSIGN       = "head/assign";
+    String VIEW_HEAD_REPORT       = "head/report";
+    String ATTR_HEAD_DEPARTMENT   = "headDepartment";
+    String ATTR_HEAD_KPIS         = "kpis";
+    String ATTR_HEAD_RECENT       = "recentClasses";
+    String ATTR_HEAD_CLASS_ROWS   = "classRows";
+    String ATTR_HEAD_LECTURERS    = "lecturers";
+    String ATTR_HEAD_REPORT_ROWS  = "reportRows";
+    String ATTR_HEAD_EMPTY        = "emptyDepartment";
+    String MSG_HEAD_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
+    String MSG_HEAD_REASSIGN_FAIL = "Không thể phân công giảng viên";
 }

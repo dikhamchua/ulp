@@ -1,7 +1,8 @@
 package com.ulp.features.auth.repository;
 
-import com.ulp.features.admin.users.dto.UserRow;
 import com.ulp.entities.User;
+import com.ulp.features.admin.users.dto.UserRow;
+import com.ulp.security.Role;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +11,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -258,4 +261,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                                         @Param("role") String role,
                                                         @Param("status") String status,
                                                         Pageable pageable);
+
+    /**
+     * Active users in the given roles, ordered by name.
+     * Soft-deleted rows are excluded by the entity {@code @SQLRestriction}.
+     */
+    List<User> findByRoleInAndActiveTrueOrderByFullNameAsc(Collection<Role> roles);
 }
