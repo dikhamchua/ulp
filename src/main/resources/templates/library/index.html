@@ -3,7 +3,7 @@
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head('Kho học liệu', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/library.css(v='3')}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/library.css(v='4')}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('library')}">
@@ -22,7 +22,9 @@
       method="post"
       enctype="multipart/form-data">
   <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-  <input type="hidden" name="kind" id="libraryUploadKind" value=""/>
+  <!-- kind = upload classification; returnKind = sidebar filter to restore on error -->
+  <input type="hidden" name="kind" id="libraryUploadKind" th:value="${libraryKind}"/>
+  <input type="hidden" name="returnKind" id="libraryReturnKind" th:value="${libraryKind}"/>
   <input type="file" name="file" id="libraryUploadInput" required
          accept=".pdf,.docx,.pptx,.xlsx,.zip,video/mp4,.mp4"/>
 </form>
@@ -157,75 +159,86 @@
       </button>
     </div>
 
-    <!-- List -->
-    <div class="asset-list" th:if="${libraryPage != null and !libraryPage.empty}">
-      <div th:each="item : ${libraryPage.content}"
-           class="asset-row"
-           th:attr="data-asset-id=${item.id()},data-asset-title=${item.title()},data-asset-kind=${item.kind()}">
+    <!-- Column list (no avatar/thumb) — mirrors classes manage list-head rows. -->
+    <div class="asset-table" th:if="${libraryPage != null and !libraryPage.empty}">
+      <div class="asset-list-head" role="row">
+        <div class="col-name">Tên hiển thị</div>
+        <div class="col">Tệp gốc</div>
+        <div class="col">Loại</div>
+        <div class="col">Dung lượng</div>
+        <div class="col">Cập nhật</div>
+        <div class="col col-actions" aria-hidden="true"></div>
+      </div>
 
-        <div class="asset-main">
-          <div class="asset-thumb"
-               th:classappend="${item.kind() == 'VIDEO'} ? ' thumb-video' : ' thumb-doc'"
-               th:attr="data-ext=${item.originalFilename()}"
-               th:text="${item.kind() == 'VIDEO'} ? 'MP4' : 'FILE'">FILE</div>
-          <div class="asset-info">
-            <h4 th:text="${item.title()}">slide-chuong-1.pdf</h4>
-            <div class="asset-meta">
-              <span class="asset-filename" th:text="${item.originalFilename()}">file.pdf</span>
-              <span class="dot" aria-hidden="true">·</span>
-              <span th:text="${item.sizeBytes() < 1024} ? (${item.sizeBytes()} + ' B')
-                           : (${item.sizeBytes() < 1048576}
-                              ? (${#numbers.formatDecimal(item.sizeBytes() / 1024.0, 1, 1)} + ' KB')
-                              : (${#numbers.formatDecimal(item.sizeBytes() / 1048576.0, 1, 1)} + ' MB'))">0 KB</span>
-              <span class="dot" aria-hidden="true">·</span>
-              <span th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'dd/MM/yyyy HH:mm') : '—'}">—</span>
+      <div class="asset-list" role="list">
+        <div th:each="item : ${libraryPage.content}"
+             class="asset-row"
+             role="listitem"
+             th:attr="data-asset-id=${item.id()},data-asset-title=${item.title()},data-asset-kind=${item.kind()}">
+
+          <div class="col-name">
+            <span class="asset-title" th:text="${item.title()}">slide-chuong-1.pdf</span>
+          </div>
+          <div class="col col-file">
+            <span class="asset-filename" th:text="${item.originalFilename()}">file.pdf</span>
+          </div>
+          <div class="col col-kind">
+            <span class="kind-pill"
+                  th:classappend="${item.kind() == 'VIDEO'} ? ' kind-video' : ' kind-doc'"
+                  th:text="${item.kind() == 'VIDEO'} ? 'Video' : 'Tài liệu'">Tài liệu</span>
+          </div>
+          <div class="col col-size"
+               th:text="${item.sizeBytes() < 1024} ? (${item.sizeBytes()} + ' B')
+                        : (${item.sizeBytes() < 1048576}
+                           ? (${#numbers.formatDecimal(item.sizeBytes() / 1024.0, 1, 1)} + ' KB')
+                           : (${#numbers.formatDecimal(item.sizeBytes() / 1048576.0, 1, 1)} + ' MB'))">0 KB</div>
+          <div class="col col-date"
+               th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'dd/MM/yyyy HH:mm') : '—'}">—</div>
+
+          <div class="col col-actions">
+            <div class="dropdown row-menu" style="position:relative;">
+              <button class="icon-btn" data-toggle="dropdown" type="button" aria-label="Tùy chọn học liệu">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
+                </svg>
+              </button>
+              <div class="menu right">
+                <button class="menu-item" type="button"
+                        data-action="rename-asset"
+                        th:attr="data-asset-id=${item.id()},data-asset-title=${item.title()}">
+                  <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                  </svg>
+                  Đổi tên
+                </button>
+                <div class="menu-sep"></div>
+                <button class="menu-item danger" type="button"
+                        data-action="delete-asset"
+                        th:attr="data-asset-id=${item.id()},data-asset-title=${item.title()}">
+                  <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  Xóa khỏi kho
+                </button>
+              </div>
             </div>
           </div>
+
+          <form th:id="'rename-form-' + ${item.id()}"
+                th:action="@{|/lecturer/library/${item.id()}/rename|}"
+                method="post" class="is-hidden">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="returnKind" th:value="${libraryKind}"/>
+            <input type="hidden" name="title" th:id="'rename-title-' + ${item.id()}" th:value="${item.title()}"/>
+          </form>
+          <form th:id="'delete-form-' + ${item.id()}"
+                th:action="@{|/lecturer/library/${item.id()}/delete|}"
+                method="post" class="is-hidden">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="returnKind" th:value="${libraryKind}"/>
+          </form>
         </div>
-
-        <span class="kind-pill"
-              th:classappend="${item.kind() == 'VIDEO'} ? ' kind-video' : ' kind-doc'"
-              th:text="${item.kind() == 'VIDEO'} ? 'Video' : 'Tài liệu'">Tài liệu</span>
-
-        <div class="dropdown row-menu" style="position:relative;">
-          <button class="icon-btn" data-toggle="dropdown" type="button" aria-label="Tùy chọn học liệu">
-            <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
-            </svg>
-          </button>
-          <div class="menu right">
-            <button class="menu-item" type="button"
-                    data-action="rename-asset"
-                    th:attr="data-asset-id=${item.id()},data-asset-title=${item.title()}">
-              <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-              </svg>
-              Đổi tên
-            </button>
-            <div class="menu-sep"></div>
-            <button class="menu-item danger" type="button"
-                    data-action="delete-asset"
-                    th:attr="data-asset-id=${item.id()},data-asset-title=${item.title()}">
-              <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              </svg>
-              Xóa khỏi kho
-            </button>
-          </div>
-        </div>
-
-        <form th:id="'rename-form-' + ${item.id()}"
-              th:action="@{|/lecturer/library/${item.id()}/rename|}"
-              method="post" class="is-hidden">
-          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-          <input type="hidden" name="title" th:id="'rename-title-' + ${item.id()}" th:value="${item.title()}"/>
-        </form>
-        <form th:id="'delete-form-' + ${item.id()}"
-              th:action="@{|/lecturer/library/${item.id()}/delete|}"
-              method="post" class="is-hidden">
-          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-        </form>
       </div>
     </div>
 
@@ -243,7 +256,28 @@
   </section>
 </main>
 
+<!-- Rename dialog — uses shared .ulp-modal styles from main.css. -->
+<dialog id="libraryRenameDialog" class="ulp-modal" aria-labelledby="libraryRenameTitle">
+  <form method="dialog" class="ulp-modal-form" id="libraryRenameDialogForm">
+    <h3 class="ulp-modal-title" id="libraryRenameTitle">Đổi tên học liệu</h3>
+    <div class="ulp-modal-body">
+      <label class="library-rename-field" for="libraryRenameInput">
+        <span>Tên hiển thị</span>
+        <input type="text" id="libraryRenameInput" name="title" maxlength="255"
+               autocomplete="off" required aria-describedby="libraryRenameHint"/>
+      </label>
+      <p class="library-rename-hint" id="libraryRenameHint">
+        Tên tệp gốc trên đĩa không đổi — chỉ đổi nhãn hiển thị trong kho.
+      </p>
+    </div>
+    <div class="ulp-modal-actions">
+      <button type="button" class="btn-ghost" id="libraryRenameCancel">Huỷ</button>
+      <button type="submit" class="btn-primary" id="libraryRenameConfirm">Lưu tên</button>
+    </div>
+  </form>
+</dialog>
+
 <script th:src="@{/js/app.js}"></script>
-<script th:src="@{/js/library.js(v='3')}" defer></script>
+<script th:src="@{/js/library.js(v='7')}" defer></script>
 </body>
 </html>

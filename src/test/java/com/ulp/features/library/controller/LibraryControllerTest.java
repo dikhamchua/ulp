@@ -121,7 +121,8 @@ class LibraryControllerTest {
         mockMvc.perform(multipart("/lecturer/library/upload").file(file).with(csrf())
                         .param("kind", "DOCUMENT"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/lecturer/library"));
+                // Successful upload lands on the asset's kind tab (DOCUMENT).
+                .andExpect(redirectedUrl("/lecturer/library?kind=DOCUMENT"));
 
         mockMvc.perform(get("/lecturer/library/api").param("kind", "DOCUMENT"))
                 .andExpect(status().isOk())

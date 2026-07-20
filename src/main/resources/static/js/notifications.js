@@ -20,10 +20,16 @@
 
   function drainFlash() {
     var el = document.getElementById('flash-data');
-    if (!el) return;
+    if (!el || el.getAttribute('data-flash-drained') === '1') return;
     var ok = el.getAttribute('data-flash-success');
     var err = el.getAttribute('data-flash-error');
     var info = el.getAttribute('data-flash-info');
+    // Mark drained first so page scripts (library.js, classes.js, …) that also
+    // read #flash-data cannot fire a second toast for the same flash payload.
+    el.setAttribute('data-flash-drained', '1');
+    el.removeAttribute('data-flash-success');
+    el.removeAttribute('data-flash-error');
+    el.removeAttribute('data-flash-info');
     if (ok && ok !== 'null' && ok.trim()) {
       window.UlpToast && window.UlpToast.success(ok.trim());
     }
