@@ -46,6 +46,11 @@ public class ClassEntity {
     @Column(name = "lecturer_id", nullable = false)
     private Long lecturerId;
 
+    /** Owning department; nullable until backfilled or set on create. */
+    @Setter
+    @Column(name = "department_id")
+    private Long departmentId;
+
     @Column(name = "start_date")
     private LocalDate startDate;
 
@@ -131,5 +136,13 @@ public class ClassEntity {
      */
     public void softDelete() {
         this.deleted = true;
+    }
+
+    /**
+     * Reassigns the teaching lecturer without changing department ownership.
+     * Used by HEAD lecturer-assignment flows.
+     */
+    public void reassignLecturer(Long lecturerId) {
+        this.lecturerId = lecturerId;
     }
 }

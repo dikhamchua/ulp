@@ -5,7 +5,6 @@ import com.ulp.features.admin.dto.AdminDashboardDtos.RecentClass;
 import com.ulp.features.admin.dto.AdminDashboardDtos.UserRoleCount;
 import com.ulp.features.admin.service.AdminDashboardService;
 import com.ulp.security.Roles;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -26,8 +25,9 @@ import static com.ulp.common.IConstant.*;
  *   <li>{@code /dashboard} — platform statistics, role breakdown chart, and recent
  *       classes (Sprint 2 wireframe).</li>
  *   <li>{@code /settings}  — settings index page (links to Email, General, etc.).</li>
- *   <li>{@code /users}, {@code /departments}, {@code /classes}
- *       — placeholder views; real data wired in Sprint 6.</li>
+ *   <li>{@code /classes} — placeholder view; real data wired later.</li>
+ *   <li>{@code /departments} — handled by
+ *       {@link com.ulp.features.admin.departments.controller.AdminDepartmentsController}.</li>
  * </ul>
  *
  * <p>The {@code /admin/settings/email} sub-tab is handled by
@@ -52,12 +52,10 @@ public class AdminController {
     private static final String ATTR_RECENT_CLASSES  = "recentClasses";
 
     // ── Placeholder tab keys ──────────────────────────────────────
-    private static final String TAB_DEPARTMENTS = "departments";
-    private static final String TAB_CLASSES     = "classes";
+    private static final String TAB_CLASSES = "classes";
 
     // ── Placeholder labels (Vietnamese sidebar text) ──────────────
-    private static final String LABEL_DEPARTMENTS = "Bộ môn";
-    private static final String LABEL_CLASSES     = "Lớp học";
+    private static final String LABEL_CLASSES = "Lớp học";
 
     /** Recent-classes panel size on the dashboard. */
     private static final int RECENT_CLASSES_LIMIT = 5;
@@ -95,27 +93,16 @@ public class AdminController {
         return VIEW_SETTINGS;
     }
 
-    /** Renders a placeholder view for tabs not yet implemented (Sprint 6). */
-    @GetMapping({"/departments", "/classes"})
-    public String placeholder(HttpServletRequest request, Model model) {
-        String path = request.getRequestURI();
-        String tab = path.substring(path.lastIndexOf('/') + 1);
-        populateSidebar(model, tab);
-        model.addAttribute(ATTR_PLACEHOLDER_TAB, tab);
-        model.addAttribute(ATTR_PLACEHOLDER_LABEL, labelFor(tab));
+    /** Renders a placeholder view for tabs not yet implemented. */
+    @GetMapping("/classes")
+    public String placeholder(Model model) {
+        populateSidebar(model, TAB_CLASSES);
+        model.addAttribute(ATTR_PLACEHOLDER_TAB, TAB_CLASSES);
+        model.addAttribute(ATTR_PLACEHOLDER_LABEL, LABEL_CLASSES);
         return VIEW_PLACEHOLDER;
     }
 
     private void populateSidebar(Model model, String activeTab) {
         model.addAttribute(ATTR_ACTIVE_TAB, activeTab);
-    }
-
-    /** Maps a tab key to its Vietnamese sidebar label; unknown keys pass through. */
-    private static String labelFor(String tab) {
-        return switch (tab) {
-            case TAB_DEPARTMENTS -> LABEL_DEPARTMENTS;
-            case TAB_CLASSES     -> LABEL_CLASSES;
-            default -> tab;
-        };
     }
 }

@@ -84,4 +84,12 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      */
     @Query("SELECT c.id FROM ClassEntity c WHERE c.lecturerId = :lecturerId")
     List<Long> findClassIdsForLecturer(@Param("lecturerId") Long lecturerId);
+
+    /** Non-deleted classes owned by a department, newest first. */
+    List<ClassEntity> findAllByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
+
+    /** Paginated department-scoped class list. */
+    Page<ClassEntity> findAllByDepartmentId(Long departmentId, Pageable pageable);
+
+    long countByDepartmentId(Long departmentId);
 }

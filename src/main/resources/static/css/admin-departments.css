@@ -1,0 +1,124 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Admin Departments page (list + form)
+   ----------------------------------------------------------------------------
+   Reuses the users shell (toolbar, table, form controls) via admin-users.css.
+   This file only holds department-specific overrides.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Unassigned head label in the list table. */
+.muted {
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
+}
+
+/* List: department name as primary link (looks like plain name until hover). */
+a.dept-name-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a.dept-name-link:hover,
+a.dept-name-link:focus-visible {
+  color: var(--color-primary, #2563eb);
+  text-decoration: underline;
+  outline: none;
+}
+
+/* ── Status visibility toggle (form) ─────────────────────────────────────── */
+.dept-status-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--color-surface-muted, #f9fafb);
+}
+
+.dept-status-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dept-status-toggle-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text, #111827);
+}
+
+.dept-status-toggle-help {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* Pure-CSS switch — accessible, keyboard-focusable via the checkbox. */
+.dept-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.dept-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.dept-switch-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--color-border-strong, #d1d5db);
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+
+.dept-switch-slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s ease;
+}
+
+.dept-switch input:checked + .dept-switch-slider {
+  background: var(--color-primary, #2563eb);
+}
+
+.dept-switch input:checked + .dept-switch-slider::before {
+  transform: translateX(20px);
+}
+
+.dept-switch input:focus-visible + .dept-switch-slider {
+  outline: 2px solid var(--color-primary, #2563eb);
+  outline-offset: 2px;
+}
+
+/* Screen-reader-only label text for the switch. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

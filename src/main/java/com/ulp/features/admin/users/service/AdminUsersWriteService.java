@@ -77,6 +77,7 @@ public class AdminUsersWriteService {
                 StringUtils.blankToNull(form.phone()),
                 StringUtils.blankToNull(form.bio())
         );
+        u.setDepartmentId(form.departmentId());
         User saved = userRepository.save(u);
 
         auditWriter.write(saved.getId(), UserActivity.TYPE_CREATED,
@@ -120,7 +121,8 @@ public class AdminUsersWriteService {
                 form.role(),
                 form.emailVerified(),
                 form.phone(),
-                form.bio()
+                form.bio(),
+                form.departmentId()
         );
         User saved = userRepository.save(target);
 
@@ -178,6 +180,7 @@ public class AdminUsersWriteService {
         m.put("emailVerified", u.isEmailVerified());
         m.put("phone", u.getPhone());
         m.put("bio", u.getBio());
+        m.put("departmentId", u.getDepartmentId());
         return m;
     }
 }

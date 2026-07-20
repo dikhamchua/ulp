@@ -1,6 +1,7 @@
 package com.ulp.features.classes.service;
 
 import com.ulp.security.Role;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.entities.ClassActivity;
@@ -58,6 +59,7 @@ class ClassesServiceTest {
     private ClassActivityWriter activityWriter;
     private ClassCodeGenerator codeGenerator;
     private InviteCodeService inviteCodeService;
+    private UserRepository userRepository;
     private ClassesService service;
 
     @BeforeEach
@@ -67,8 +69,10 @@ class ClassesServiceTest {
         activityWriter = mock(ClassActivityWriter.class);
         codeGenerator = mock(ClassCodeGenerator.class);
         inviteCodeService = mock(InviteCodeService.class);
+        userRepository = mock(UserRepository.class);
+        when(userRepository.findById(any())).thenReturn(Optional.empty());
         service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService);
+                codeGenerator, inviteCodeService, userRepository);
         when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
                 .thenReturn(Optional.empty());
     }

@@ -29,6 +29,8 @@
        th:href="@{/lecturer/dashboard}" th:classappend="${active == 'dashboard'} ? 'active'">Tổng quan</a>
     <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
        th:href="@{/lecturer/classes}" th:classappend="${active == 'classes'} ? 'active'">Lớp học</a>
+    <a sec:authorize="hasRole('HEAD')"
+       th:href="@{/head}" th:classappend="${active == 'head'} ? 'active'">Bộ môn</a>
     <a sec:authorize="hasRole('ADMIN')"
        th:href="@{/admin/dashboard}" th:classappend="${active == 'admin'} ? 'active'">Quản trị</a>
   </nav>

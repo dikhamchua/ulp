@@ -3,6 +3,7 @@ package com.ulp.features.classes.service;
 import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.ClassInviteCode;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.features.classes.repository.ClassInviteCodeRepository;
@@ -61,12 +62,13 @@ public class ClassesService {
                           ClassInviteCodeRepository inviteCodeRepository,
                           ClassActivityWriter activityWriter,
                           ClassCodeGenerator codeGenerator,
-                          InviteCodeService inviteCodeService) {
+                          InviteCodeService inviteCodeService,
+                          UserRepository userRepository) {
         this.classRepository = classRepository;
         this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
         this.creator = new ClassCreator(classRepository, activityWriter,
-                codeGenerator, inviteCodeService);
+                codeGenerator, inviteCodeService, userRepository);
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────

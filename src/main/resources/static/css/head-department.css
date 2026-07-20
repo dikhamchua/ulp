@@ -1,0 +1,45 @@
+.head-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.head-kpi-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.head-kpi-label {
+  font-size: 0.85rem;
+  color: var(--muted, #6b7280);
+}
+
+.head-kpi-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.head-assign-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.head-assign-form select {
+  min-width: 160px;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.muted {
+  color: var(--muted, #6b7280);
+  font-style: italic;
+}

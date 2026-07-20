@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<!--
+  Fragment: headSidebar(activeTab)
+    activeTab : 'dashboard' | 'assign' | 'report'
+-->
+<aside th:fragment="headSidebar(activeTab)" class="col">
+  <div class="side">
+    <div class="class-head">
+      <div class="class-name">Trưởng bộ môn</div>
+      <div class="class-ma" th:if="${headDepartment != null}"
+           th:text="${headDepartment.code() + ' — ' + headDepartment.name()}">BM</div>
+      <div class="class-ma" th:if="${headDepartment == null}">Chưa gán bộ môn</div>
+    </div>
+
+    <div class="side-sep"></div>
+    <p class="menu-title">Bộ môn</p>
+
+    <ul class="side-nav">
+      <li>
+        <a th:href="@{/head}"
+           th:classappend="${activeTab == 'dashboard'} ? 'active' : ''">
+          Dashboard
+        </a>
+      </li>
+      <li>
+        <a th:href="@{/head/assign}"
+           th:classappend="${activeTab == 'assign'} ? 'active' : ''">
+          Phân công GV
+        </a>
+      </li>
+      <li>
+        <a th:href="@{/head/report}"
+           th:classappend="${activeTab == 'report'} ? 'active' : ''">
+          Báo cáo
+        </a>
+      </li>
+    </ul>
+  </div>
+</aside>
+</html>
