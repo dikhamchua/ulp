@@ -42,6 +42,20 @@
         Quay lại
       </a>
       <span class="toolbar-spacer"></span>
+      <th:block th:if="${mode == 'edit' and lesson != null}">
+        <form th:action="@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/save-template|}"
+              method="post" class="toolbar-secondary-form" style="display:inline;">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit" class="btn btn-secondary btn-sm" id="lessonSaveTemplateBtn">
+            Lưu vào kho
+          </button>
+        </form>
+        <button type="button" class="btn btn-secondary btn-sm" id="lessonCloneBtn"
+                th:attr="data-clone-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/clone|},
+                         data-lesson-title=${lesson.title}">
+          Clone sang lớp
+        </button>
+      </th:block>
       <button type="submit" form="lessonForm" class="toolbar-save"
               th:text="${mode == 'edit' ? 'Lưu thay đổi' : 'Tạo bài giảng'}">Tạo bài giảng</button>
     </div>
@@ -528,6 +542,7 @@
 <script th:src="@{/js/class-detail.js}"></script>
 <link rel="stylesheet" th:href="@{/css/library.css}">
 <script th:if="${mode == 'edit'}" th:src="@{/js/library-picker.js}" defer></script>
+<script th:if="${mode == 'edit'}" th:src="@{/js/lesson-clone-wizard.js(v='1')}" defer></script>
 <!-- Lesson attachments uploader (ULP-4.0c) — only active in edit mode. -->
 <script th:if="${mode == 'edit'}" th:src="@{/js/lesson-attachments.js}" defer></script>
 <!-- Lesson content-type picker + sub-section toggling + confirm modal. -->

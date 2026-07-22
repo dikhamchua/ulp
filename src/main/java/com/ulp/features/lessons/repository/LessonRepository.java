@@ -1,6 +1,8 @@
 package com.ulp.features.lessons.repository;
 
 import com.ulp.entities.Lesson;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -63,6 +65,39 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     /** Loads a lesson scoped by section to harden the URL hierarchy. */
     Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);
+
+    /**
+     * Lessons belonging to classes owned by {@code lecturerId}, newest update first.
+     * Optional title search and optional {@code classId} filter. Used by the
+     * library "Bài giảng" rail.
+     */
+    @Query("""
+            SELECT l FROM Lesson l, Section s, ClassEntity c
+            WHERE l.sectionId = s.id AND s.classId = c.id
+              AND c.lecturerId = :lecturerId
+              AND (:classId IS NULL OR c.id = :classId)
+              AND (
+                    :q IS NULL OR :q = ''
+                    OR LOWER(l.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                  )
+            ORDER BY l.updatedAt DESC, l.id DESC
+            """)
+    Page<Lesson> searchByLecturerId(
+            @Param("lecturerId") Long lecturerId,
+            @Param("q") String q,
+            @Param("classId") Long classId,
+            Pageable pageable);
+
+    /** Count of live lessons across classes owned by the lecturer (optional class filter). */
+    @Query("""
+            SELECT COUNT(l) FROM Lesson l, Section s, ClassEntity c
+            WHERE l.sectionId = s.id AND s.classId = c.id
+              AND c.lecturerId = :lecturerId
+              AND (:classId IS NULL OR c.id = :classId)
+            """)
+    long countByLecturerId(
+            @Param("lecturerId") Long lecturerId,
+            @Param("classId") Long classId);
 
     /**
      * Returns the highest {@code display_order} currently used for the given

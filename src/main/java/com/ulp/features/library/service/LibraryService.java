@@ -5,6 +5,8 @@ import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPageView;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPickerItem;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPickerPage;
+import com.ulp.features.library.repository.LessonTemplateAttachmentRepository;
+import com.ulp.features.library.repository.LessonTemplateRepository;
 import com.ulp.features.library.repository.LibraryAssetRepository;
 import com.ulp.features.upload.LibraryStorageService;
 import com.ulp.features.upload.LibraryStorageService.StoredLibraryFile;
@@ -36,11 +38,17 @@ public class LibraryService {
 
     private final LibraryAssetRepository assetRepository;
     private final LibraryStorageService storage;
+    private final LessonTemplateRepository templateRepository;
+    private final LessonTemplateAttachmentRepository templateAttachmentRepository;
 
     public LibraryService(LibraryAssetRepository assetRepository,
-                          LibraryStorageService storage) {
+                          LibraryStorageService storage,
+                          LessonTemplateRepository templateRepository,
+                          LessonTemplateAttachmentRepository templateAttachmentRepository) {
         this.assetRepository = assetRepository;
         this.storage = storage;
+        this.templateRepository = templateRepository;
+        this.templateAttachmentRepository = templateAttachmentRepository;
     }
 
     /** SSR page list with search / kind filter / pagination. */
@@ -135,11 +143,17 @@ public class LibraryService {
                 .orElseThrow(() -> new EntityNotFoundException(MSG_LIBRARY_ASSET_NOT_FOUND));
     }
 
-    /** Attachment rows + non-deleted lesson video FKs that still use the asset. */
+    /**
+     * Attachment rows + non-deleted lesson video FKs + template body/attachment
+     * FKs that still use the asset.
+     */
     @Transactional(readOnly = true)
     public long countReferences(Long assetId) {
         return assetRepository.countAttachmentReferences(assetId)
-                + assetRepository.countLessonVideoReferences(assetId);
+                + assetRepository.countLessonVideoReferences(assetId)
+                + templateRepository.countPdfAssetReferences(assetId)
+                + templateRepository.countVideoAssetReferences(assetId)
+                + templateAttachmentRepository.countByLibraryAssetId(assetId);
     }
 
     private static PageRequest pageRequest(int page, int size) {

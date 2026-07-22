@@ -183,6 +183,111 @@
         }
       });
     });
+
+    // Lesson templates: rename / delete / clone (wizard).
+    document.querySelectorAll('[data-action="rename-template"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-template-id');
+        var current = btn.getAttribute('data-template-title') || '';
+        if (!id) return;
+        // Reuse the asset rename dialog but target template forms.
+        if (!renameDlg || !renameInput) return;
+        pendingRenameId = 'tpl:' + id;
+        renameInput.value = current;
+        if (typeof renameDlg.showModal === 'function') {
+          renameDlg.showModal();
+        } else {
+          renameDlg.setAttribute('open', '');
+        }
+        setTimeout(function () {
+          renameInput.focus();
+          renameInput.select();
+        }, 30);
+      });
+    });
+
+    // Patch submitRename to support template ids prefixed with tpl:
+    var originalSubmitRename = submitRename;
+    submitRename = function () {
+      if (pendingRenameId && String(pendingRenameId).indexOf('tpl:') === 0) {
+        var tid = String(pendingRenameId).slice(4);
+        var next = String(renameInput.value || '').trim();
+        if (!next) {
+          toast('error', 'Tên mẫu không được để trống');
+          renameInput.focus();
+          return;
+        }
+        var tform = document.getElementById('rename-template-form-' + tid);
+        var thidden = document.getElementById('rename-template-title-' + tid);
+        if (!tform || !thidden) return;
+        thidden.value = next;
+        closeRenameDialog();
+        tform.submit();
+        return;
+      }
+      originalSubmitRename();
+    };
+
+    document.querySelectorAll('[data-action="delete-template"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-template-id');
+        var title = btn.getAttribute('data-template-title') || 'mẫu này';
+        if (!id) return;
+        var form = document.getElementById('delete-template-form-' + id);
+        if (!form) return;
+
+        function doDelete() {
+          form.submit();
+        }
+
+        if (window.UlpModal && typeof window.UlpModal.confirm === 'function') {
+          window.UlpModal.confirm({
+            title: 'Xóa mẫu bài giảng?',
+            body: 'Xóa mẫu "' + title + '"? Thao tác này không xoá các bài giảng đã clone.',
+            confirmLabel: 'Xóa',
+            onConfirm: doDelete
+          });
+        } else if (window.confirm('Xóa mẫu "' + title + '"?')) {
+          doDelete();
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-action="clone-template"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-template-id');
+        var title = btn.getAttribute('data-template-title') || '';
+        var url = btn.getAttribute('data-clone-url');
+        if (!id || !url) return;
+        if (window.LessonCloneWizard && typeof window.LessonCloneWizard.open === 'function') {
+          window.LessonCloneWizard.open({
+            mode: 'template',
+            cloneUrl: url,
+            title: title
+          });
+        } else {
+          toast('error', 'Không mở được trình clone');
+        }
+      });
+    });
+
+    // Live lessons listed on the Bài giảng rail.
+    document.querySelectorAll('[data-action="clone-lesson"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var title = btn.getAttribute('data-lesson-title') || '';
+        var url = btn.getAttribute('data-clone-url');
+        if (!url) return;
+        if (window.LessonCloneWizard && typeof window.LessonCloneWizard.open === 'function') {
+          window.LessonCloneWizard.open({
+            mode: 'lesson',
+            cloneUrl: url,
+            title: title
+          });
+        } else {
+          toast('error', 'Không mở được trình clone');
+        }
+      });
+    });
   }
 
   function ready(fn) {

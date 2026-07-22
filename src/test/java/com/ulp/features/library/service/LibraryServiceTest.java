@@ -15,6 +15,7 @@ import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.features.lessons.service.LessonAttachmentsService;
 import com.ulp.features.lessons.service.LessonsService;
+import com.ulp.features.library.dto.LibraryDtos.AttachTargetSectionRow;
 import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPickerPage;
 import com.ulp.features.library.repository.LibraryAssetRepository;
@@ -31,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class LibraryServiceTest {
 
     @Autowired private LibraryService libraryService;
+    @Autowired private LibraryAttachTargetsService attachTargetsService;
     @Autowired private LibraryAssetRepository assetRepository;
     @Autowired private LibraryStorageService libraryStorage;
     @Autowired private UserRepository userRepository;
@@ -147,6 +150,27 @@ class LibraryServiceTest {
     }
 
     @Test
+    void bind_pdf_from_library_switches_content_type_to_pdf() throws Exception {
+        LibraryAssetRow row = libraryService.upload(lecturer.getId(), somePdf("main.pdf"), null);
+        ClassEntity clazz = saveClass("Lib pdf type", lecturer.getId());
+        Section section = sectionRepository.saveAndFlush(
+                new Section(clazz.getId(), "Ch1", (short) 0, lecturer.getId()));
+        LessonRow lesson = lessonsService.create(
+                clazz.getId(), section.getId(), "L-pdf", "DRAFT", "",
+                lecturer.getId(), Role.LECTURER);
+        assertThat(lesson.contentType()).isEqualTo(Lesson.CONTENT_TYPE_RICHTEXT);
+
+        LessonAttachmentRow bound = attachmentsService.bindPdfFromLibrary(
+                clazz.getId(), section.getId(), lesson.id(), row.id(),
+                lecturer.getId(), Role.LECTURER);
+
+        Lesson reloaded = lessonRepository.findById(lesson.id()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_PDF);
+        assertThat(reloaded.getPdfAttachmentId()).isEqualTo(bound.id());
+        assertThat(reloaded.getContentRichtext()).isNull();
+    }
+
+    @Test
     void delete_blocked_when_referenced_by_lesson_video() throws Exception {
         LibraryAssetRow row = libraryService.upload(lecturer.getId(), someMp4("clip.mp4"), "VIDEO");
         ClassEntity clazz = saveClass("Lib video ref", lecturer.getId());
@@ -180,6 +204,9 @@ class LibraryServiceTest {
                 lecturer.getId(), Role.LECTURER);
         assertThat(bound.getVideoLibraryAssetId()).isEqualTo(video.id());
         assertThat(bound.getVideoUrl()).startsWith("library/");
+        // Wizard bind must flip content type so student views render the player.
+        assertThat(bound.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_VIDEO);
+        assertThat(bound.getVideoProvider()).isEqualTo("UPLOAD");
 
         assertThatThrownBy(() -> lessonsService.bindVideoFromLibrary(
                 clazz.getId(), section.getId(), lesson.id(), doc.id(),
@@ -188,6 +215,7 @@ class LibraryServiceTest {
         // Previous library video binding must remain after the rejected DOCUMENT attempt.
         Lesson reloaded = lessonRepository.findById(lesson.id()).orElseThrow();
         assertThat(reloaded.getVideoLibraryAssetId()).isEqualTo(video.id());
+        assertThat(reloaded.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_VIDEO);
     }
 
     @Test
@@ -200,6 +228,24 @@ class LibraryServiceTest {
         assertThat(mine.items().stream().map(i -> i.originalFilename()))
                 .contains("mine.pdf")
                 .doesNotContain("theirs.pdf");
+    }
+
+    @Test
+    void listSections_creates_default_chuong_1_when_empty() {
+        ClassEntity emptyClass = saveClass("Empty secs " + UUID.randomUUID(), lecturer.getId());
+        assertThat(sectionRepository.findByClassIdOrderByDisplayOrderAsc(emptyClass.getId())).isEmpty();
+
+        List<AttachTargetSectionRow> first = attachTargetsService.listSections(
+                emptyClass.getId(), lecturer.getId(), Role.LECTURER);
+        assertThat(first).hasSize(1);
+        assertThat(first.get(0).title()).isEqualTo("Chương 1");
+        assertThat(first.get(0).id()).isNotNull();
+
+        // Second call must not create another default section.
+        List<AttachTargetSectionRow> second = attachTargetsService.listSections(
+                emptyClass.getId(), lecturer.getId(), Role.LECTURER);
+        assertThat(second).hasSize(1);
+        assertThat(second.get(0).id()).isEqualTo(first.get(0).id());
     }
 
     @Test

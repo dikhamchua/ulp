@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 
 import static com.ulp.common.IConstant.MSG_ATTACHMENT_EXT_NOT_ALLOWED;
@@ -78,6 +79,46 @@ public class LibraryStorageService {
                 UploadFileHelper.mimeForExtension(ext),
                 file.getSize(),
                 originalName,
+                resolvedKind);
+    }
+
+    /**
+     * Copies an existing on-disk file into {@code library/{ownerId}/} as a new
+     * library blob. Used when promoting one-off lesson uploads into the personal
+     * library so templates/clones never share lesson-scoped paths.
+     *
+     * @param sourceAbsolute absolute path of the source file (must exist)
+     * @param ownerId        library owner
+     * @param originalFilename client-facing filename (extension drives MIME/kind)
+     * @param kind           DOCUMENT or VIDEO
+     */
+    public StoredLibraryFile copyFromPath(Path sourceAbsolute, Long ownerId,
+                                          String originalFilename, String kind)
+            throws IOException {
+        if (sourceAbsolute == null || !Files.isRegularFile(sourceAbsolute)) {
+            throw new IllegalArgumentException(MSG_ATTACHMENT_INVALID);
+        }
+        String name = originalFilename == null || originalFilename.isBlank()
+                ? sourceAbsolute.getFileName().toString()
+                : originalFilename;
+        String ext = UploadFileHelper.extractLowercaseExtension(name);
+        String resolvedKind = resolveKind(kind, ext);
+
+        Path ownerDir = UploadFileHelper.requireChildOf(
+                libraryRoot, libraryRoot.resolve(String.valueOf(ownerId)));
+        Files.createDirectories(ownerDir);
+
+        String filename = UploadFileHelper.newUuidFilename(ext);
+        Path dest = ownerDir.resolve(filename);
+        Files.copy(sourceAbsolute, dest, StandardCopyOption.REPLACE_EXISTING);
+
+        String storedRelative = LIBRARY_PATH_PREFIX + ownerId + "/" + filename;
+        long size = Files.size(dest);
+        return new StoredLibraryFile(
+                storedRelative,
+                UploadFileHelper.mimeForExtension(ext),
+                size,
+                name,
                 resolvedKind);
     }
 

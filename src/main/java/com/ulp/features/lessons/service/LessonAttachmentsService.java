@@ -9,6 +9,7 @@ import com.ulp.entities.Section;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.ClassesService;
 import com.ulp.features.lessons.dto.LessonDtos.LessonAttachmentRow;
+import com.ulp.features.lessons.dto.LessonDtos.LessonForm;
 import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.ulp.common.IConstant.CONTENT_TYPE_PDF;
 import static com.ulp.common.IConstant.LESSON_STATUS_PUBLISHED;
 import static com.ulp.common.IConstant.MSG_ATTACHMENT_NOT_FOUND;
 import static com.ulp.common.IConstant.MSG_FORBIDDEN_FOR_CLASS;
@@ -63,6 +65,7 @@ public class LessonAttachmentsService {
     private final LessonsReorderService reorderService;
     private final EnrollmentRepository enrollmentRepository;
     private final LessonActivityWriter activityWriter;
+    private final LessonContentTypeSwitcher contentTypeSwitcher;
 
     public LessonAttachmentsService(LessonAttachmentRepository attachmentRepository,
                                     LessonRepository lessonRepository,
@@ -73,7 +76,8 @@ public class LessonAttachmentsService {
                                     ClassesService classesService,
                                     LessonsReorderService reorderService,
                                     EnrollmentRepository enrollmentRepository,
-                                    LessonActivityWriter activityWriter) {
+                                    LessonActivityWriter activityWriter,
+                                    LessonContentTypeSwitcher contentTypeSwitcher) {
         this.attachmentRepository = attachmentRepository;
         this.lessonRepository = lessonRepository;
         this.sectionRepository = sectionRepository;
@@ -84,6 +88,7 @@ public class LessonAttachmentsService {
         this.reorderService = reorderService;
         this.enrollmentRepository = enrollmentRepository;
         this.activityWriter = activityWriter;
+        this.contentTypeSwitcher = contentTypeSwitcher;
     }
 
     /** Lists attachments of a lesson — used to preload the edit page. */
@@ -162,7 +167,8 @@ public class LessonAttachmentsService {
 
     /**
      * Binds an owned DOCUMENT library asset (PDF MIME) as the lesson main PDF
-     * without copying disk bytes.
+     * without copying disk bytes, then switches the lesson content type to PDF
+     * so student views render the PDF body (wizard path has no form save).
      */
     @Transactional
     public LessonAttachmentRow bindPdfFromLibrary(Long classId, Long sectionId, Long lessonId,
@@ -181,15 +187,24 @@ public class LessonAttachmentsService {
                 lessonId, asset.getOriginalFilename(), asset.getStoredPath(),
                 asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId());
         LessonAttachment saved = attachmentRepository.saveAndFlush(row);
+        // Required data must exist before type switch validates PDF shape.
         lesson.setPdfAttachmentId(saved.getId());
         lessonRepository.saveAndFlush(lesson);
 
         if (previousMainId != null && !previousMainId.equals(saved.getId())) {
             attachmentRepository.findById(previousMainId).ifPresent(this::removeAttachmentRow);
         }
+        // Standalone bind (wizard) never hits lesson-form save — flip type here.
+        contentTypeSwitcher.applyTo(lesson, typeSwitchForm(lesson, CONTENT_TYPE_PDF));
         activityWriter.write(lessonId, LessonActivity.TYPE_PDF_UPLOADED,
                 "Gắn PDF từ kho: " + saved.getOriginalFilename(), userId);
         return toRow(saved);
+    }
+
+    /** Minimal form carrying only the target content type for type-switch. */
+    private static LessonForm typeSwitchForm(Lesson lesson, String contentType) {
+        return new LessonForm(lesson.getTitle(), lesson.getStatus(), null,
+                contentType, lesson.getVideoUrl(), lesson.getVideoProvider());
     }
 
     /**

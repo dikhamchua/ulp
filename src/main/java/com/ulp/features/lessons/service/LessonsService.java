@@ -274,7 +274,10 @@ public class LessonsService {
         }
         lesson.setVideoProvider(provider);
         lesson.setVideoUrl(url);
-        return lessonRepository.save(lesson);
+        Lesson saved = lessonRepository.save(lesson);
+        activityWriter.write(lessonId, LessonActivity.TYPE_VIDEO_SET,
+                "Cập nhật video ngoài: " + provider, userId);
+        return saved;
     }
 
     /**
@@ -292,13 +295,17 @@ public class LessonsService {
         lesson.setVideoLibraryAssetId(null);
         lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
         lesson.setVideoUrl(relativePath);
-        return lessonRepository.save(lesson);
+        Lesson saved = lessonRepository.save(lesson);
+        activityWriter.write(lessonId, LessonActivity.TYPE_VIDEO_SET,
+                "Tải lên video MP4", userId);
+        return saved;
     }
 
     /**
      * Binds an owned VIDEO library asset as the lesson uploaded video without
-     * copying disk bytes. Previous one-off lesson MP4s are wiped; library
-     * assets are never deleted.
+     * copying disk bytes, then switches content type to VIDEO so student views
+     * render the player (wizard path has no form save). Previous one-off
+     * lesson MP4s are wiped; library assets are never deleted.
      */
     @Transactional
     public Lesson bindVideoFromLibrary(Long classId, Long sectionId, Long lessonId,
@@ -319,7 +326,16 @@ public class LessonsService {
         lesson.setVideoLibraryAssetId(asset.getId());
         // Keep video_url populated for CHECK + stream fallbacks.
         lesson.setVideoUrl(asset.getStoredPath());
-        return lessonRepository.save(lesson);
+        // Standalone bind (wizard) never hits lesson-form save — flip type here.
+        contentTypeSwitcher.applyTo(lesson, new LessonForm(
+                lesson.getTitle(), lesson.getStatus(), null,
+                CONTENT_TYPE_VIDEO, lesson.getVideoUrl(), lesson.getVideoProvider()));
+        String label = asset.getTitle() != null && !asset.getTitle().isBlank()
+                ? asset.getTitle()
+                : asset.getOriginalFilename();
+        activityWriter.write(lessonId, LessonActivity.TYPE_VIDEO_SET,
+                "Gắn video từ kho: " + label, userId);
+        return lesson;
     }
 
     /** Looks up a lesson with the standard class/section auth chain. */

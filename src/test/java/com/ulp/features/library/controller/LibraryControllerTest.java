@@ -1,11 +1,13 @@
 package com.ulp.features.library.controller;
 
 import com.ulp.entities.ClassEntity;
+import com.ulp.entities.LessonActivity;
 import com.ulp.entities.Section;
 import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.lessons.dto.LessonDtos.LessonRow;
+import com.ulp.features.lessons.repository.LessonActivityRepository;
 import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.features.lessons.service.LessonsService;
@@ -53,6 +55,7 @@ class LibraryControllerTest {
     @Autowired private SectionRepository sectionRepository;
     @Autowired private LessonsService lessonsService;
     @Autowired private LessonAttachmentRepository attachmentRepository;
+    @Autowired private LessonActivityRepository activityRepository;
 
     private User lecturer;
     private Long classId;
@@ -189,5 +192,123 @@ class LibraryControllerTest {
 
         assertThat(libraryService.list(lecturer.getId(), "used", "DOCUMENT", 0, 20).page().getContent())
                 .anyMatch(i -> i.id().equals(asset.id()));
+    }
+
+    @Test
+    @WithUserDetails("student@ulp.edu.vn")
+    void student_targets_forbidden() throws Exception {
+        mockMvc.perform(get("/lecturer/library/targets/classes"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void targets_classes_sections_lessons_and_summary_shape() throws Exception {
+        // Search by unique class name — first page alone may omit older fixtures.
+        mockMvc.perform(get("/lecturer/library/targets/classes").param("q", "Lib MVC class"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.items[0].id").value(classId))
+                .andExpect(jsonPath("$.items[0].name").value("Lib MVC class"));
+
+        mockMvc.perform(get("/lecturer/library/targets/classes/{cid}/sections", classId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].id").value(sectionId))
+                .andExpect(jsonPath("$[0].title").value("Ch"));
+
+        mockMvc.perform(get("/lecturer/library/targets/classes/{cid}/sections/{sid}/lessons",
+                        classId, sectionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].id").value(lessonId))
+                .andExpect(jsonPath("$[0].title").value("Bài lib"));
+
+        mockMvc.perform(get(
+                        "/lecturer/library/targets/classes/{cid}/sections/{sid}/lessons/{lid}/content-summary",
+                        classId, sectionId, lessonId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lessonId").value(lessonId))
+                .andExpect(jsonPath("$.hasMainPdf").value(false))
+                .andExpect(jsonPath("$.hasUploadedVideo").value(false));
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void targets_foreign_class_forbidden() throws Exception {
+        User other = userRepository.findByEmailIgnoreCase("admin@ulp.edu.vn").orElseThrow();
+        ClassEntity foreign = saveClass("Foreign class", other.getId());
+
+        mockMvc.perform(get("/lecturer/library/targets/classes/{cid}/sections", foreign.getId()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void bind_attachment_and_video_from_library() throws Exception {
+        LibraryAssetRow doc = libraryService.upload(
+                lecturer.getId(),
+                new MockMultipartFile("file", "note.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        new byte[]{0x50, 0x4B, 0x03, 0x04}),
+                "DOCUMENT");
+        mockMvc.perform(post("/lecturer/classes/{cid}/sections/{sid}/lessons/{lid}/attachments/from-library",
+                        classId, sectionId, lessonId)
+                        .param("assetId", String.valueOf(doc.id()))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.originalFilename").value("note.docx"));
+
+        // ftyp box at offset 4 — same shape as LibraryServiceTest.mp4Bytes().
+        LibraryAssetRow video = libraryService.upload(
+                lecturer.getId(),
+                new MockMultipartFile("file", "clip.mp4", "video/mp4",
+                        new byte[]{
+                                0x00, 0x00, 0x00, 0x20,
+                                0x66, 0x74, 0x79, 0x70,
+                                'i', 's', 'o', 'm',
+                                0x00, 0x00, 0x02, 0x00
+                        }),
+                "VIDEO");
+        mockMvc.perform(post("/lecturer/classes/{cid}/sections/{sid}/lessons/{lid}/content/video-from-library",
+                        classId, sectionId, lessonId)
+                        .param("assetId", String.valueOf(video.id()))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.videoProvider").value("UPLOAD"));
+
+        mockMvc.perform(get(
+                        "/lecturer/library/targets/classes/{cid}/sections/{sid}/lessons/{lid}/content-summary",
+                        classId, sectionId, lessonId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasUploadedVideo").value(true));
+
+        // History tab must show the library-video bind (was missing before).
+        assertThat(activityRepository.findByLessonIdOrderByCreatedAtDesc(
+                lessonId, org.springframework.data.domain.PageRequest.of(0, 20)).getContent())
+                .anyMatch(a -> LessonActivity.TYPE_VIDEO_SET.equals(a.getType())
+                        && a.getDescription() != null
+                        && a.getDescription().contains("clip.mp4"));
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void library_page_includes_attach_menu() throws Exception {
+        libraryService.upload(
+                lecturer.getId(),
+                new MockMultipartFile("file", "menu.pdf", "application/pdf", pdfBytes()),
+                "DOCUMENT");
+        mockMvc.perform(get("/lecturer/library"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Thêm vào lớp")))
+                .andExpect(content().string(containsString("library-attach-wizard.js")))
+                .andExpect(content().string(containsString("libraryAttachWizard")))
+                .andExpect(content().string(containsString("library-bulk-select.js")))
+                .andExpect(content().string(containsString("librarySelectAll")))
+                .andExpect(content().string(containsString("librarySelectionBar")))
+                .andExpect(content().string(containsString("library-row-check")))
+                .andExpect(content().string(containsString("Gắn vào lớp")));
     }
 }
