@@ -251,6 +251,31 @@
                 </svg>
                 <span>Sửa</span>
               </a>
+              <form th:action="@{'/lecturer/classes/' + ${clazz.id}
+                                + '/sections/' + ${selectedSectionId}
+                                + '/lessons/' + ${l.id()} + '/save-template'}"
+                    method="post">
+                <input type="hidden"
+                       th:name="${_csrf.parameterName}"
+                       th:value="${_csrf.token}">
+                <button type="submit">
+                  <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                  </svg>
+                  <span>Lưu vào kho</span>
+                </button>
+              </form>
+              <button type="button"
+                      data-action="clone-lesson"
+                      th:attr="data-clone-url=@{|/lecturer/classes/${clazz.id}/sections/${selectedSectionId}/lessons/${l.id()}/clone|},
+                               data-lesson-title=${l.title()}">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" fill="none"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                <span>Clone sang lớp</span>
+              </button>
               <!-- Publish toggle — form POST so CSRF stays enforced. The
                    form posts to either /publish or /unpublish based on the
                    current status. -->
@@ -303,9 +328,11 @@
   </main>
 </div>
 
+<link rel="stylesheet" th:href="@{/css/library.css}">
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/class-detail.js}"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
 <script th:src="@{/js/sections.js}"></script>
+<script th:src="@{/js/lesson-clone-wizard.js(v='1')}" defer></script>
 </body>
 </html>

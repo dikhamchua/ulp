@@ -1,5 +1,6 @@
 package com.ulp.features.library.controller;
 
+import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPageView;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPickerPage;
@@ -36,11 +37,14 @@ import static com.ulp.common.IConstant.ATTR_LIBRARY_KIND;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_PAGE;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_QUERY;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_SIZE;
+import static com.ulp.common.IConstant.ATTR_LIBRARY_TAB;
+import static com.ulp.common.IConstant.ATTR_LIBRARY_TEMPLATE_COUNT;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_TOTAL_COUNT;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_VIDEO_COUNT;
 import static com.ulp.common.IConstant.ATTR_PAGER_PARAMS;
 import static com.ulp.common.IConstant.BASE_LECTURER;
 import static com.ulp.common.IConstant.DEFAULT_LIBRARY_PAGE_SIZE;
+import static com.ulp.common.IConstant.LIBRARY_TAB_TEMPLATES;
 import static com.ulp.common.IConstant.MSG_ATTACHMENT_TOO_LARGE;
 import static com.ulp.common.IConstant.MSG_GENERIC_RETRY;
 import static com.ulp.common.IConstant.MSG_LIBRARY_DELETED;
@@ -66,27 +70,39 @@ public class LibraryController {
     private static final String REDIRECT_LIBRARY = "redirect:" + URL_LIBRARY;
 
     private final LibraryService libraryService;
+    private final LessonRepository lessonRepository;
 
-    public LibraryController(LibraryService libraryService) {
+    public LibraryController(LibraryService libraryService,
+                             LessonRepository lessonRepository) {
         this.libraryService = libraryService;
+        this.lessonRepository = lessonRepository;
     }
 
     @GetMapping
     public String page(@RequestParam(name = "q", defaultValue = "") String q,
                        @RequestParam(name = "kind", defaultValue = "") String kind,
+                       @RequestParam(name = "tab", defaultValue = "") String tab,
                        @RequestParam(name = "page", defaultValue = "0") int page,
                        @RequestParam(name = "size",
                                defaultValue = "" + DEFAULT_LIBRARY_PAGE_SIZE) int size,
                        @AuthenticationPrincipal UlpUserDetails user,
                        Model model) {
+        // Dedicated templates rail lives on /library/templates — bounce ?tab=.
+        if (LIBRARY_TAB_TEMPLATES.equalsIgnoreCase(blankToNull(tab))) {
+            return "redirect:" + URL_LIBRARY + "/templates";
+        }
         LibraryPageView view = libraryService.list(user.getId(), q, kind, page, size);
         model.addAttribute(ATTR_LIBRARY_PAGE, view.page());
         model.addAttribute(ATTR_LIBRARY_QUERY, view.q());
         model.addAttribute(ATTR_LIBRARY_KIND, view.kind());
+        model.addAttribute(ATTR_LIBRARY_TAB, "");
         model.addAttribute(ATTR_LIBRARY_SIZE, view.page().getSize());
         model.addAttribute(ATTR_LIBRARY_TOTAL_COUNT, view.totalCount());
         model.addAttribute(ATTR_LIBRARY_DOCUMENT_COUNT, view.documentCount());
         model.addAttribute(ATTR_LIBRARY_VIDEO_COUNT, view.videoCount());
+        // Sidebar "Bài giảng" badge = live lessons across owned classes.
+        model.addAttribute(ATTR_LIBRARY_TEMPLATE_COUNT,
+                lessonRepository.countByLecturerId(user.getId(), null));
         model.addAttribute(ATTR_PAGER_PARAMS, pagerParams(view.q(), view.kind(), view.page().getSize()));
         return VIEW_LIBRARY;
     }
