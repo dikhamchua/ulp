@@ -63,6 +63,9 @@
     function mountWithQuill(form) {
         var questionsHost = document.getElementById('lfQuestions');
         var imageUrl = form.getAttribute('data-image-url') || '/lecturer/tests/images';
+        var bankSearchUrl = form.getAttribute('data-bank-search-url') || '';
+        var bankInsertUrl = form.getAttribute('data-bank-insert-url') || '';
+        var editUrl = form.getAttribute('data-edit-url') || '';
         var editId = null;
 
         var builder = window.LfBuilder.create({
@@ -110,12 +113,14 @@
                 // Reading mode always clears media so backend stores null/null.
                 mediaType: mode.isMediaMode() ? (val('lfMediaType') || null) : null,
                 mediaUrl: mode.isMediaMode() ? (val('lfMediaUrl') || null) : null,
-                questions: builder.collectQuestions()
+                questions: builder.collectQuestions(),
+                questionBankLocked: form.dataset.questionBankLocked === '1'
             };
         }
 
         function hydrate(f) {
             editId = f.id;
+            form.dataset.questionBankLocked = f.questionBankLocked ? '1' : '0';
             document.getElementById('lfTitle').value = f.title || '';
             if (f.classId != null) document.getElementById('lfClass').value = f.classId;
             if (f.type) document.getElementById('lfType').value = f.type;
@@ -133,10 +138,149 @@
             (f.questions || []).forEach(function (q) { builder.addQuestion(q); });
         }
 
+        function readBankSearchUrl() {
+            return bankSearchUrl;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function plainPreview(html) {
+            var host = document.createElement('div');
+            host.innerHTML = html || '';
+            return (host.textContent || host.innerText || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function isQuestionBankLocked() {
+            return form.dataset.questionBankLocked === '1';
+        }
+
+        function bindQuestionAddButton(button, handler) {
+            if (!button) return;
+            button.addEventListener('click', function () {
+                if (isQuestionBankLocked()) {
+                    toast('error', 'Bài test đã có bài nộp nên không thể thêm câu hỏi mới từ ngân hàng.');
+                    return;
+                }
+                handler();
+            });
+        }
+
+        function renderBankResults(items) {
+            var host = document.getElementById('lfBankResults');
+            var state = document.getElementById('lfBankState');
+            if (!host || !state) return;
+            if (!items || !items.length) {
+                host.innerHTML = '';
+                state.textContent = 'Không tìm thấy câu hỏi đã duyệt phù hợp bộ lọc.';
+                return;
+            }
+            state.textContent = 'Chọn câu hỏi đã được HEAD duyệt để chèn snapshot vào bài test hiện tại.';
+            host.innerHTML = items.map(function (item) {
+                var preview = escapeHtml(plainPreview(item.content));
+                var optionHtml = (item.options || []).map(function (opt) {
+                    return '<li class="lf-bank-option' + (opt.correct ? ' is-correct' : '') + '">'
+                        + escapeHtml(plainPreview(opt.content)) + (opt.correct ? ' (Đúng)' : '') + '</li>';
+                }).join('');
+                return '<article class="lf-bank-item">'
+                    + '<div class="lf-bank-item-head">'
+                    + '<div><div class="lf-bank-meta"><span>' + escapeHtml(item.categoryName || '—') + '</span>'
+                    + '<span>' + escapeHtml(item.questionType || 'MCQ') + '</span></div>'
+                    + '<div class="lf-bank-preview">' + preview + '</div></div>'
+                    + '<button type="button" class="tst-btn lf-bank-add" data-bank-id="' + escapeHtml(String(item.id)) + '">Chèn vào đề</button>'
+                    + '</div>'
+                    + '<ol class="lf-bank-options">' + optionHtml + '</ol>'
+                    + '</article>';
+            }).join('');
+            host.querySelectorAll('[data-bank-id]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (isQuestionBankLocked()) {
+                        toast('error', 'Bài test đã có bài nộp nên không thể thêm câu hỏi mới từ ngân hàng.');
+                        return;
+                    }
+                    insertFromBank(Number(btn.getAttribute('data-bank-id')), btn);
+                });
+            });
+        }
+
+        // Server-side snapshot insert: POST the chosen approved id so the backend
+        // copies it into exam-owned rows, then reload the info tab to show it.
+        function insertFromBank(itemId, btn) {
+            if (!bankInsertUrl) {
+                toast('error', 'Lưu bài test trước khi chèn câu hỏi từ ngân hàng.');
+                return;
+            }
+            if (btn) btn.disabled = true;
+            window.FcCommon.postJson(bankInsertUrl, { itemIds: [itemId] })
+                .then(function () {
+                    toast('success', 'Đã chèn câu hỏi từ ngân hàng vào bài test.');
+                    // Reload the info tab so the newly persisted question appears.
+                    window.location.href = editUrl ? (editUrl + '?tab=info') : window.location.href;
+                })
+                .catch(function (err) {
+                    if (btn) btn.disabled = false;
+                    toast('error', err.message || 'Không chèn được câu hỏi từ ngân hàng.');
+                });
+        }
+
+        function runBankSearch() {
+            var state = document.getElementById('lfBankState');
+            var host = document.getElementById('lfBankResults');
+            if (state) state.textContent = 'Đang tải câu hỏi cộng tác đã duyệt...';
+            if (host) host.innerHTML = '';
+            var url = new URL(readBankSearchUrl(), window.location.origin);
+            var categoryId = val('lfBankCategory');
+            var query = val('lfBankQuery');
+            if (categoryId) url.searchParams.set('categoryId', categoryId);
+            if (query) url.searchParams.set('q', query);
+            fetch(url.toString(), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+                .then(function (res) {
+                    return res.json().then(function (data) {
+                        if (!res.ok || !data || !data.ok) {
+                            throw new Error((data && data.message) || 'Không tải được danh sách câu hỏi cộng tác của bài test.');
+                        }
+                        return data.data || [];
+                    });
+                })
+                .then(renderBankResults)
+                .catch(function (err) {
+                    if (state) state.textContent = err.message || 'Không tải được danh sách câu hỏi cộng tác của bài test.';
+                });
+        }
+
+        function bindBankPicker() {
+            var picker = document.getElementById('lfBankPicker');
+            var openBtn = document.getElementById('lfOpenBankPicker');
+            var closeBtn = document.getElementById('lfBankClose');
+            var searchBtn = document.getElementById('lfBankSearch');
+            if (!picker || !openBtn || !closeBtn || !searchBtn) return;
+            closeBtn.addEventListener('click', function () {
+                picker.hidden = true;
+            });
+            searchBtn.addEventListener('click', runBankSearch);
+            document.getElementById('lfBankQuery').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    runBankSearch();
+                }
+            });
+        }
+
         mode.bind();
-        document.getElementById('lfAddQuestion').addEventListener('click', function () {
+        bindQuestionAddButton(document.getElementById('lfAddQuestion'), function () {
             builder.addQuestion(null);
         });
+        bindQuestionAddButton(document.getElementById('lfOpenBankPicker'), function () {
+            var picker = document.getElementById('lfBankPicker');
+            if (picker) picker.hidden = false;
+        });
+        bindBankPicker();
 
         function rewriteAllDataImages() {
             var editors = [];
@@ -216,6 +360,7 @@
         if (data) {
             hydrate(data);
         } else {
+            form.dataset.questionBankLocked = '0';
             // Create mode defaults to reading passage + empty question set.
             mode.mountDescriptionEditor('');
             mode.setExamMode('READING');

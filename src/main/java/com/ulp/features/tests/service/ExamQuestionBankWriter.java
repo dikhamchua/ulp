@@ -59,6 +59,31 @@ public class ExamQuestionBankWriter {
         return map;
     }
 
+    /**
+     * Appends the submitted questions as exam-owned snapshot rows after the
+     * existing set, without touching current questions/options. Used by
+     * insert-from-bank so approved shared questions are copied (not live-linked)
+     * into the test. Returns the number of questions appended.
+     */
+    public int appendQuestions(Long testId, List<QuestionForm> questions) {
+        List<Question> existing = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId);
+        int order = existing.size() + 1;
+        int appended = 0;
+        for (QuestionForm qf : questions) {
+            String contentHtml = HtmlSanitizer.sanitize(qf.content());
+            Question q = new Question(testId, defaultQuestionType(qf.type()), contentHtml,
+                    trimToNull(qf.explanation()), qf.points(), order++);
+            Long qId = questionRepository.save(q).getId();
+            int optOrder = 1;
+            for (OptionForm of : qf.options()) {
+                String optionHtml = HtmlSanitizer.sanitize(of.content());
+                optionRepository.save(new QuestionOption(qId, optionHtml, of.correct(), optOrder++));
+            }
+            appended++;
+        }
+        return appended;
+    }
+
     /** Deletes existing questions/options and inserts the submitted set in order. */
     public void replaceQuestions(Long testId, List<QuestionForm> questions) {
         List<Question> existing = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId);

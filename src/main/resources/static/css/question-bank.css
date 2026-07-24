@@ -1,0 +1,856 @@
+.qb-page {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 0 2rem;
+}
+
+.qb-toolbar,
+.qb-review-head,
+.qb-submit-bar,
+.qb-filter-actions,
+.qb-toolbar-actions,
+.qb-row-actions,
+.qb-inline-form,
+.qb-review-meta,
+.qb-import-head,
+.qb-import-summary,
+.qb-meta-wrap,
+.qb-filter-grid,
+.qb-review-actions {
+  display: flex;
+}
+
+.qb-toolbar,
+.qb-review-head,
+.qb-submit-bar,
+.qb-filter-actions,
+.qb-toolbar-actions,
+.qb-row-actions,
+.qb-review-meta,
+.qb-import-head,
+.qb-import-summary,
+.qb-meta-wrap,
+.qb-review-actions {
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.qb-toolbar,
+.qb-review-head,
+.qb-import-head {
+  justify-content: space-between;
+}
+
+.qb-toolbar {
+  margin: 0 0 1rem;
+}
+
+/* Toolbar actions wrap so secondary buttons stay aligned with .create-btn. */
+.qb-toolbar-actions {
+  flex-wrap: wrap;
+}
+
+/* Primary create button. This screen does not load classes.css (where the
+   shared .create-btn lives), so the rule is redefined here as a green pill. */
+.qb-toolbar-actions .create-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 9px;
+  background: var(--green, #2bb673);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.qb-toolbar-actions .create-btn:hover {
+  background: #1f9a5e;
+}
+
+/* Secondary toolbar buttons (download / import / manage) share the pill
+   geometry of .create-btn (42px tall, radius 9px) but in an outlined style.
+   Applies to both <a> and <label> so the file-picker trigger matches. */
+.qb-toolbar-actions .toolbar-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 9px;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  background: #fff;
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.qb-toolbar-actions .toolbar-secondary:hover {
+  background: #f3f4f6;
+  border-color: var(--color-border-strong, #d1d5db);
+  color: var(--color-text, #111827);
+}
+
+.qb-toolbar + .admin-list-empty,
+.qb-toolbar + .detail-card,
+.qb-page > .admin-list-panel,
+.qb-page > .detail-card {
+  margin-top: 0;
+}
+
+.qb-page .detail-title,
+.qb-page .detail-page-title {
+  margin-bottom: 0.35rem;
+}
+
+.qb-page .detail-sub {
+  margin: 0 0 1.25rem;
+  max-width: 72ch;
+}
+
+.qb-filter-grid,
+.qb-form-grid,
+.qb-audit-grid,
+.qb-category-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.qb-filter-grid,
+.qb-form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.qb-category-form {
+  margin-bottom: 1rem;
+}
+
+.qb-input,
+.qb-inline-note,
+.qb-option-text,
+.qb-category-form .qb-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg, #fff);
+  color: var(--color-text, #111827);
+  font: inherit;
+}
+
+.qb-input:focus,
+.qb-inline-note:focus,
+.qb-option-text:focus,
+.qb-category-form .qb-input:focus {
+  outline: none;
+  border-color: var(--color-primary, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.qb-filter-panel,
+.qb-import-panel {
+  margin-bottom: 1rem;
+}
+
+.qb-filter-panel {
+  padding: 1rem 1.125rem;
+}
+
+.qb-filter-actions {
+  justify-content: flex-end;
+}
+
+.qb-import-trigger {
+  cursor: pointer;
+}
+
+.qb-import-summary {
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.qb-import-badge {
+  border-radius: 999px;
+  background: var(--color-primary-soft, #eff6ff);
+  color: var(--color-primary-hover, #1d4ed8);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+}
+
+.qb-import-badge.is-error {
+  background: var(--color-danger-soft, #fef2f2);
+  color: var(--color-danger-hover, #b91c1c);
+}
+
+.qb-import-badge.is-ready {
+  background: var(--color-success-soft, #d1fae5);
+  color: var(--color-success, #065f46);
+}
+
+.qb-import-empty {
+  margin-top: 1rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.qb-import-table-wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.qb-import-table td,
+.qb-import-table th {
+  vertical-align: top;
+}
+
+.qb-import-message {
+  min-width: 240px;
+}
+
+.qb-table .qb-row-actions,
+.qb-review-card .qb-row-actions {
+  flex-wrap: wrap;
+}
+
+.qb-table td,
+.qb-table th {
+  vertical-align: top;
+}
+
+.qb-title-link {
+  color: var(--color-text, #111827);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.qb-title-link:hover {
+  text-decoration: underline;
+}
+
+.qb-status-draft { background: #eef2ff; color: #4338ca; }
+.qb-status-review { background: #fff7ed; color: #c2410c; }
+.qb-status-approved { background: #ecfdf5; color: #047857; }
+.qb-status-rejected { background: #fef2f2; color: #b91c1c; }
+.qb-status-archived { background: #f3f4f6; color: #374151; }
+
+/* Stat-header icon gradients — mirror the admin dashboard .stat-icon pattern. */
+.stat-icon.qb-review   { background: linear-gradient(135deg, #FFB74D, #FB8C00); }
+.stat-icon.qb-approved { background: linear-gradient(135deg, #66BB6A, #43A047); }
+.stat-icon.qb-rejected { background: linear-gradient(135deg, #EF5350, #E53935); }
+.stat-icon.qb-archived { background: linear-gradient(135deg, #90A4AE, #607D8B); }
+
+/* Stat cards are clickable links here — strip anchor underline/inherit color. */
+a.stat-card,
+a.stat-card:hover {
+  text-decoration: none;
+  color: inherit;
+}
+
+.qb-meta-wrap {
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.qb-rich {
+  line-height: 1.7;
+  color: var(--color-text, #111827);
+}
+
+.qb-rich p:last-child {
+  margin-bottom: 0;
+}
+
+.qb-explanation,
+.qb-option-list,
+.qb-options-panel,
+.qb-review-note {
+  margin-top: 1.25rem;
+}
+
+.qb-explanation h3,
+.qb-review-note h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-heading-navy, #1e3a8a);
+  margin-bottom: 0.5rem;
+}
+
+.qb-option-row,
+.qb-option-form-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.qb-option-body {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.qb-option-mark,
+.qb-option-check {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--color-neutral-soft, #f3f4f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--color-text-secondary, #374151);
+}
+
+.qb-option-check {
+  flex-direction: column;
+  gap: 0.25rem;
+  cursor: pointer;
+}
+
+.qb-option-check input {
+  margin: 0;
+}
+
+.qb-audit-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border-soft, #f3f4f6);
+}
+
+.qb-audit-label {
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.qb-quill,
+.qb-option-text {
+  background: #fff;
+}
+
+/* Answer form (redesigned like the exam builder): the plain textarea sits
+   inside .lf-o-body, which already draws the bordered surface. Strip the
+   textarea's own border/radius so it fills the option card seamlessly. */
+.lf-option .lf-o-body {
+  padding: 0;
+}
+
+.lf-option .lf-o-body .qb-option-text {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 9px 12px;
+  resize: vertical;
+}
+
+.lf-option .lf-o-body .qb-option-text:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Blue focus ring on the whole option card when the textarea is focused. */
+.lf-option:focus-within .lf-o-body {
+  border-color: #bfdbfe;
+}
+.lf-option.is-correct:focus-within .lf-o-body {
+  border-color: #bbf7d0;
+}
+
+.qb-quill {
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+}
+
+.qb-quill:focus-within {
+  border-color: var(--color-primary, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.qb-quill .ql-toolbar {
+  border: none;
+  border-bottom: 1px solid var(--color-border-soft, #f3f4f6);
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+.qb-quill .ql-container {
+  border: none;
+}
+
+.qb-quill .ql-editor,
+.qb-quill-sm .ql-editor {
+  min-height: 120px;
+  font-size: 0.95rem;
+}
+
+.qb-quill-sm .ql-editor {
+  min-height: 80px;
+}
+
+.qb-review-card {
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1rem;
+  background: #fff;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+}
+
+.qb-review-card:first-of-type {
+  margin-top: 0;
+}
+
+.qb-review-preview,
+.qb-review-note {
+  margin-top: 0.75rem;
+  color: var(--color-text-secondary, #374151);
+}
+
+.qb-review-meta {
+  flex-wrap: wrap;
+}
+
+.qb-inline-form {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.link-button {
+  background: transparent;
+  border: none;
+  color: var(--color-primary, #2563eb);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.link-button.danger {
+  color: var(--color-danger, #dc2626);
+}
+
+.qb-head-main {
+  padding-bottom: 2rem;
+}
+
+.qb-row-actions a,
+.qb-row-actions button,
+.qb-row-actions .toolbar-secondary {
+  white-space: nowrap;
+}
+
+/* ═══ Inbox review UX: status chips + two-pane table/panel ═══════════ */
+
+.qb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.qb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  border-radius: 999px;
+  background: var(--color-bg, #fff);
+  color: var(--color-text-secondary, #374151);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.qb-chip:hover {
+  border-color: var(--color-primary, #2563eb);
+  color: var(--color-primary, #2563eb);
+}
+
+.qb-chip.on {
+  border-color: var(--color-primary, #2563eb);
+  background: var(--color-primary-soft, #eff6ff);
+  color: var(--color-primary-hover, #1d4ed8);
+}
+
+.qb-chip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  /* Reuse .qb-status-* backgrounds; the swatch only needs the fill color. */
+}
+
+.qb-chip-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.qb-chip.on .qb-chip-count {
+  color: var(--color-primary-hover, #1d4ed8);
+}
+
+/* Full-width question table (single column). */
+.qb-inbox-list {
+  padding: 0;
+  overflow: hidden;
+}
+
+.qb-inbox-list .admin-list-table-scroll {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.qb-inbox-table {
+  margin: 0;
+}
+
+.qb-inbox-table tbody tr {
+  transition: background 0.12s;
+}
+
+.qb-inbox-table tbody tr:hover {
+  background: var(--color-bg-subtle, #f9fafb);
+}
+
+/* Action column: per-row view + single approve/reject/archive buttons. */
+.qb-actions-col {
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.qb-inbox-table .qb-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.qb-type-badge {
+  display: inline-block;
+  align-self: start;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  background: var(--color-neutral-soft, #f3f4f6);
+  color: var(--color-text-secondary, #374151);
+}
+
+.qb-row-preview {
+  color: var(--color-text, #111827);
+  font-weight: 600;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.qb-row-sub {
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.qb-cell-muted {
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.9rem;
+}
+
+/* ── View modal ─────────────────────────────────────────────────── */
+.qb-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.qb-modal[hidden] {
+  display: none;
+}
+
+.qb-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+}
+
+.qb-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(760px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  padding: 1.75rem;
+}
+
+.qb-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.9rem;
+  border: none;
+  background: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.qb-modal-close:hover {
+  color: var(--color-text, #111827);
+}
+
+.qb-modal-title {
+  margin: 0.75rem 0 1rem;
+  font-size: 1.15rem;
+}
+
+/* Prevent background scroll while the modal is open. */
+body.qb-modal-open {
+  overflow: hidden;
+}
+
+/* Toolbar header: card title on the left, "＋ Thêm danh mục" on the right. */
+.qb-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.qb-card-head .detail-card-title {
+  margin: 0;
+}
+
+/* Modal footer review actions (approve/reject/archive/unarchive). */
+.qb-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.qb-modal-actions button[hidden] {
+  display: none;
+}
+
+.qb-modal-card .qb-option-row.is-correct .qb-option-mark {
+  background: var(--color-success-soft, #d1fae5);
+  color: var(--color-success, #065f46);
+}
+
+.qb-modal-card .qb-option-row.is-correct .qb-option-body {
+  background: var(--color-success-soft, #d1fae5);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.5rem 0.75rem;
+}
+
+.qb-btn-approve {
+  background: var(--color-success, #059669);
+  border-color: var(--color-success, #059669);
+}
+
+.qb-btn-reject {
+  color: var(--color-danger, #dc2626);
+  border-color: var(--color-danger-soft, #fecaca);
+}
+
+/* ═══ Master-detail redesign: switch + bulk toolbar + selection ═════ */
+
+/* Back link on the category detail screen. */
+.qb-back {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  color: var(--color-primary, #2563eb);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.qb-back:hover {
+  text-decoration: underline;
+}
+
+/* Pure-CSS switch — accessible, keyboard-focusable via the checkbox. */
+.qb-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.qb-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.qb-switch-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--color-border-strong, #d1d5db);
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+
+.qb-switch-slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s ease;
+}
+
+.qb-switch input:checked + .qb-switch-slider {
+  background: var(--color-primary, #2563eb);
+}
+
+.qb-switch input:checked + .qb-switch-slider::before {
+  transform: translateX(20px);
+}
+
+.qb-switch input:focus-visible + .qb-switch-slider {
+  outline: 2px solid var(--color-primary, #2563eb);
+  outline-offset: 2px;
+}
+
+/* Screen-reader-only label text (switch state, checkbox purpose). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Sticky bulk toolbar — hidden (via [hidden]) until a row is checked. */
+.qb-bulk-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--color-primary-soft, #eff6ff);
+  border-bottom: 1px solid var(--color-border-medium, #e5e7eb);
+}
+
+.qb-bulk-toolbar[hidden] {
+  display: none;
+}
+
+.qb-bulk-toolbar .qb-input {
+  width: auto;
+  min-width: 180px;
+}
+
+.qb-bulk-count {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary, #374151);
+}
+
+.qb-bulk-count strong {
+  color: var(--color-primary-hover, #1d4ed8);
+}
+
+/* Compact checkbox column in the bulk table. */
+.qb-check-col {
+  width: 42px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.qb-row-check {
+  cursor: pointer;
+}
+
+@media (max-width: 1000px) {
+  .qb-inbox-list .admin-list-table-scroll {
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .qb-page {
+    padding-bottom: 1.5rem;
+  }
+
+  .qb-modal-card {
+    padding: 1.25rem;
+  }
+
+  .qb-toolbar,
+  .qb-toolbar-actions,
+  .qb-submit-bar,
+  .qb-row-actions,
+  .qb-review-meta,
+  .qb-import-head,
+  .qb-import-summary,
+  .qb-filter-actions,
+  .qb-meta-wrap {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .qb-filter-grid,
+  .qb-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .qb-toolbar-actions,
+  .qb-row-actions,
+  .qb-submit-bar {
+    width: 100%;
+  }
+
+  .qb-toolbar-actions > *,
+  .qb-submit-bar > * {
+    width: 100%;
+    text-align: center;
+  }
+}

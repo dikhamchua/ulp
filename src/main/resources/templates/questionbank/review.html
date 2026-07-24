@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Bộ môn | Duyệt câu hỏi cộng tác', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/head-department.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/question-bank.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('head')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/head-sidebar :: headSidebar('question-bank')}"></aside>
+
+  <main class="col detail-page qb-head-main">
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <a class="toolbar-back" th:href="@{'/lecturer/tests/' + ${testContext.id()} + '/edit'(tab='info')}">← Quay lại bài test</a>
+    <h1 class="detail-title">Duyệt câu hỏi cộng tác</h1>
+    <p class="detail-sub">Bài test: <strong th:text="${testContext.title()}">Bài test</strong>. HEAD quản lý danh mục bộ môn, duyệt hoặc lưu trữ từng câu hỏi được giảng viên đóng góp cho bài test này.</p>
+
+    <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
+      Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
+    </div>
+
+    <th:block th:if="${!emptyDepartment}">
+      <section class="admin-list-panel qb-filter-panel">
+        <form method="get" th:action="@{'/head/tests/' + ${testContext.id()} + '/question-bank/review'}" class="qb-filter-grid">
+          <select class="qb-input" name="status">
+            <option value="REVIEW" th:selected="${selectedStatus == 'REVIEW'}">Chờ duyệt</option>
+            <option value="APPROVED" th:selected="${selectedStatus == 'APPROVED'}">Đã duyệt</option>
+            <option value="REJECTED" th:selected="${selectedStatus == 'REJECTED'}">Bị trả lại</option>
+            <option value="ARCHIVED" th:selected="${selectedStatus == 'ARCHIVED'}">Lưu trữ</option>
+            <option value="DRAFT" th:selected="${selectedStatus == 'DRAFT'}">Nháp</option>
+          </select>
+          <select class="qb-input" name="categoryId">
+            <option value="">Tất cả danh mục</option>
+            <option th:each="category : ${categoryOptions}"
+                    th:value="${category.id()}"
+                    th:selected="${selectedCategoryId == category.id()}"
+                    th:text="${category.name()}">Danh mục</option>
+          </select>
+          <div class="qb-filter-actions">
+            <button type="submit" class="btn-primary btn-sm">Lọc</button>
+            <a class="btn-ghost btn-sm" th:href="@{'/head/tests/' + ${testContext.id()} + '/question-bank/review'}">Mặc định</a>
+          </div>
+        </form>
+      </section>
+
+      <div class="qb-review-layout">
+        <section class="admin-list-panel">
+          <div class="qb-review-head">
+            <h2 class="detail-card-title">Danh mục bộ môn</h2>
+          </div>
+          <form class="qb-category-form" method="post"
+                th:object="${categoryForm}"
+                th:action="${editCategoryId == null} ? @{'/head/tests/' + ${testContext.id()} + '/question-bank/categories'} : @{'/head/tests/' + ${testContext.id()} + '/question-bank/categories/' + ${editCategoryId} + '/edit'}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input class="qb-input" type="text" th:field="*{name}" placeholder="Tên danh mục">
+            <textarea class="qb-input" rows="3" th:field="*{description}" placeholder="Mô tả ngắn"></textarea>
+            <label class="lf-check"><input type="checkbox" th:field="*{active}"> Hiển thị cho giảng viên</label>
+            <div class="qb-submit-bar">
+              <button type="submit" class="btn-primary btn-sm" th:text="${editCategoryId == null} ? 'Lưu danh mục' : 'Cập nhật danh mục'">Lưu</button>
+              <a th:if="${editCategoryId != null}" class="btn-ghost btn-sm" th:href="@{'/head/tests/' + ${testContext.id()} + '/question-bank/review'}">Huỷ sửa</a>
+            </div>
+          </form>
+
+          <table class="admin-list-table qb-table" th:if="${categories != null and !categories.isEmpty()}">
+            <thead>
+            <tr><th>Tên</th><th>Trạng thái</th><th>Số câu</th><th>Thao tác</th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="category : ${categories}">
+              <td>
+                <div><strong th:text="${category.name()}">Danh mục</strong></div>
+                <div class="muted" th:text="${category.description() != null ? category.description() : '—'}">—</div>
+              </td>
+              <td><span class="status-pill" th:text="${category.active()} ? 'Hiện' : 'Ẩn'">Hiện</span></td>
+              <td th:text="${category.itemCount()}">0</td>
+              <td class="qb-row-actions">
+                <a th:href="@{'/head/tests/' + ${testContext.id()} + '/question-bank/review'(editCategoryId=${category.id()})}">Sửa</a>
+                <form th:action="@{'/head/tests/' + ${testContext.id()} + '/question-bank/categories/' + ${category.id()} + '/toggle'}" method="post" class="qb-inline-form">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button type="submit" class="link-button" th:text="${category.active()} ? 'Ẩn' : 'Hiện'">Ẩn</button>
+                </form>
+                <form th:action="@{'/head/tests/' + ${testContext.id()} + '/question-bank/categories/' + ${category.id()} + '/delete'}" method="post" class="qb-inline-form">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button type="submit" class="link-button danger">Xoá</button>
+                </form>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="admin-list-panel">
+          <div class="qb-review-head">
+            <h2 class="detail-card-title">Hàng chờ duyệt của bài test</h2>
+          </div>
+          <div th:if="${items == null or items.isEmpty()}" class="admin-list-empty">Không có câu hỏi cộng tác trong trạng thái đang chọn.</div>
+          <div class="qb-review-card" th:each="item : ${items}">
+            <div class="qb-review-meta">
+              <span class="status-pill" th:text="${item.questionType()}">MCQ</span>
+              <span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(item.workflowStatus())}"
+                    th:text="${item.workflowStatus()}">REVIEW</span>
+              <span th:text="${item.categoryName()}">Danh mục</span>
+              <span th:text="${item.contributorName()}">GV</span>
+            </div>
+            <p class="qb-review-preview" th:text="${item.contentPreview()}">Nội dung</p>
+            <div class="qb-row-actions">
+              <a th:href="@{'/lecturer/tests/' + ${testContext.id()} + '/question-bank/' + ${item.id()}}">Xem chi tiết</a>
+              <form th:if="${item.reviewable()}" th:action="@{'/head/tests/' + ${testContext.id()} + '/question-bank/' + ${item.id()} + '/approve'}" method="post" class="qb-inline-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="link-button">Duyệt</button>
+              </form>
+              <form th:if="${item.reviewable()}" th:action="@{'/head/tests/' + ${testContext.id()} + '/question-bank/' + ${item.id()} + '/reject'}" method="post" class="qb-inline-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input class="qb-inline-note" type="text" name="note" placeholder="Ghi chú trả lại (tuỳ chọn)">
+                <button type="submit" class="link-button danger">Trả lại</button>
+              </form>
+              <form th:if="${item.reviewable() or item.workflowStatus() == 'APPROVED'}"
+                    th:action="@{'/head/tests/' + ${testContext.id()} + '/question-bank/' + ${item.id()} + '/archive'}" method="post" class="qb-inline-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input class="qb-inline-note" type="text" name="note" placeholder="Lý do lưu trữ (tuỳ chọn)">
+                <button type="submit" class="link-button">Lưu trữ</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </div>
+    </th:block>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/head-department.js}"></script>
+<script th:src="@{/js/question-bank.js}"></script>
+</body>
+</html>

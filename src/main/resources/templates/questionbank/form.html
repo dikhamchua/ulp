@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${mode == 'create' ? 'Thêm câu hỏi' : 'Chỉnh sửa câu hỏi'}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/question-bank.css}">
+  <!-- Reuse the exam question authoring styles (.lf-panel/.lf-option/.tst-btn);
+       loaded after question-bank.css so its .lf-* rules win the cascade. -->
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-lecturer-form.css}">
+  <link class="page-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<div class="qb-page detail-page">
+  <span id="flash-data"
+        th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+        style="display:none;"></span>
+
+  <div class="qb-toolbar">
+    <a class="toolbar-back" th:href="@{/lecturer/question-bank}">← Quay lại ngân hàng câu hỏi</a>
+  </div>
+
+  <h1 class="detail-page-title"
+      th:text="${mode == 'create' ? 'Thêm câu hỏi' : 'Chỉnh sửa câu hỏi'}">Thêm câu hỏi</h1>
+  <p class="detail-sub">Soạn câu hỏi cho ngân hàng bộ môn, lưu nháp hoặc gửi HEAD duyệt trước khi có thể chèn vào bài test.</p>
+
+  <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
+    Bạn chưa được gán bộ môn nên chưa thể tạo câu hỏi cho ngân hàng bộ môn.
+  </div>
+
+  <form th:if="${!emptyDepartment}" class="detail-card qb-form"
+        th:action="${mode == 'create'} ? @{/lecturer/question-bank} : @{'/lecturer/question-bank/' + ${form.id} + '/edit'}"
+        method="post" th:object="${form}">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+    <section class="lf-panel">
+      <div class="lf-panel-head">
+        <h2 class="lf-panel-title">Thông tin câu hỏi</h2>
+      </div>
+      <div class="lf-grid">
+        <div class="lf-field">
+          <label class="lf-label" for="categoryId">Danh mục</label>
+          <select class="lf-input" id="categoryId" th:field="*{categoryId}">
+            <option value="">— Chọn danh mục —</option>
+            <option th:each="category : ${categories}" th:value="${category.id()}" th:text="${category.name()}">Danh mục</option>
+          </select>
+          <small class="lf-err" th:if="${#fields.hasErrors('categoryId')}" th:errors="*{categoryId}">Lỗi</small>
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="questionType">Loại câu hỏi</label>
+          <select class="lf-input" id="questionType" th:field="*{questionType}">
+            <option value="MCQ">Một đáp án (MCQ)</option>
+            <option value="MR">Nhiều đáp án (MR)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lf-field lf-col-2" style="margin-top: 14px;">
+        <label class="lf-label">Nội dung câu hỏi</label>
+        <div class="qb-quill" data-qb-editor data-target-id="content" th:attr="data-initial=${form.content}"></div>
+        <textarea id="content" th:field="*{content}" hidden></textarea>
+        <small class="lf-err" th:if="${#fields.hasErrors('content')}" th:errors="*{content}">Lỗi</small>
+      </div>
+
+      <div class="lf-field lf-col-2" style="margin-top: 14px;">
+        <label class="lf-label">Giải thích (tuỳ chọn)</label>
+        <div class="qb-quill qb-quill-sm" data-qb-editor data-target-id="explanation" th:attr="data-initial=${form.explanation}"></div>
+        <textarea id="explanation" th:field="*{explanation}" hidden></textarea>
+        <small class="lf-err" th:if="${#fields.hasErrors('explanation')}" th:errors="*{explanation}">Lỗi</small>
+      </div>
+    </section>
+
+    <section class="lf-panel">
+      <div class="lf-panel-head lf-panel-head-stack" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+        <h2 class="lf-panel-title">Đáp án</h2>
+        <p class="lf-media-hint">Nhấn vào chữ cái để đánh dấu đáp án đúng. MCQ cần đúng 1 đáp án đúng, MR cho phép nhiều đáp án.</p>
+      </div>
+      <div class="lf-options">
+        <!-- Single-question form: A–H options are rendered by the server.
+             Wrapper markup mirrors the exam builder so .is-correct highlights. -->
+        <div class="lf-option" th:each="option, stat : *{options}"
+             th:classappend="${option.correct} ? 'is-correct'">
+          <label class="lf-o-mark" title="Đánh dấu đáp án đúng">
+            <input type="checkbox" class="lf-o-correct" th:field="*{options[__${stat.index}__].correct}">
+            <span class="lf-o-letter" aria-hidden="true"
+                  th:text="${#strings.arraySplit('A,B,C,D,E,F,G,H', ',')[stat.index]}">A</span>
+          </label>
+          <div class="lf-o-body">
+            <textarea class="lf-input qb-option-text" rows="2"
+                      th:field="*{options[__${stat.index}__].content}"
+                      th:placeholder="'Nội dung đáp án ' + ${#strings.arraySplit('A,B,C,D,E,F,G,H', ',')[stat.index]}"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="qb-submit-bar">
+      <button type="submit" class="tst-btn" name="workflowAction" value="DRAFT">Lưu nháp</button>
+      <button type="submit" class="tst-btn tst-btn-primary" name="workflowAction" value="REVIEW">Gửi HEAD duyệt</button>
+    </div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
+<script th:src="@{/js/app.js}"></script>
+<!-- question-bank.js drains #flash-data into a toast after save/submit. -->
+<script th:src="@{/js/question-bank.js}"></script>
+<script th:src="@{/js/question-bank-form.js}"></script>
+</body>
+</html>

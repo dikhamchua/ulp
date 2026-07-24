@@ -87,4 +87,8 @@ public class HeadController {
         model.addAttribute(ATTR_ACTIVE_TAB, "report");
         return VIEW_HEAD_REPORT;
     }
+
+    // The department question bank management screen is served by
+    // HeadQuestionBankController at /head/question-bank; no handler here.
+
 }

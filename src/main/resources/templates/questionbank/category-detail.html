@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Bộ môn | Chi tiết danh mục câu hỏi', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/head-department.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/question-bank.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('head')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/head-sidebar :: headSidebar('question-bank')}"></aside>
+
+  <main class="col detail-page qb-head-main">
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <a class="qb-back" th:href="@{/head/question-bank}">&larr; Danh mục</a>
+    <h1 class="detail-title" th:text="${categoryDetail.categoryName()}">Danh mục</h1>
+    <div class="qb-meta-wrap">
+      <span class="status-pill"
+            th:classappend="${categoryDetail.active()} ? 'status-active' : 'status-inactive'"
+            th:text="${categoryDetail.active()} ? 'Đang mở cho giảng viên' : 'Đang đóng'">Đang mở</span>
+      <span th:if="${categoryDetail.description() != null}" class="qb-cell-muted"
+            th:text="${categoryDetail.description()}">Mô tả</span>
+    </div>
+
+    <!-- Status chips scoped to this category (counts ignore the active status filter). -->
+    <div class="qb-chips" role="tablist" aria-label="Lọc theo trạng thái">
+      <a class="qb-chip"
+         th:classappend="${selectedStatus == 'REVIEW'} ? 'on'"
+         th:href="@{'/head/question-bank/categories/' + ${categoryId}(status='REVIEW', q=${query}, contributorId=${selectedContributorId})}">
+        <span class="qb-chip-dot qb-status-review"></span>Chờ duyệt
+        <span class="qb-chip-count" th:text="${categoryDetail.statusCounts().review()}">0</span>
+      </a>
+      <a class="qb-chip"
+         th:classappend="${selectedStatus == 'APPROVED'} ? 'on'"
+         th:href="@{'/head/question-bank/categories/' + ${categoryId}(status='APPROVED', q=${query}, contributorId=${selectedContributorId})}">
+        <span class="qb-chip-dot qb-status-approved"></span>Đã duyệt
+        <span class="qb-chip-count" th:text="${categoryDetail.statusCounts().approved()}">0</span>
+      </a>
+      <a class="qb-chip"
+         th:classappend="${selectedStatus == 'REJECTED'} ? 'on'"
+         th:href="@{'/head/question-bank/categories/' + ${categoryId}(status='REJECTED', q=${query}, contributorId=${selectedContributorId})}">
+        <span class="qb-chip-dot qb-status-rejected"></span>Bị trả lại
+        <span class="qb-chip-count" th:text="${categoryDetail.statusCounts().rejected()}">0</span>
+      </a>
+      <a class="qb-chip"
+         th:classappend="${selectedStatus == 'ARCHIVED'} ? 'on'"
+         th:href="@{'/head/question-bank/categories/' + ${categoryId}(status='ARCHIVED', q=${query}, contributorId=${selectedContributorId})}">
+        <span class="qb-chip-dot qb-status-archived"></span>Lưu trữ
+        <span class="qb-chip-count" th:text="${categoryDetail.statusCounts().archived()}">0</span>
+      </a>
+      <a class="qb-chip"
+         th:classappend="${selectedStatus == null or selectedStatus == ''} ? 'on'"
+         th:href="@{'/head/question-bank/categories/' + ${categoryId}(q=${query}, contributorId=${selectedContributorId})}">
+        Tất cả
+        <span class="qb-chip-count" th:text="${categoryDetail.statusCounts().total()}">0</span>
+      </a>
+    </div>
+
+    <!-- Filter bar: search + contributor (status lives in the chips; category is scoped). -->
+    <section class="admin-list-panel qb-filter-panel">
+      <form method="get" th:action="@{'/head/question-bank/categories/' + ${categoryId}}" class="qb-filter-grid">
+        <input type="hidden" name="status" th:value="${selectedStatus}">
+        <input class="qb-input" type="text" name="q" th:value="${query}" placeholder="Tìm theo nội dung hoặc người tạo">
+        <select class="qb-input" name="contributorId">
+          <option value="">Tất cả người tạo</option>
+          <option th:each="contributor : ${categoryDetail.contributors()}"
+                  th:value="${contributor.id()}"
+                  th:selected="${selectedContributorId == contributor.id()}"
+                  th:text="${contributor.name()}">Người tạo</option>
+        </select>
+        <div class="qb-filter-actions">
+          <button type="submit" class="btn-primary btn-sm">Lọc</button>
+          <a class="btn-ghost btn-sm" th:href="@{'/head/question-bank/categories/' + ${categoryId}}">Mặc định</a>
+        </div>
+      </form>
+    </section>
+
+    <div th:if="${categoryDetail.items() == null or categoryDetail.items().isEmpty()}" class="detail-card detail-empty">
+      Không có câu hỏi phù hợp trong danh mục này.
+    </div>
+
+    <!-- Full-width question table. Bulk form wraps the table; single-row action
+         forms live OUTSIDE it (rendered after) and are linked via HTML5 form=
+         association, so there are no nested forms. -->
+    <div th:if="${categoryDetail.items() != null and !categoryDetail.items().isEmpty()}">
+      <section class="detail-card qb-inbox-list">
+        <!-- BULK: one form wraps the whole table; checkboxes name=itemIds; the three
+             buttons target different bulk endpoints via th:formaction. No nested forms. -->
+        <form method="post" th:action="@{'/head/question-bank/categories/' + ${categoryId} + '/bulk/approve'}">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
+          <input type="hidden" name="q" th:value="${query}">
+
+          <!-- Sticky bulk toolbar: hidden until at least one row is checked (JS-driven). -->
+          <div class="qb-bulk-toolbar" hidden>
+            <span class="qb-bulk-count">Đã chọn <strong data-bulk-count>0</strong> câu</span>
+            <div class="qb-toolbar-actions">
+              <button type="submit" class="btn-primary btn-sm qb-btn-approve"
+                      th:formaction="@{'/head/question-bank/categories/' + ${categoryId} + '/bulk/approve'}">Duyệt</button>
+              <input class="qb-input" type="text" name="note" placeholder="Ghi chú (tuỳ chọn)">
+              <button type="submit" class="btn-ghost btn-sm qb-btn-reject"
+                      th:formaction="@{'/head/question-bank/categories/' + ${categoryId} + '/bulk/reject'}">Trả lại</button>
+              <button type="submit" class="btn-ghost btn-sm"
+                      th:formaction="@{'/head/question-bank/categories/' + ${categoryId} + '/bulk/archive'}">Lưu trữ</button>
+              <button type="submit" class="btn-primary btn-sm"
+                      th:formaction="@{'/head/question-bank/categories/' + ${categoryId} + '/bulk/unarchive'}">Bỏ lưu trữ</button>
+            </div>
+          </div>
+
+          <div class="admin-list-table-scroll">
+            <table class="detail-table qb-inbox-table" data-bulk-table>
+              <thead>
+              <tr>
+                <th class="qb-check-col">
+                  <input type="checkbox" data-bulk-select-all aria-label="Chọn tất cả">
+                </th>
+                <th>Câu hỏi</th>
+                <th>Trạng thái</th>
+                <th class="qb-actions-col">Thao tác</th>
+              </tr>
+              </thead>
+              <tbody>
+              <!-- Each row carries a hidden detail block (content, options, explanation,
+                   note) that the "Xem" button clones into the modal — no server round-trip,
+                   no JSON escaping. Keyed by item id via data-detail-for. -->
+              <tr th:each="item : ${categoryDetail.items()}" class="qb-item-row">
+                <td class="qb-check-col">
+                  <input type="checkbox" class="qb-row-check" name="itemIds" th:value="${item.id()}" aria-label="Chọn câu hỏi">
+                </td>
+                <td>
+                  <span class="qb-type-badge" th:text="${item.questionType()}">MCQ</span>
+                  <span class="qb-row-preview" th:utext="${item.content()}">Nội dung</span>
+                  <span class="qb-row-sub">
+                    <span th:text="${item.contributorName()}">GV</span> ·
+                    <span th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'HH:mm dd/MM') : '—'}">—</span>
+                  </span>
+                  <!-- Hidden per-row detail source for the modal. -->
+                  <template th:attr="data-detail-for=${item.id()}"
+                            th:data-type="${item.questionType()}"
+                            th:data-status="${item.workflowStatus()}"
+                            th:data-contributor="${item.contributorName()}">
+                    <div data-detail-content th:utext="${item.content()}"></div>
+                    <div data-detail-options>
+                      <div class="qb-option-row" th:each="option, stat : ${item.options()}"
+                           th:classappend="${option.correct()} ? 'is-correct'">
+                        <div class="qb-option-mark" th:text="${#strings.arraySplit('A,B,C,D,E,F,G,H', ',')[stat.index]}">A</div>
+                        <div class="qb-option-body">
+                          <div class="qb-rich" th:utext="${option.content()}"></div>
+                          <span class="status-pill status-active" th:if="${option.correct()}">Đáp án đúng</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div data-detail-explanation th:if="${item.explanation() != null}" th:utext="${item.explanation()}"></div>
+                    <div data-detail-note th:if="${item.reviewNote() != null}" th:text="${item.reviewNote()}"></div>
+                  </template>
+                </td>
+                <td>
+                  <span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(item.workflowStatus())}"
+                        th:text="${item.workflowStatus()}">REVIEW</span>
+                </td>
+                <td class="qb-actions-col">
+                  <div class="qb-row-actions">
+                    <!-- Single "Chi tiết" button opens the modal; the review actions
+                         (approve/reject/archive/unarchive) live in the modal footer and
+                         are wired to this row's forms via JS using these state flags. -->
+                    <button type="button" class="btn-primary btn-sm qb-view-btn"
+                            th:attr="data-view-target=${item.id()},
+                                     data-reviewable=${item.reviewable()},
+                                     data-archivable=${item.archivable()},
+                                     data-unarchivable=${item.unarchivable()}">Chi tiết</button>
+                  </div>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </form>
+      </section>
+
+      <!-- Single-row action forms, kept OUTSIDE the bulk form to avoid nested forms.
+           Buttons in the table link here via the HTML5 form= attribute. Single
+           actions carry no note (note stays a bulk-only affordance). -->
+      <div class="qb-row-forms" hidden th:each="item : ${categoryDetail.items()}">
+        <form th:if="${item.reviewable()}" method="post"
+              th:id="'rowApprove_' + ${item.id()}"
+              th:action="@{'/head/question-bank/' + ${item.id()} + '/approve'}">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="categoryId" th:value="${categoryId}">
+          <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
+          <input type="hidden" name="q" th:value="${query}">
+        </form>
+        <form th:if="${item.reviewable()}" method="post"
+              th:id="'rowReject_' + ${item.id()}"
+              th:action="@{'/head/question-bank/' + ${item.id()} + '/reject'}">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="categoryId" th:value="${categoryId}">
+          <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
+          <input type="hidden" name="q" th:value="${query}">
+        </form>
+        <form th:if="${item.archivable()}" method="post"
+              th:id="'rowArchive_' + ${item.id()}"
+              th:action="@{'/head/question-bank/' + ${item.id()} + '/archive'}">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="categoryId" th:value="${categoryId}">
+          <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
+          <input type="hidden" name="q" th:value="${query}">
+        </form>
+        <form th:if="${item.unarchivable()}" method="post"
+              th:id="'rowUnarchive_' + ${item.id()}"
+              th:action="@{'/head/question-bank/' + ${item.id()} + '/unarchive'}">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="categoryId" th:value="${categoryId}">
+          <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
+          <input type="hidden" name="q" th:value="${query}">
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- View modal: populated client-side from the clicked row's data-* attributes. -->
+<div class="qb-modal" id="qbViewModal" hidden>
+  <div class="qb-modal-overlay" data-modal-close></div>
+  <div class="qb-modal-card" role="dialog" aria-modal="true" aria-labelledby="qbModalTitle">
+    <button type="button" class="qb-modal-close" data-modal-close aria-label="Đóng">&times;</button>
+    <div class="detail-page-meta qb-meta-wrap">
+      <span class="status-pill" id="qbModalType">MCQ</span>
+      <span class="status-pill" id="qbModalStatus">REVIEW</span>
+      <span>Người tạo: <strong id="qbModalContributor">GV</strong></span>
+    </div>
+    <h2 class="qb-modal-title" id="qbModalTitle">Chi tiết câu hỏi</h2>
+    <div class="qb-rich" id="qbModalContent"></div>
+    <div class="qb-option-list" id="qbModalOptions"></div>
+    <div class="qb-explanation" id="qbModalExplanationWrap" hidden>
+      <h3>Giải thích</h3>
+      <div class="qb-rich" id="qbModalExplanation"></div>
+    </div>
+    <div class="qb-review-note" id="qbModalNoteWrap" hidden>
+      <h3>Ghi chú duyệt</h3>
+      <p id="qbModalNote"></p>
+    </div>
+
+    <!-- Footer actions. Buttons submit the currently viewed row's single-action
+         forms via the HTML5 form= attribute (set by JS on open). The modal sits
+         outside every form, so form= links work without nesting forms. JS also
+         toggles each button's visibility from the row's state flags. -->
+    <div class="qb-modal-actions">
+      <button type="submit" class="btn-primary btn-sm qb-btn-approve" id="qbModalApprove" hidden>Duyệt</button>
+      <button type="submit" class="btn-ghost btn-sm qb-btn-reject" id="qbModalReject" hidden>Trả lại</button>
+      <button type="submit" class="btn-ghost btn-sm" id="qbModalArchive" hidden>Lưu trữ</button>
+      <button type="submit" class="btn-primary btn-sm" id="qbModalUnarchive" hidden>Bỏ lưu trữ</button>
+    </div>
+  </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/head-department.js}"></script>
+<script th:src="@{/js/question-bank.js}"></script>
+<script th:src="@{/js/question-bank-detail.js}"></script>
+</body>
+</html>

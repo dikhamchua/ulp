@@ -267,4 +267,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Soft-deleted rows are excluded by the entity {@code @SQLRestriction}.
      */
     List<User> findByRoleInAndActiveTrueOrderByFullNameAsc(Collection<Role> roles);
+
+    /** Active users in the given department and roles, ordered by name. */
+    List<User> findByDepartmentIdAndRoleInAndActiveTrueOrderByFullNameAsc(Long departmentId,
+                                                                          Collection<Role> roles);
 }

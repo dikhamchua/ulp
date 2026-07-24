@@ -31,6 +31,9 @@
        th:href="@{/lecturer/classes}" th:classappend="${active == 'classes'} ? 'active'">Lớp học</a>
     <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
        th:href="@{/lecturer/library}" th:classappend="${active == 'library'} ? 'active'">Kho học liệu</a>
+    <!-- Lecturer contribution entry to the department-scoped shared question bank. -->
+    <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
+       th:href="@{/lecturer/question-bank}" th:classappend="${active == 'question-bank'} ? 'active'">Ngân hàng câu hỏi</a>
     <a sec:authorize="hasRole('HEAD')"
        th:href="@{/head}" th:classappend="${active == 'head'} ? 'active'">Bộ môn</a>
     <a sec:authorize="hasRole('ADMIN')"
@@ -95,6 +98,7 @@
         </a>
         <div class="menu-sep"></div>
         <form th:action="@{/logout}" method="post">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <button type="submit" class="menu-item danger">
             <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             Đăng xuất

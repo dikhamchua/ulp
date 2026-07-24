@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Ngân hàng câu hỏi bộ môn', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/question-bank.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<div class="qb-page detail-page">
+  <span id="flash-data"
+        th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+        style="display:none;"></span>
+
+  <div class="qb-toolbar">
+    <div>
+      <h1 class="detail-title">Ngân hàng câu hỏi bộ môn</h1>
+      <p class="detail-sub">Đóng góp câu hỏi vào ngân hàng chung của bộ môn. HEAD duyệt trước khi câu hỏi có thể được chèn vào bài test.</p>
+    </div>
+    <div class="qb-toolbar-actions">
+      <a class="create-btn" th:href="@{/lecturer/question-bank/new}">Thêm câu hỏi</a>
+      <a class="toolbar-secondary" th:href="@{/lecturer/question-bank/import/template}" download>Tải file mẫu</a>
+      <label class="toolbar-secondary qb-import-trigger" for="qb-import-file">Import Excel</label>
+      <a class="toolbar-secondary" sec:authorize="hasRole('HEAD')" th:href="@{/head/question-bank}">Quản lý &amp; duyệt</a>
+    </div>
+  </div>
+
+  <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
+    Bạn chưa được gán bộ môn nên chưa thể đóng góp câu hỏi cho ngân hàng bộ môn.
+  </div>
+
+  <th:block th:if="${!emptyDepartment}">
+    <input id="qb-import-file" type="file" accept=".xlsx,.xls" hidden>
+    <section class="admin-list-panel qb-import-panel" id="qb-import-panel" hidden>
+      <div class="qb-import-head">
+        <div>
+          <h2 class="detail-card-title">Xem trước import Excel</h2>
+          <p class="detail-sub">Dữ liệu chỉ được lưu sau khi bạn xác nhận bản xem trước hợp lệ.</p>
+        </div>
+        <div class="qb-row-actions">
+          <button type="button" class="btn-ghost btn-sm" id="qb-import-reset">Chọn file khác</button>
+          <button type="button" class="btn-primary btn-sm" id="qb-import-confirm" disabled>Xác nhận import</button>
+        </div>
+      </div>
+      <div class="qb-import-summary" id="qb-import-summary"></div>
+      <div class="qb-import-empty" id="qb-import-loading" hidden>Đang đọc file Excel...</div>
+      <div class="qb-import-empty" id="qb-import-error" hidden></div>
+      <div class="qb-import-table-wrap" id="qb-import-table-wrap" hidden>
+        <table class="admin-list-table qb-table qb-import-table">
+          <thead>
+          <tr>
+            <th>Dòng</th>
+            <th>Danh mục</th>
+            <th>Loại</th>
+            <th>Nội dung</th>
+            <th>Đáp án</th>
+            <th>Đúng</th>
+            <th>Kết quả</th>
+          </tr>
+          </thead>
+          <tbody id="qb-import-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-list-panel qb-filter-panel">
+      <form method="get" th:action="@{/lecturer/question-bank}" class="qb-filter-grid">
+        <input class="qb-input" type="text" name="q" th:value="${query}" placeholder="Tìm theo nội dung, danh mục hoặc người tạo">
+        <select class="qb-input" name="status">
+          <option value="">Tất cả trạng thái</option>
+          <option value="DRAFT" th:selected="${selectedStatus == 'DRAFT'}">Nháp</option>
+          <option value="REVIEW" th:selected="${selectedStatus == 'REVIEW'}">Chờ duyệt</option>
+          <option value="APPROVED" th:selected="${selectedStatus == 'APPROVED'}">Đã duyệt</option>
+          <option value="REJECTED" th:selected="${selectedStatus == 'REJECTED'}">Bị trả lại</option>
+          <option value="ARCHIVED" th:selected="${selectedStatus == 'ARCHIVED'}">Lưu trữ</option>
+        </select>
+        <select class="qb-input" name="categoryId">
+          <option value="">Tất cả danh mục</option>
+          <option th:each="category : ${categories}"
+                  th:value="${category.id()}"
+                  th:selected="${selectedCategoryId == category.id()}"
+                  th:text="${category.name()}">Danh mục</option>
+        </select>
+        <div class="qb-filter-actions">
+          <button type="submit" class="btn-primary btn-sm">Lọc</button>
+          <a th:href="@{/lecturer/question-bank}" class="btn-ghost btn-sm">Xoá lọc</a>
+        </div>
+      </form>
+    </section>
+
+    <section class="admin-list-panel">
+      <div th:if="${items == null or items.isEmpty()}" class="admin-list-empty">Chưa có câu hỏi phù hợp bộ lọc.</div>
+      <table class="admin-list-table qb-table" th:if="${items != null and !items.isEmpty()}">
+        <thead>
+        <tr>
+          <th>Nội dung</th>
+          <th>Danh mục</th>
+          <th>Loại</th>
+          <th>Trạng thái</th>
+          <th>Người tạo</th>
+          <th>Cập nhật</th>
+          <th>Thao tác</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="item : ${items}">
+          <td>
+            <a th:href="@{'/lecturer/question-bank/' + ${item.id()}}" class="qb-title-link"
+               th:text="${item.contentPreview()}">Nội dung</a>
+          </td>
+          <td th:text="${item.categoryName()}">Danh mục</td>
+          <td><span class="status-pill" th:text="${item.questionType()}">MCQ</span></td>
+          <td><span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(item.workflowStatus())}"
+                    th:text="${item.workflowStatus()}">DRAFT</span></td>
+          <td th:text="${item.contributorName()}">Người tạo</td>
+          <td th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
+          <td class="qb-row-actions">
+            <a th:href="@{'/lecturer/question-bank/' + ${item.id()}}">Xem</a>
+            <a th:if="${item.editable()}" th:href="@{'/lecturer/question-bank/' + ${item.id()} + '/edit'}">Sửa</a>
+            <a th:if="${item.reviewable()}" sec:authorize="hasRole('HEAD')" th:href="@{/head/question-bank}">Duyệt</a>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </section>
+  </th:block>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/question-bank.js}"></script>
+<script th:src="@{/js/question-bank-import.js}"></script>
+</body>
+</html>
