@@ -77,11 +77,15 @@
   <!-- ═══ Tab: Thông tin chung — question-builder form ═════════════════
        Rendered in create mode (no tabs) and on the edit "info" tab. The
        form JS (test-lecturer-form.js) no-ops when #lfForm is absent. -->
-  <form th:if="${mode == 'create' or activeDetailTab == 'info'}"
-         id="lfForm"
-         th:attr="data-save-url=@{/lecturer/tests/save},
-                  data-list-url=@{/lecturer/tests},
-                  data-image-url=@{/lecturer/tests/images}">
+<form th:if="${mode == 'create' or activeDetailTab == 'info'}"
+          id="lfForm"
+          th:attr="data-save-url=@{/lecturer/tests/save},
+                   data-list-url=@{/lecturer/tests},
+                   data-image-url=@{/lecturer/tests/images},
+                   data-bank-search-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/search'} : '',
+                   data-bank-insert-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/insert'} : '',
+                   data-edit-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/edit'} : ''"
+          data-lf-mounted="0">
     <!-- Exam payload for the builder to hydrate from. Lives inside #tabPanel so
          an AJAX tab swap carries the fresh JSON; read by id, never executed. -->
     <script type="application/json" id="lfData" th:inline="javascript">/*[[${examForm}]]*/ null</script>
@@ -214,10 +218,35 @@
     </section>
 
     <section class="lf-panel">
-      <div class="lf-panel-head">
-        <h2 class="lf-panel-title">Câu hỏi</h2>
-        <button type="button" class="tst-btn" id="lfAddQuestion">+ Thêm câu hỏi</button>
+      <div class="lf-panel-head lf-panel-head-stack">
+        <div>
+          <h2 class="lf-panel-title">Câu hỏi</h2>
+          <p class="lf-media-hint">Giảng viên trong cùng bộ môn cộng tác câu hỏi vào ngân hàng chung của bộ môn, HEAD duyệt. Phần này chèn snapshot từ các câu đã được duyệt của bộ môn vào bài test.</p>
+        </div>
+        <div class="lf-panel-actions">
+          <a th:if="${mode == 'edit'}" class="tst-btn" th:href="@{/lecturer/question-bank}">Mở ngân hàng câu hỏi</a>
+          <button type="button" class="tst-btn" id="lfOpenBankPicker" th:if="${mode == 'edit'}">+ Chọn câu đã duyệt</button>
+          <button type="button" class="tst-btn" id="lfAddQuestion">+ Thêm câu hỏi</button>
+        </div>
       </div>
+
+      <section class="lf-bank-picker" id="lfBankPicker" hidden>
+        <div class="lf-bank-toolbar">
+          <input class="lf-input" id="lfBankQuery" type="text"
+                 placeholder="Tìm theo nội dung hoặc danh mục câu hỏi">
+          <select class="lf-input" id="lfBankCategory">
+            <option value="">Tất cả danh mục</option>
+            <option th:each="category : ${examBankCategories}"
+                    th:value="${category.id()}"
+                    th:text="${category.name()}">Danh mục</option>
+          </select>
+          <button type="button" class="tst-btn" id="lfBankSearch">Tìm</button>
+          <button type="button" class="tst-btn" id="lfBankClose">Đóng</button>
+        </div>
+        <div class="lf-bank-state" id="lfBankState">Nhập từ khoá hoặc chọn danh mục để tải các câu đã được duyệt của ngân hàng bộ môn.</div>
+        <div class="lf-bank-results" id="lfBankResults"></div>
+      </section>
+
       <div id="lfQuestions" class="lf-questions"></div>
       <p class="lf-hint" id="lfNoQuestions">Chưa có câu hỏi nào. Nhấn "Thêm câu hỏi".</p>
     </section>

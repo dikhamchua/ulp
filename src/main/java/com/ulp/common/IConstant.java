@@ -353,6 +353,7 @@ public interface IConstant {
     String ATTR_SUBMISSIONS  = "submissions";
     String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
     String ATTR_PREVIEW      = "preview";
+    String ATTR_EXAM_BANK_CATEGORIES = "examBankCategories";
 
     // Readiness band labels (Vietnamese UI text).
     String BAND_NOT_READY = "Chưa sẵn sàng";
@@ -547,9 +548,13 @@ public interface IConstant {
     String URL_HEAD_DASHBOARD     = BASE_HEAD;
     String URL_HEAD_ASSIGN        = BASE_HEAD + "/assign";
     String URL_HEAD_REPORT        = BASE_HEAD + "/report";
+    String URL_HEAD_QUESTION_BANK = BASE_HEAD + "/question-bank/review";
     String VIEW_HEAD_DASHBOARD    = "head/dashboard";
     String VIEW_HEAD_ASSIGN       = "head/assign";
     String VIEW_HEAD_REPORT       = "head/report";
+    String VIEW_HEAD_QUESTION_BANK = "questionbank/review";
+    String VIEW_HEAD_QB_TESTS      = "head/question-bank-tests";
+    String ATTR_HEAD_QB_TESTS      = "qbTests";
     String ATTR_HEAD_DEPARTMENT   = "headDepartment";
     String ATTR_HEAD_KPIS         = "kpis";
     String ATTR_HEAD_RECENT       = "recentClasses";
@@ -557,8 +562,80 @@ public interface IConstant {
     String ATTR_HEAD_LECTURERS    = "lecturers";
     String ATTR_HEAD_REPORT_ROWS  = "reportRows";
     String ATTR_HEAD_EMPTY        = "emptyDepartment";
+    String ATTR_QB_ITEMS          = "items";
+    String ATTR_QB_CATEGORIES     = "categories";
+    String ATTR_QB_CATEGORY_OPTIONS = "categoryOptions";
+    String ATTR_QB_CATEGORY_FORM  = "categoryForm";
+    String ATTR_QB_SELECTED_STATUS = "selectedStatus";
+    String ATTR_QB_SELECTED_CATEGORY_ID = "selectedCategoryId";
+    String ATTR_QB_QUERY          = "query";
+    String ATTR_QB_EMPTY_DEPARTMENT = "emptyDepartment";
+    String ATTR_QB_EDIT_CATEGORY_ID = "editCategoryId";
+    String ATTR_QB_DETAIL         = "detail";
     String MSG_HEAD_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
     String MSG_HEAD_REASSIGN_FAIL = "Không thể phân công giảng viên";
+    String MSG_QB_DRAFT_SAVED     = "Đã lưu câu hỏi nháp";
+    String MSG_QB_SUBMITTED       = "Đã gửi câu hỏi lên hàng chờ duyệt";
+    String MSG_QB_UPDATED         = "Đã cập nhật câu hỏi";
+    String MSG_QB_RESUBMITTED     = "Đã cập nhật và gửi lại hàng chờ duyệt";
+    String MSG_QB_CATEGORY_CREATED = "Đã tạo danh mục câu hỏi";
+    String MSG_QB_CATEGORY_UPDATED = "Đã cập nhật danh mục câu hỏi";
+    String MSG_QB_CATEGORY_TOGGLED = "Đã đổi trạng thái danh mục";
+    String MSG_QB_CATEGORY_DELETED = "Đã xoá danh mục câu hỏi";
+    String MSG_QB_APPROVED        = "Đã duyệt câu hỏi";
+    String MSG_QB_REJECTED        = "Đã trả lại câu hỏi cho giảng viên";
+    String MSG_QB_ARCHIVED        = "Đã lưu trữ câu hỏi";
+    String MSG_QB_UNARCHIVED      = "Đã bỏ lưu trữ câu hỏi";
+
+    // ───────── Shared department question bank (department-scoped) ────
+    // Route prefixes / canonical URLs.
+    String BASE_LECTURER_QUESTION_BANK = BASE_LECTURER + "/question-bank";
+    String URL_LECTURER_QUESTION_BANK  = BASE_LECTURER_QUESTION_BANK;
+    String BASE_HEAD_QUESTION_BANK     = BASE_HEAD + "/question-bank";
+    String URL_HEAD_QUESTION_BANK_MANAGE = BASE_HEAD_QUESTION_BANK;
+
+    // View names.
+    String VIEW_QB_LIST   = "questionbank/list";
+    String VIEW_QB_DETAIL = "questionbank/detail";
+    String VIEW_QB_FORM   = "questionbank/form";
+    String VIEW_QB_MANAGE = "questionbank/manage";
+
+    // Model attribute keys (department-scoped screens).
+    String ATTR_QB_CONTRIBUTORS         = "contributors";
+    String ATTR_QB_SELECTED_CONTRIBUTOR_ID = "selectedContributorId";
+
+    // HEAD management screen 2-tab layout (server-side ?tab= routing).
+    String ATTR_QB_ACTIVE_TAB           = "qbActiveTab";
+    String TAB_QB_QUESTIONS             = "questions";
+    String TAB_QB_CATEGORIES            = "categories";
+    String ATTR_QB_HAS_ACTIVE_FILTER    = "hasActiveFilter";
+    String ATTR_QB_STATUS_COUNTS        = "statusCounts";
+
+    // Inbox review UX (question table + detail panel) on the questions tab.
+    String PARAM_QB_SELECTED            = "selected";
+    String ATTR_QB_SELECTED_ITEM        = "selectedItem";
+    String ATTR_QB_SELECTED_ITEM_ID     = "selectedItemId";
+
+    // HEAD master-detail redesign: category master → question detail + bulk.
+    String VIEW_QB_CATEGORY_DETAIL     = "questionbank/category-detail";
+    String ATTR_QB_CATEGORY_DETAIL     = "categoryDetail";
+    String ATTR_QB_CATEGORY_ID         = "categoryId";
+    String PARAM_QB_ITEM_IDS           = "itemIds";
+    String MSG_QB_BULK_EMPTY           = "Vui lòng chọn ít nhất một câu hỏi";
+    String MSG_QB_BULK_APPROVED_PREFIX = "Đã duyệt ";
+    String MSG_QB_BULK_REJECTED_PREFIX = "Đã trả lại ";
+    String MSG_QB_BULK_ARCHIVED_PREFIX = "Đã lưu trữ ";
+    String MSG_QB_BULK_UNARCHIVED_PREFIX = "Đã bỏ lưu trữ ";
+    String MSG_QB_BULK_SUFFIX_ITEMS    = " câu";
+    String MSG_QB_BULK_SKIPPED_PREFIX  = ", bỏ qua ";
+    String MSG_QB_BULK_SKIPPED_SUFFIX  = " câu không hợp lệ";
+
+    // Insert-from-bank into test authoring (Vietnamese UI text).
+    String MSG_QB_INSERTED_PREFIX = "Đã chèn ";
+    String MSG_QB_INSERTED_SUFFIX = " câu hỏi đã duyệt vào bài test";
+    String MSG_QB_INSERT_LOCKED   =
+            "Bài test đã có bài nộp nên không thể thêm câu hỏi mới từ ngân hàng";
+    String MSG_QB_INSERT_EMPTY    = "Vui lòng chọn ít nhất một câu hỏi đã duyệt để chèn";
 
     // ───────── Personal file library (Vietnamese UI text) ────────────
     String MSG_LIBRARY_UPLOADED        = "Đã thêm tệp vào kho học liệu";

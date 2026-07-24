@@ -238,7 +238,7 @@ class LecturerExamManagementIntegrationTest {
         return new ExamForm(id, title, "mô tả", classId, "MOCK", "PUBLISHED",
                 "FIXED_WINDOW", null, LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(1), new BigDecimal("1.00"), false, false,
-                mediaType, mediaUrl, questions);
+                mediaType, mediaUrl, questions, false);
     }
 
     /** A valid form but with a single (possibly invalid) question, for reject tests. */
@@ -246,7 +246,7 @@ class LecturerExamManagementIntegrationTest {
         return new ExamForm(null, "Đề lỗi", "mô tả", classId, "MOCK", "PUBLISHED",
                 "FIXED_WINDOW", null, LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(1), new BigDecimal("1.00"), false, false,
-                null, null, List.of(question));
+                null, null, List.of(question), false);
     }
 
     private ClassEntity saveClass(User lecturer) {

@@ -69,11 +69,12 @@
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowfullscreen>
       </iframe>
-      <video th:if="${lessonDetail.videoProvider() == 'UPLOAD'}"
-             th:src="${lessonDetail.videoUrl()}"
-             controls preload="metadata">
-        Trình duyệt không hỗ trợ thẻ video.
-      </video>
+<video th:if="${lessonDetail.videoProvider() == 'UPLOAD'}"
+              th:src="${lessonDetail.videoUrl()}"
+              controls preload="metadata"
+              poster="/uploads/lessons/poster.jpg">
+         Trình duyệt không hỗ trợ thẻ video.
+       </video>
     </div>
   </div>
 

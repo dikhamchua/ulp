@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Bộ môn | Quản lý ngân hàng câu hỏi', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/head-department.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/question-bank.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('head')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/head-sidebar :: headSidebar('question-bank')}"></aside>
+
+  <main class="col detail-page qb-head-main">
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <h1 class="detail-title">Quản lý ngân hàng câu hỏi</h1>
+    <p class="detail-sub">Ngân hàng câu hỏi dùng chung của bộ môn: mở/đóng danh mục cho giảng viên đóng góp, bấm "Chi tiết" để xem và duyệt câu hỏi trong danh mục. Câu đã duyệt có thể được chèn snapshot vào bài test.</p>
+
+    <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
+      Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
+    </div>
+
+    <th:block th:if="${!emptyDepartment}">
+      <!-- Category master table: toggle open/close + drill into detail. The
+           create/edit form lives in #qbCategoryModal (opened via the toolbar
+           button, or auto-opened by JS in edit/error mode). -->
+      <section class="detail-card">
+        <div class="qb-card-head">
+          <h2 class="detail-card-title">Danh mục bộ môn</h2>
+          <button type="button" class="btn-primary" id="qbAddCategoryBtn"
+                  data-qb-category-open>＋ Thêm danh mục</button>
+        </div>
+
+        <div class="detail-empty" th:if="${categories == null or categories.isEmpty()}">
+          Chưa có danh mục nào. Thêm danh mục để phân loại câu hỏi.
+        </div>
+
+        <div class="admin-list-table-scroll" th:if="${categories != null and !categories.isEmpty()}">
+          <table class="detail-table">
+            <thead>
+            <tr><th>Tên &amp; mô tả</th><th>Số câu</th><th>Trạng thái</th><th>Thao tác</th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="category : ${categories}">
+              <td>
+                <div><strong th:text="${category.name()}">Danh mục</strong></div>
+                <div class="muted" th:text="${category.description() != null ? category.description() : '—'}">—</div>
+              </td>
+              <td th:text="${category.itemCount()}">0</td>
+              <td>
+                <!-- Auto-submit switch: toggle open/close for lecturer contribution. -->
+                <form th:action="@{'/head/question-bank/categories/' + ${category.id()} + '/toggle'}" method="post" class="qb-inline-form">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <label class="qb-switch">
+                    <input type="checkbox" data-autosubmit th:checked="${category.active()}">
+                    <span class="qb-switch-slider" aria-hidden="true"></span>
+                    <span class="sr-only" th:text="${category.active()} ? 'Đang mở cho giảng viên' : 'Đang đóng'">Trạng thái</span>
+                  </label>
+                </form>
+              </td>
+              <td class="qb-row-actions">
+                <a class="btn-primary btn-sm" th:href="@{'/head/question-bank/categories/' + ${category.id()}}">Chi tiết</a>
+                <a th:href="@{/head/question-bank(editCategoryId=${category.id()})}">Sửa</a>
+                <form th:action="@{'/head/question-bank/categories/' + ${category.id()} + '/delete'}" method="post" class="qb-inline-form">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button type="submit" class="link-button danger">Xoá</button>
+                </form>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </th:block>
+  </main>
+</div>
+
+<!-- Create/edit category modal. Auto-opens (data-qb-category-autoopen) when the
+     server rendered edit mode (editCategoryId != null) or a validation error so
+     the user sees the pre-filled form / inline field errors. -->
+<div th:if="${!emptyDepartment}" class="qb-modal" id="qbCategoryModal" hidden
+     th:attr="data-qb-category-autoopen=${editCategoryId != null or #fields.hasErrors('categoryForm.*')} ? 'true' : null">
+  <div class="qb-modal-overlay" data-qb-category-close></div>
+  <div class="qb-modal-card" role="dialog" aria-modal="true" aria-labelledby="qbCategoryModalTitle">
+    <button type="button" class="qb-modal-close" data-qb-category-close aria-label="Đóng">&times;</button>
+    <h2 class="qb-modal-title" id="qbCategoryModalTitle"
+        th:text="${editCategoryId == null} ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'">Thêm danh mục</h2>
+    <form class="detail-form-grid qb-category-form" method="post"
+          th:object="${categoryForm}"
+          th:action="${editCategoryId == null} ? @{/head/question-bank/categories} : @{'/head/question-bank/categories/' + ${editCategoryId} + '/edit'}">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <div class="form-row">
+        <label for="qbCategoryName">Tên danh mục</label>
+        <input id="qbCategoryName" type="text" th:field="*{name}" placeholder="Tên danh mục">
+        <span class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">Lỗi</span>
+      </div>
+      <div class="form-row span-3">
+        <label for="qbCategoryDesc">Mô tả ngắn</label>
+        <textarea id="qbCategoryDesc" rows="3" th:field="*{description}" placeholder="Mô tả ngắn (tuỳ chọn)"></textarea>
+        <span class="field-error" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">Lỗi</span>
+      </div>
+      <div class="form-row">
+        <label class="form-checkbox-label" for="qbCategoryActive">
+          <input id="qbCategoryActive" type="checkbox" th:field="*{active}">
+          <span>Mở cho giảng viên đóng góp</span>
+        </label>
+      </div>
+      <div class="form-actions">
+        <a th:if="${editCategoryId != null}" class="btn-ghost" th:href="@{/head/question-bank}">Huỷ sửa</a>
+        <button type="button" th:if="${editCategoryId == null}" class="btn-ghost" data-qb-category-close>Huỷ</button>
+        <button type="submit" class="btn-primary" th:text="${editCategoryId == null} ? 'Lưu danh mục' : 'Cập nhật danh mục'">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/head-department.js}"></script>
+<script th:src="@{/js/question-bank.js}"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Chi tiết câu hỏi', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/question-bank.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<div class="qb-page detail-page">
+  <span id="flash-data"
+        th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+        style="display:none;"></span>
+
+  <div class="qb-toolbar">
+    <a class="toolbar-back" th:href="@{/lecturer/question-bank}">← Quay lại ngân hàng câu hỏi</a>
+    <div class="qb-toolbar-actions">
+      <a class="toolbar-secondary" th:if="${detail.editable()}"
+         th:href="@{'/lecturer/question-bank/' + ${detail.id()} + '/edit'}">Chỉnh sửa</a>
+      <a class="toolbar-secondary" sec:authorize="hasRole('HEAD')" th:if="${detail.reviewable()}" th:href="@{/head/question-bank}">Mở quản lý &amp; duyệt</a>
+    </div>
+  </div>
+
+  <h1 class="detail-page-title">Chi tiết câu hỏi</h1>
+  <p class="detail-sub">Theo dõi nội dung, trạng thái duyệt, đáp án và lịch sử phê duyệt của câu hỏi trong ngân hàng bộ môn.</p>
+
+  <section class="detail-card">
+    <div class="detail-page-meta qb-meta-wrap">
+      <span class="status-pill" th:text="${detail.questionType()}">MCQ</span>
+      <span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(detail.workflowStatus())}"
+            th:text="${detail.workflowStatus()}">DRAFT</span>
+      <span>Danh mục: <strong th:text="${detail.categoryName()}">Danh mục</strong></span>
+      <span>Người tạo: <strong th:text="${detail.contributorName()}">GV</strong></span>
+      <span>Cập nhật: <strong th:text="${detail.updatedAt() != null ? #temporals.format(detail.updatedAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</strong></span>
+    </div>
+
+    <div class="qb-rich" th:utext="${detail.content()}"></div>
+
+    <div class="qb-explanation" th:if="${detail.explanation() != null}">
+      <h3>Giải thích</h3>
+      <div class="qb-rich" th:utext="${detail.explanation()}"></div>
+    </div>
+
+    <div class="qb-option-list">
+      <div class="qb-option-row" th:each="option, stat : ${detail.options()}">
+        <div class="qb-option-mark" th:text="${#strings.arraySplit('A,B,C,D,E,F,G,H', ',')[stat.index]}">A</div>
+        <div class="qb-option-body">
+          <div class="qb-rich" th:utext="${option.content()}"></div>
+          <span class="status-pill status-active" th:if="${option.correct()}">Đáp án đúng</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="qb-review-note" th:if="${detail.reviewNote() != null}">
+      <h3>Ghi chú duyệt</h3>
+      <p th:text="${detail.reviewNote()}">Ghi chú</p>
+    </div>
+
+    <div class="qb-audit-grid">
+      <div>
+        <div class="qb-audit-label">Người duyệt</div>
+        <div th:text="${detail.reviewerName() != null ? detail.reviewerName() : '—'}">—</div>
+      </div>
+      <div>
+        <div class="qb-audit-label">Duyệt lúc</div>
+        <div th:text="${detail.reviewedAt() != null ? #temporals.format(detail.reviewedAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</div>
+      </div>
+      <div>
+        <div class="qb-audit-label">Phê duyệt lúc</div>
+        <div th:text="${detail.approvedAt() != null ? #temporals.format(detail.approvedAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/question-bank.js}"></script>
+</body>
+</html>

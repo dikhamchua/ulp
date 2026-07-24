@@ -67,3 +67,6 @@ rev*.err.log
 
 # Playwright MCP screenshots (scoped so project image assets are unaffected)
 .playwright-mcp/*.png
+
+# Review/mockup screenshots (not part of the app)
+/qb-*.png

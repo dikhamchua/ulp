@@ -77,4 +77,20 @@ public final class HeadDtos {
             boolean emptyDepartment
     ) {
     }
+
+    public record QuestionBankTestRow(
+            Long testId,
+            String title,
+            String className,
+            String type,
+            String status
+    ) {
+    }
+
+    public record QuestionBankTestsView(
+            DepartmentSummary department,
+            List<QuestionBankTestRow> tests,
+            boolean emptyDepartment
+    ) {
+    }
 }

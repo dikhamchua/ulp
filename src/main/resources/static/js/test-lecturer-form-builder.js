@@ -158,6 +158,21 @@
                 addOption(node, null);
                 addOption(node, null);
             }
+             var qType = node.querySelector('.lf-q-type');
+             qType.addEventListener('change', function () {
+                 if (qType.value !== 'MCQ') return;
+                 var firstChecked = null;
+                 node.querySelectorAll('.lf-option').forEach(function (oEl) {
+                     var cb = oEl.querySelector('.lf-o-correct');
+                     if (!cb || !cb.checked) return;
+                     if (!firstChecked) {
+                         firstChecked = cb;
+                         return;
+                     }
+                     cb.checked = false;
+                     syncOptionCorrectState(oEl);
+                 });
+             });
             node.querySelector('.lf-add-option').addEventListener('click', function () {
                 addOption(node, null);
             });

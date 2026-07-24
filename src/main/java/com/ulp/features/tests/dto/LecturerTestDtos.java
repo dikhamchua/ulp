@@ -37,7 +37,29 @@ public final class LecturerTestDtos {
                            Integer durationMinutes, LocalDateTime startAt, LocalDateTime endAt,
                            BigDecimal passingScore, boolean shuffleQuestions, boolean shuffleOptions,
                            String mediaType, String mediaUrl,
-                           List<QuestionForm> questions) {
+                           List<QuestionForm> questions, boolean questionBankLocked) {
+    }
+
+    /** One active department category shown in the exam-side bank picker. */
+    public record BankCategoryOption(Long id, String name) {
+    }
+
+    /** One option copied from an approved bank item. */
+    public record BankOptionSnapshot(String content, boolean correct) {
+    }
+
+    /** Snapshot payload returned by the approved bank picker query. */
+    public record BankItemSnapshot(Long id, String categoryName, String questionType,
+                                   String content, String explanation,
+                                   List<BankOptionSnapshot> options) {
+    }
+
+    /** Chosen approved bank item ids to snapshot into a test (insert-from-bank). */
+    public record BankInsertRequest(List<Long> itemIds) {
+    }
+
+    /** Result of an insert-from-bank operation: how many questions were copied. */
+    public record BankInsertResult(int insertedCount) {
     }
 
     /** Save response: the persisted exam id + where to go next. */
