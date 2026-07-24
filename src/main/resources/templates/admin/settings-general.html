@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Cài đặt chung', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+
+  <main class="col">
+    <nav class="settings-breadcrumb" aria-label="Breadcrumb">
+      <a th:href="@{/admin/settings}">Cài đặt hệ thống</a>
+      <span class="sep" aria-hidden="true">/</span>
+      <span aria-current="page">Chung (General)</span>
+    </nav>
+
+    <h1 class="detail-title">Cài đặt chung</h1>
+    <p class="detail-sub">Thông tin cơ bản của nền tảng: tên hệ thống, mô tả,
+      logo và email liên hệ. Thay đổi có hiệu lực ngay, không cần khởi động lại.</p>
+
+    <!-- Flash → toast on page load (admin.js drains #flash-data). -->
+    <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
+         th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
+
+    <!-- ===== Form ===== -->
+    <section class="settings-form-panel">
+      <form th:action="@{/admin/settings/general}" method="post"
+            th:object="${form}" class="settings-form" novalidate>
+
+        <fieldset class="settings-fieldset">
+          <legend>Thông tin nền tảng</legend>
+
+          <div class="form-row">
+            <label for="siteName">Tên hệ thống</label>
+            <input type="text" id="siteName" th:field="*{siteName}"
+                   placeholder="University Learning Platform"
+                   autocomplete="off" maxlength="255"
+                   th:attr="aria-invalid=${#fields.hasErrors('siteName')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('siteName')} ? 'siteName-error' : ''">
+            <span id="siteName-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('siteName')}" th:errors="*{siteName}">Lỗi tên hệ thống</span>
+          </div>
+
+          <div class="form-row">
+            <label for="siteDescription">Mô tả</label>
+            <input type="text" id="siteDescription" th:field="*{siteDescription}"
+                   placeholder="Nền tảng học tập trực tuyến"
+                   autocomplete="off" maxlength="500"
+                   th:attr="aria-invalid=${#fields.hasErrors('siteDescription')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('siteDescription')} ? 'siteDescription-error' : 'siteDescription-hint'">
+            <p id="siteDescription-hint" class="field-hint">Câu mô tả ngắn hiển thị
+              cho khách. Có thể để trống.</p>
+            <span id="siteDescription-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('siteDescription')}" th:errors="*{siteDescription}">Lỗi mô tả</span>
+          </div>
+
+          <div class="form-row">
+            <label for="siteLogoUrl">Đường dẫn logo</label>
+            <input type="text" id="siteLogoUrl" th:field="*{siteLogoUrl}"
+                   placeholder="/images/logo.png"
+                   autocomplete="off" maxlength="500"
+                   th:attr="aria-invalid=${#fields.hasErrors('siteLogoUrl')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('siteLogoUrl')} ? 'siteLogoUrl-error' : 'siteLogoUrl-hint'">
+            <p id="siteLogoUrl-hint" class="field-hint">Đường dẫn nội bộ
+              (<code>/images/logo.png</code>) hoặc URL đầy đủ. Để trống để bỏ logo.</p>
+            <span id="siteLogoUrl-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('siteLogoUrl')}" th:errors="*{siteLogoUrl}">Lỗi đường dẫn logo</span>
+          </div>
+
+          <div class="form-row">
+            <label for="siteContactEmail">Email liên hệ</label>
+            <input type="text" id="siteContactEmail" th:field="*{siteContactEmail}"
+                   placeholder="contact@ulp.edu.vn"
+                   autocomplete="off" maxlength="255"
+                   th:attr="aria-invalid=${#fields.hasErrors('siteContactEmail')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('siteContactEmail')} ? 'siteContactEmail-error' : 'siteContactEmail-hint'">
+            <p id="siteContactEmail-hint" class="field-hint">Email hiển thị cho
+              người dùng khi cần hỗ trợ. Để trống nếu chưa có.</p>
+            <span id="siteContactEmail-error" class="field-error" role="alert"
+                  th:if="${#fields.hasErrors('siteContactEmail')}" th:errors="*{siteContactEmail}">Lỗi email liên hệ</span>
+          </div>
+        </fieldset>
+
+        <div class="settings-form-actions">
+          <a th:href="@{/admin/settings}" class="btn btn-ghost">Hủy</a>
+          <button type="submit" class="btn btn-primary">Lưu cài đặt</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>
