@@ -270,3 +270,24 @@
     }
   }
 })();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Permission tab — checkbox toggles submit their own row form.
+   The desired post-click state travels in the hidden "granted" field rendered
+   server-side, so the checkbox itself is only a trigger; it is disabled right
+   away to stop a double submit while the page navigates.
+   ══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  document.addEventListener('change', function (ev) {
+    var box = ev.target;
+    if (!box || box.dataset.action !== 'toggle-permission') return;
+
+    var form = box.closest('.uperm-form');
+    if (!form) return;
+
+    box.disabled = true;
+    form.requestSubmit();
+  });
+})();

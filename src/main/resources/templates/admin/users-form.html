@@ -87,6 +87,9 @@
         <a class="detail-tab"
            th:href="@{'/admin/users/' + ${targetUser.id} + '/edit'(tab='history')}"
            th:classappend="${activeDetailTab == 'history'} ? 'active'">Lịch sử cập nhật</a>
+        <a class="detail-tab"
+           th:href="@{'/admin/users/' + ${targetUser.id} + '/edit'(tab='permissions')}"
+           th:classappend="${activeDetailTab == 'permissions'} ? 'active'">Phân quyền</a>
       </nav>
     </th:block>
 
@@ -255,6 +258,65 @@
              th:if="${!activitiesPage.last}"
              th:href="@{'/admin/users/' + ${targetUser.id} + '/edit'(tab='history', page=${activitiesPage.number + 1})}">Sau ›</a>
         </nav>
+      </div>
+    </section>
+
+    <!-- ═══ Phân quyền tab — per-user override matrix (edit mode only) ═
+         Every catalogue permission is listed under its group. Ticking a row
+         creates an override immediately (no reason prompt); the change is
+         written to the "Lịch sử cập nhật" timeline. One CSRF-carrying form
+         per row so a checkbox change posts exactly one toggle.
+         ════════════════════════════════════════════════════════════════ -->
+    <section class="detail-card"
+             th:if="${mode == 'edit' and activeDetailTab == 'permissions'}">
+      <h2 class="detail-card-title">Phân quyền tài khoản</h2>
+      <p class="uperm-summary">
+        Vai trò <strong th:text="${permissionView.roleCode() != null ? permissionView.roleCode() : '—'}">ROLE</strong>
+        · <span th:text="${permissionView.totalGranted()}">0</span> quyền đang có hiệu lực
+        · <span th:text="${permissionView.overrideCount()}">0</span> quyền ghi đè riêng
+      </p>
+
+      <div th:if="${permissionView.groups().isEmpty()}" class="detail-empty" role="status">
+        Chưa có quyền nào được khai báo trong hệ thống.
+      </div>
+
+      <div class="uperm-group" th:each="grp : ${permissionView.groups()}">
+        <div class="uperm-group-head">
+          <span class="uperm-group-name" th:text="${grp.group()}">GROUP</span>
+          <span class="uperm-group-count"
+                th:text="${grp.grantedCount()} + '/' + ${grp.rows().size()}">0/0</span>
+        </div>
+
+        <ul class="uperm-rows">
+          <li class="uperm-row" th:each="row : ${grp.rows()}"
+              th:classappend="${row.locked()} ? 'is-locked'">
+            <form class="uperm-form"
+                  th:action="@{'/admin/users/' + ${targetUser.id} + '/permissions'}"
+                  method="post">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <input type="hidden" name="featureKey" th:value="${row.featureKey()}">
+              <!-- Posted value is the state we want AFTER the click, hence negated. -->
+              <input type="hidden" name="granted" th:value="${!row.effective()}">
+              <label class="uperm-check">
+                <input type="checkbox"
+                       th:checked="${row.effective()}"
+                       th:disabled="${row.locked()}"
+                       data-action="toggle-permission">
+                <span class="uperm-name" th:text="${row.name()}">Tên quyền</span>
+              </label>
+              <code class="uperm-key" th:text="${row.featureKey()}">feature.key</code>
+              <span class="uperm-badge"
+                    th:classappend="${'uperm-badge-' + #strings.toLowerCase(row.source())}"
+                    th:switch="${row.source()}">
+                <span th:case="'FROM_ROLE'">Từ vai trò</span>
+                <span th:case="'GRANT'">GRANT +</span>
+                <span th:case="'REVOKE'">REVOKE −</span>
+                <span th:case="*">Không có</span>
+              </span>
+              <span class="uperm-lock" th:if="${row.locked()}" title="Quyền cốt lõi, không thể đổi">Khoá</span>
+            </form>
+          </li>
+        </ul>
       </div>
     </section>
 
