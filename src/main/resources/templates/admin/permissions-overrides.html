@@ -6,6 +6,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-permissions.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/ulp-combobox.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
@@ -40,7 +41,10 @@
 
         <div class="form-row">
           <label for="overrideUserId">Người dùng<span class="req">*</span></label>
-          <select id="overrideUserId" name="userId" required>
+          <select id="overrideUserId" name="userId" required
+                  data-combobox
+                  data-combobox-placeholder="Gõ tên hoặc email để tìm…"
+                  data-combobox-empty="Không tìm thấy người dùng nào">
             <option value="" disabled th:selected="${overrideForm.userId() == null}">— Chọn người dùng —</option>
             <option th:each="u : ${overrideUsers}" th:value="${u.id()}"
                     th:selected="${u.id() == overrideForm.userId()}"
@@ -50,7 +54,10 @@
 
         <div class="form-row">
           <label for="overrideFeatureKey">Quyền<span class="req">*</span></label>
-          <select id="overrideFeatureKey" name="featureKey" required>
+          <select id="overrideFeatureKey" name="featureKey" required
+                  data-combobox
+                  data-combobox-placeholder="Gõ tên quyền hoặc feature key để tìm…"
+                  data-combobox-empty="Không tìm thấy quyền nào">
             <option value="" disabled th:selected="${overrideForm.featureKey() == null}">— Chọn quyền —</option>
             <option th:each="p : ${permissionCatalog}" th:value="${p.featureKey()}"
                     th:selected="${p.featureKey() == overrideForm.featureKey()}"
@@ -151,6 +158,7 @@
 </div>
 
 <script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/ulp-combobox.js}"></script>
 <script th:src="@{/js/admin-permissions.js}"></script>
 </body>
 </html>

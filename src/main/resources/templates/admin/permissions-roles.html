@@ -33,63 +33,84 @@
         </span>
       </div>
       <a th:href="@{/admin/permissions/overrides}" class="btn-ghost">
-        Ngoại lệ theo người dùng
+        Ghi đè quyền
       </a>
     </section>
 
-    <section class="admin-list-panel perm-panel">
-      <div th:if="${matrix.groups().isEmpty()}" class="admin-list-empty" role="status" aria-live="polite">
+    <div th:if="${matrix.groups().isEmpty()}" class="admin-list-panel">
+      <div class="admin-list-empty" role="status" aria-live="polite">
         Chưa có quyền nào trong danh mục. Chạy migration RBAC để nạp danh mục quyền.
       </div>
+    </div>
 
-      <div class="admin-list-table-scroll" th:if="${not matrix.groups().isEmpty()}">
-        <table class="admin-list-table perm-table">
-          <thead>
-            <tr>
-              <th class="perm-col-name">Quyền</th>
-              <th class="perm-col-role" th:each="roleCode : ${matrix.roleCodes()}"
-                  th:text="${roleCode}">ROLE</th>
-            </tr>
-          </thead>
-          <tbody>
-            <th:block th:each="group : ${matrix.groups()}">
-              <tr class="perm-tr-group">
-                <td class="perm-group-cell"
-                    th:attr="colspan=${matrix.roleCodes().size() + 1}"
-                    th:text="${group.group()}">NHÓM</td>
-              </tr>
+    <!-- Master/detail: group list on the left, that group's permissions on the right. -->
+    <section class="perm-split" th:if="${not matrix.groups().isEmpty()}">
+      <nav class="perm-master admin-list-panel" aria-label="Nhóm quyền">
+        <div class="perm-master-head">Nhóm quyền</div>
+        <ul class="perm-master-list">
+          <li th:each="group : ${matrix.groups()}">
+            <a class="perm-master-item"
+               th:href="'#' + ${group.group()}"
+               th:attr="data-group=${group.group()}">
+              <span class="perm-master-name" th:text="${group.group()}">NHÓM</span>
+              <span class="perm-master-count" th:text="${group.rows().size()}">0</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
 
-              <tr class="perm-tr-row" th:each="row : ${group.rows()}">
-                <td class="perm-col-name">
-                  <div class="perm-name" th:text="${row.name()}">Tên quyền</div>
-                  <code class="perm-key" th:text="${row.featureKey()}">feature.key</code>
-                  <div class="perm-desc" th:if="${row.description() != null}"
-                       th:text="${row.description()}">Mô tả</div>
-                </td>
+      <div class="perm-detail admin-list-panel">
+        <section class="perm-detail-pane" th:each="group : ${matrix.groups()}"
+                 th:attr="data-group=${group.group()}" hidden>
+          <header class="perm-detail-head">
+            <h2 class="perm-detail-title" th:text="${group.group()}">NHÓM</h2>
+            <span class="perm-detail-count">
+              <b th:text="${group.rows().size()}">0</b> quyền
+            </span>
+          </header>
 
-                <td class="perm-col-role" th:each="cell : ${row.cells()}">
-                  <!-- Core ADMIN cells are frozen: the server rejects detaching them. -->
-                  <form th:if="${not cell.core()}" method="post" th:action="@{/admin/permissions}"
-                        class="perm-cell-form">
-                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                    <input type="hidden" name="roleCode" th:value="${cell.roleCode()}">
-                    <input type="hidden" name="featureKey" th:value="${row.featureKey()}">
-                    <input type="hidden" name="granted" th:value="${cell.granted()} ? 'false' : 'true'">
-                    <input type="checkbox" class="perm-check" th:checked="${cell.granted()}"
-                           th:attr="aria-label=${cell.roleCode()} + ' — ' + ${row.name()}">
-                  </form>
+          <div class="admin-list-table-scroll">
+            <table class="admin-list-table perm-table">
+              <thead>
+                <tr>
+                  <th class="perm-col-name">Quyền</th>
+                  <th class="perm-col-role" th:each="roleCode : ${matrix.roleCodes()}"
+                      th:text="${roleCode}">ROLE</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="perm-tr-row" th:each="row : ${group.rows()}">
+                  <td class="perm-col-name">
+                    <div class="perm-name" th:text="${row.name()}">Tên quyền</div>
+                    <code class="perm-key" th:text="${row.featureKey()}">feature.key</code>
+                    <div class="perm-desc" th:if="${row.description() != null}"
+                         th:text="${row.description()}">Mô tả</div>
+                  </td>
 
-                  <span th:if="${cell.core()}" class="perm-cell-core"
-                        title="Quyền cốt lõi — không thể gỡ khỏi ADMIN">
-                    <input type="checkbox" class="perm-check" checked disabled
-                           th:attr="aria-label=${cell.roleCode()} + ' — ' + ${row.name()} + ' (quyền cốt lõi)'">
-                    <span class="perm-core-label">quyền cốt lõi</span>
-                  </span>
-                </td>
-              </tr>
-            </th:block>
-          </tbody>
-        </table>
+                  <td class="perm-col-role" th:each="cell : ${row.cells()}">
+                    <!-- Core ADMIN cells are frozen: the server rejects detaching them. -->
+                    <form th:if="${not cell.core()}" method="post" th:action="@{/admin/permissions}"
+                          class="perm-cell-form">
+                      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                      <input type="hidden" name="roleCode" th:value="${cell.roleCode()}">
+                      <input type="hidden" name="featureKey" th:value="${row.featureKey()}">
+                      <input type="hidden" name="granted" th:value="${cell.granted()} ? 'false' : 'true'">
+                      <input type="checkbox" class="perm-check" th:checked="${cell.granted()}"
+                             th:attr="aria-label=${cell.roleCode()} + ' — ' + ${row.name()}">
+                    </form>
+
+                    <span th:if="${cell.core()}" class="perm-cell-core"
+                          title="Quyền cốt lõi — không thể gỡ khỏi ADMIN">
+                      <input type="checkbox" class="perm-check" checked disabled
+                             th:attr="aria-label=${cell.roleCode()} + ' — ' + ${row.name()} + ' (quyền cốt lõi)'">
+                      <span class="perm-core-label">quyền cốt lõi</span>
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </section>
   </main>
