@@ -78,13 +78,46 @@
     });
   }
 
+  // Multi-select mode toggle: checkboxes + the bulk action bar stay hidden
+  // until the moderator opts in via "Chọn nhiều" (keeps the default view clean).
+  var multiSelect = false;
+
+  function toggleMultiSelect() {
+    multiSelect = !multiSelect;
+    return multiSelect;
+  }
+
+  // POSTs the selected ids to a bulk endpoint, then summarises the outcome.
+  // api() already unwraps the envelope, so `data` is {succeeded, skipped}.
+  function bulkModerate(path, ids, verb) {
+    return api('POST', base + path, { commentIds: ids }).then(function (data) {
+      data = data || {};
+      var ok = data.succeeded || 0;
+      var skip = data.skipped || 0;
+      if (window.UlpToast) {
+        window.UlpToast.success(verb + ok + ' bình luận' + (skip ? ', bỏ qua ' + skip : ''));
+      }
+      return load(0, false);
+    }).catch(function (err) {
+      if (window.UlpToast) window.UlpToast.error(err.message || 'Thao tác thất bại');
+      throw err;
+    });
+  }
+
+  function bulkHide(ids) { return bulkModerate('/bulk/hide', ids, 'Đã ẩn '); }
+  function bulkUnhide(ids) { return bulkModerate('/bulk/unhide', ids, 'Đã hiện lại '); }
+
   // Presentational tree builder; data flow (fetch/pagination/toasts) stays here.
   var thread = window.UlpCommentThread({
     api: api,
     base: base,
     mutate: mutate,
     reload: function () { return load(0, false); },
-    contentRequiredMsg: MSG_CONTENT_REQUIRED
+    contentRequiredMsg: MSG_CONTENT_REQUIRED,
+    isMultiSelect: function () { return multiSelect; },
+    toggleMultiSelect: toggleMultiSelect,
+    bulkHide: bulkHide,
+    bulkUnhide: bulkUnhide
   });
 
   // Renders a page of roots; append=false clears first, true concatenates.

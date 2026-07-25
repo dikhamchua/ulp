@@ -92,4 +92,7 @@ public final class LessonCommentsDtos {
             @Size(max = 2000, message = "Nội dung tối đa 2000 ký tự")
             String content
     ) { }
+
+    /** Bulk moderation request: ids of comments to hide or unhide together. */
+    public record BulkModerateRequest(List<Long> commentIds) { }
 }

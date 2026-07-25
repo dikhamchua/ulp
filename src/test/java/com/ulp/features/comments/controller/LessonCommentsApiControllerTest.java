@@ -252,6 +252,89 @@ class LessonCommentsApiControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    // ── Bulk moderation: bulk/hide, bulk/unhide (ULP-11.7) ─────────────
+
+    @Test
+    @WithUserDetails(LECTURER_EMAIL)
+    void lecturer_bulk_hide_returns_counts() throws Exception {
+        CommentRow a = service.create(lesson.getId(), author.getId(), "A", null);
+        CommentRow b = service.create(lesson.getId(), author.getId(), "B", null);
+
+        mockMvc.perform(post(url() + "/bulk/hide").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"commentIds\":[" + a.id() + "," + b.id() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ok").value(true))
+                .andExpect(jsonPath("$.data.succeeded").value(2))
+                .andExpect(jsonPath("$.data.skipped").value(0));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER_EMAIL)
+    void bulk_hide_reports_partial_success() throws Exception {
+        Lesson lesson2 = persistLesson("Bài 2", true);
+        CommentRow mine = service.create(lesson.getId(), author.getId(), "Của lesson này", null);
+        CommentRow foreign = service.create(lesson2.getId(), author.getId(), "Lesson khác", null);
+
+        // Foreign id is skipped; the valid one is hidden → (1, 1).
+        mockMvc.perform(post(url() + "/bulk/hide").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"commentIds\":[" + mine.id() + "," + foreign.id() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.succeeded").value(1))
+                .andExpect(jsonPath("$.data.skipped").value(1));
+    }
+
+    @Test
+    @WithUserDetails(ADMIN_EMAIL)
+    void admin_not_enrolled_bulk_hide_returns_ok() throws Exception {
+        CommentRow a = service.create(lesson.getId(), author.getId(), "A", null);
+
+        mockMvc.perform(post(url() + "/bulk/hide").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"commentIds\":[" + a.id() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.succeeded").value(1));
+    }
+
+    @Test
+    @WithUserDetails(OTHER_EMAIL)
+    void student_bulk_hide_returns_403() throws Exception {
+        CommentRow a = service.create(lesson.getId(), author.getId(), "A", null);
+
+        mockMvc.perform(post(url() + "/bulk/hide").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"commentIds\":[" + a.id() + "]}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.ok").value(false));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER_EMAIL)
+    void bulk_hide_empty_list_returns_400() throws Exception {
+        mockMvc.perform(post(url() + "/bulk/hide").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"commentIds\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.ok").value(false));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER_EMAIL)
+    void lecturer_bulk_unhide_returns_counts() throws Exception {
+        CommentRow a = service.create(lesson.getId(), author.getId(), "A", null);
+        CommentRow b = service.create(lesson.getId(), author.getId(), "B", null);
+        service.hide(lesson.getId(), a.id(), lecturer.getId(), com.ulp.security.Role.LECTURER);
+        service.hide(lesson.getId(), b.id(), lecturer.getId(), com.ulp.security.Role.LECTURER);
+
+        mockMvc.perform(post(url() + "/bulk/unhide").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"commentIds\":[" + a.id() + "," + b.id() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.succeeded").value(2))
+                .andExpect(jsonPath("$.data.skipped").value(0));
+    }
+
     private String url() {
         return "/api/lessons/" + lesson.getId() + "/comments";
     }

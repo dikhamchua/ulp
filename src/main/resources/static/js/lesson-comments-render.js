@@ -59,6 +59,99 @@
     var api = deps.api, base = deps.base, mutate = deps.mutate, reload = deps.reload;
     var MSG_CONTENT_REQUIRED = deps.contentRequiredMsg;
 
+    // Bulk-select state (ULP-11.7): the panel root carries .is-multi-select so
+    // CSS reveals checkboxes; `selected` holds the chosen comment ids in click
+    // order. Both live at panel scope because the bar is a single control shared
+    // by every node. Selection is cleared whenever the mode toggles.
+    var panel = document.querySelector('.lesson-comments[data-lesson-id]');
+    var selected = new Set();
+    var bulkBar = null;
+    var selectBtn = null;
+
+    function multiActive() { return deps.isMultiSelect && deps.isMultiSelect(); }
+
+    // Lazily builds the "Chọn nhiều" toggle in the panel header (once).
+    function ensureSelectBtn() {
+      if (selectBtn || !panel) return selectBtn;
+      var title = panel.querySelector('.lesson-comments-title');
+      if (!title) return null;
+      selectBtn = el('button', 'lesson-comments-selectbtn', 'Chọn nhiều');
+      selectBtn.type = 'button';
+      selectBtn.addEventListener('click', function () {
+        var on = deps.toggleMultiSelect ? deps.toggleMultiSelect() : false;
+        applyMultiState(on);
+      });
+      title.appendChild(selectBtn);
+      return selectBtn;
+    }
+
+    // Syncs the panel class, button label and bar visibility to the mode, then
+    // re-renders so checkboxes appear/disappear on already-mounted nodes.
+    function applyMultiState(on) {
+      if (!panel) return;
+      panel.classList.toggle('is-multi-select', on);
+      if (selectBtn) selectBtn.textContent = on ? 'Xong' : 'Chọn nhiều';
+      selected.clear();
+      updateBulkBar();
+      reload();
+    }
+
+    // Lazily builds the floating action bar; hidden until at least one selected.
+    function ensureBulkBar() {
+      if (bulkBar || !panel) return bulkBar;
+      bulkBar = el('div', 'lesson-comments-bulkbar');
+      bulkBar._count = el('span', 'lesson-comments-bulkbar-count', 'Đã chọn 0');
+      var hideBtn = el('button', 'lesson-comment-action is-danger', 'Ẩn đã chọn');
+      hideBtn.type = 'button';
+      hideBtn.addEventListener('click', function () { runBulk(true); });
+      var unhideBtn = el('button', 'lesson-comment-action', 'Mở đã chọn');
+      unhideBtn.type = 'button';
+      unhideBtn.addEventListener('click', function () { runBulk(false); });
+      var clearBtn = el('button', 'lesson-comment-action', 'Bỏ chọn');
+      clearBtn.type = 'button';
+      clearBtn.addEventListener('click', function () {
+        selected.clear();
+        syncChecks();
+        updateBulkBar();
+      });
+      bulkBar.appendChild(bulkBar._count);
+      bulkBar.appendChild(hideBtn);
+      bulkBar.appendChild(unhideBtn);
+      bulkBar.appendChild(clearBtn);
+      panel.appendChild(bulkBar);
+      return bulkBar;
+    }
+
+    // Shows the bar with the live count only while there is a selection.
+    function updateBulkBar() {
+      var bar = ensureBulkBar();
+      if (!bar) return;
+      bar._count.textContent = 'Đã chọn ' + selected.size;
+      bar.classList.toggle('is-active', selected.size > 0);
+    }
+
+    // Re-checks any visible checkbox against the current selection set.
+    function syncChecks() {
+      if (!panel) return;
+      var boxes = panel.querySelectorAll('.lesson-comment-check');
+      boxes.forEach(function (box) {
+        var id = Number(box.getAttribute('data-id'));
+        box.checked = selected.has(id);
+      });
+    }
+
+    // Fires the chosen bulk action, then leaves multi-select mode on success.
+    function runBulk(hide) {
+      var ids = Array.from(selected);
+      if (!ids.length) return;
+      var op = hide ? deps.bulkHide : deps.bulkUnhide;
+      if (typeof op !== 'function') return;
+      op(ids).then(function () {
+        if (deps.toggleMultiSelect) deps.toggleMultiSelect();
+        applyMultiState(false);
+      }).catch(function () { /* toast already surfaced by orchestrator */ });
+    }
+
     // Inline textarea + submit/cancel used by reply and edit flows.
     function miniComposer(initial, submitLabel, onSubmit, onCancel) {
       var wrap = el('div', 'lesson-comment-reply-box');
@@ -141,9 +234,29 @@
       return row;
     }
 
+    // Per-node bulk checkbox; only moderatable nodes are selectable. Hidden by
+    // default via CSS, revealed when the panel has .is-multi-select.
+    function bulkCheck(c) {
+      var box = el('input', 'lesson-comment-check');
+      box.type = 'checkbox';
+      box.setAttribute('data-id', c.id);
+      box.checked = selected.has(c.id);
+      box.addEventListener('change', function () {
+        if (box.checked) selected.add(c.id); else selected.delete(c.id);
+        updateBulkBar();
+      });
+      return box;
+    }
+
     function commentNode(c, depth) {
       var node = el('div', 'lesson-comment');
       node.setAttribute('data-depth', depth);
+      // Moderatable, non-deleted nodes get a select box for bulk hide/unhide;
+      // seeing one also means the caller may moderate, so surface the toggle.
+      if (c.canModerate && !c.deleted) {
+        node.appendChild(bulkCheck(c));
+        ensureSelectBtn();
+      }
       node.appendChild(avatar(c));
 
       var col = el('div', 'lesson-comment-col');

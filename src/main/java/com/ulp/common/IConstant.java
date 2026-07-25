@@ -281,6 +281,8 @@ public interface IConstant {
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
     // Moderator hide/unhide (ULP-11.7).
     String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
+    // Comment bulk moderation (ULP-11.7).
+    String MSG_COMMENT_BULK_EMPTY = "Vui lòng chọn ít nhất một bình luận";
 
     // ───────── Flashcards (ULP-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.

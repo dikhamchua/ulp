@@ -1,10 +1,12 @@
 package com.ulp.features.comments.controller;
 
+import com.ulp.features.comments.dto.LessonCommentsDtos.BulkModerateRequest;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CommentPageView;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CommentRow;
 import com.ulp.features.comments.dto.LessonCommentsDtos.CreateRequest;
 import com.ulp.features.comments.dto.LessonCommentsDtos.EditRequest;
 import com.ulp.features.comments.service.LessonCommentsService;
+import com.ulp.features.comments.service.LessonCommentsService.BulkResult;
 import com.ulp.features.lessons.dto.SectionDtos.AjaxResult;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.ulp.common.IConstant.MSG_COMMENT_BULK_EMPTY;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.badRequest;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.forbidden;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.internalError;
@@ -161,6 +164,58 @@ public class LessonCommentsApiController {
             return notFound(ex.getMessage());
         } catch (RuntimeException ex) {
             log.error("Failed to unhide comment {} on lesson {}", commentId, lessonId, ex);
+            return internalError();
+        }
+    }
+
+    /**
+     * Bulk-hides selected comments (moderator only). Fails fast with 403 when the
+     * caller is not a moderator, then hides each id in its own tx; returns
+     * {@code {succeeded, skipped}} so the client can summarise partial success.
+     */
+    @PostMapping(value = "/bulk/hide", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> bulkHide(@PathVariable Long lessonId,
+                                      @RequestBody BulkModerateRequest request,
+                                      @AuthenticationPrincipal UlpUserDetails user) {
+        if (request.commentIds() == null || request.commentIds().isEmpty()) {
+            return badRequest(MSG_COMMENT_BULK_EMPTY);
+        }
+        try {
+            // Fail-fast authz so a non-moderator gets 403, not a confusing (0, N).
+            commentsService.assertModerator(lessonId, user.getId(), user.getRole());
+            BulkResult result = commentsService.hideAll(
+                    lessonId, request.commentIds(), user.getId(), user.getRole());
+            return ResponseEntity.ok(AjaxResult.success(result));
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to bulk-hide comments on lesson {}", lessonId, ex);
+            return internalError();
+        }
+    }
+
+    /** Bulk-unhides selected comments (moderator only); mirrors {@link #bulkHide}. */
+    @PostMapping(value = "/bulk/unhide", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> bulkUnhide(@PathVariable Long lessonId,
+                                        @RequestBody BulkModerateRequest request,
+                                        @AuthenticationPrincipal UlpUserDetails user) {
+        if (request.commentIds() == null || request.commentIds().isEmpty()) {
+            return badRequest(MSG_COMMENT_BULK_EMPTY);
+        }
+        try {
+            // Fail-fast authz so a non-moderator gets 403, not a confusing (0, N).
+            commentsService.assertModerator(lessonId, user.getId(), user.getRole());
+            BulkResult result = commentsService.unhideAll(
+                    lessonId, request.commentIds(), user.getId(), user.getRole());
+            return ResponseEntity.ok(AjaxResult.success(result));
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to bulk-unhide comments on lesson {}", lessonId, ex);
             return internalError();
         }
     }

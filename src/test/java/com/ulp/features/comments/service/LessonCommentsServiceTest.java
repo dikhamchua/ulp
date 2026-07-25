@@ -410,6 +410,83 @@ class LessonCommentsServiceTest {
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
+    // ── Bulk moderation: hideAll / unhideAll (ULP-11.7) ───────────────
+
+    @Test
+    void hide_all_hides_every_selected_comment() {
+        CommentRow a = service.create(lesson.getId(), student.getId(), "A", null);
+        CommentRow b = service.create(lesson.getId(), student.getId(), "B", null);
+        CommentRow c = service.create(lesson.getId(), student.getId(), "C", null);
+
+        LessonCommentsService.BulkResult result = service.hideAll(
+                lesson.getId(), List.of(a.id(), b.id(), c.id()), lecturer.getId(), Role.LECTURER);
+
+        assertThat(result.succeeded()).isEqualTo(3);
+        assertThat(result.skipped()).isZero();
+        assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
+    }
+
+    @Test
+    void hide_all_skips_foreign_comment_but_hides_the_rest() {
+        Lesson other2 = persistLesson("Bài 2", true);
+        CommentRow mine = service.create(lesson.getId(), student.getId(), "Của lesson này", null);
+        CommentRow foreign = service.create(other2.getId(), student.getId(), "Lesson khác", null);
+
+        // Foreign id belongs to another lesson → skipped; the valid one is hidden.
+        LessonCommentsService.BulkResult result = service.hideAll(
+                lesson.getId(), List.of(mine.id(), foreign.id()), lecturer.getId(), Role.LECTURER);
+
+        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(result.skipped()).isEqualTo(1);
+        assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
+    }
+
+    @Test
+    void hide_all_dedupes_repeated_ids() {
+        CommentRow a = service.create(lesson.getId(), student.getId(), "A", null);
+
+        // Same id thrice collapses to one hide; no duplicate audit row.
+        LessonCommentsService.BulkResult result = service.hideAll(
+                lesson.getId(), List.of(a.id(), a.id(), a.id()), lecturer.getId(), Role.LECTURER);
+
+        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(auditRowsFor(a.id(), CommentModeration.ACTION_REJECTED)).isEqualTo(1);
+    }
+
+    @Test
+    void hide_all_empty_list_is_noop() {
+        LessonCommentsService.BulkResult result = service.hideAll(
+                lesson.getId(), List.of(), lecturer.getId(), Role.LECTURER);
+
+        assertThat(result.succeeded()).isZero();
+        assertThat(result.skipped()).isZero();
+    }
+
+    @Test
+    void unhide_all_restores_every_selected_comment() {
+        CommentRow a = service.create(lesson.getId(), student.getId(), "A", null);
+        CommentRow b = service.create(lesson.getId(), student.getId(), "B", null);
+        service.hideAll(lesson.getId(), List.of(a.id(), b.id()), lecturer.getId(), Role.LECTURER);
+
+        LessonCommentsService.BulkResult result = service.unhideAll(
+                lesson.getId(), List.of(a.id(), b.id()), lecturer.getId(), Role.LECTURER);
+
+        assertThat(result.succeeded()).isEqualTo(2);
+        assertThat(result.skipped()).isZero();
+        assertThat(listRoots(lesson.getId(), student.getId())).hasSize(2);
+    }
+
+    @Test
+    void assert_moderator_allows_lecturer_denies_student() {
+        service.create(lesson.getId(), student.getId(), "Bất kỳ", null);
+
+        // Lecturer passes silently; a student is rejected with AccessDenied.
+        service.assertModerator(lesson.getId(), lecturer.getId(), Role.LECTURER);
+        assertThatThrownBy(() ->
+                service.assertModerator(lesson.getId(), student.getId(), Role.STUDENT))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
     // ── Pagination ────────────────────────────────────────────────────
 
     @Test

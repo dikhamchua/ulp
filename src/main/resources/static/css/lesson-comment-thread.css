@@ -114,6 +114,65 @@
   font-weight: 700;
 }
 
+/* ── Bulk select mode (ULP-11.7) ──────────────────────────────────────── */
+/* The "Chọn nhiều" toggle in the panel title. */
+.lesson-comments-selectbtn {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border: 1px solid var(--shub-border, #e6e8eb);
+  border-radius: 999px;
+  background: var(--shub-surface-muted, #f0f2f5);
+  color: var(--shub-text, #202227);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lesson-comments-selectbtn:hover {
+  background: var(--shub-surface-hover, #e6e8eb);
+}
+
+/* Per-node checkbox: hidden until the panel opts into multi-select mode. */
+.lesson-comment-check {
+  display: none;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.lesson-comments.is-multi-select .lesson-comment-check {
+  display: inline-block;
+}
+
+/* Floating action bar pinned to the panel bottom; shown once a row is picked. */
+.lesson-comments-bulkbar {
+  display: none;
+  position: sticky;
+  bottom: var(--space-3, 12px);
+  z-index: 5;
+  margin-top: var(--space-4, 16px);
+  padding: 10px 16px;
+  border: 1px solid var(--shub-border, #e6e8eb);
+  border-radius: 12px;
+  background: var(--shub-surface, #fff);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  align-items: center;
+  gap: var(--space-3, 12px);
+}
+
+.lesson-comments-bulkbar.is-active {
+  display: flex;
+}
+
+.lesson-comments-bulkbar-count {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--shub-text, #202227);
+}
+
 .lesson-comment-actions {
   display: flex;
   align-items: center;
