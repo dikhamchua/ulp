@@ -5,7 +5,6 @@ import com.ulp.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ulp.features.admin.departments.service.DepartmentQueryService;
 import com.ulp.features.admin.departments.service.DepartmentService;
 import com.ulp.features.admin.departments.service.DepartmentValidationException;
-import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -29,10 +28,15 @@ import static com.ulp.common.IConstant.*;
 /**
  * MVC controller for {@code /admin/departments} — ADMIN-only department CRUD
  * and head assignment.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate so department management can be withheld from an individual admin
+ * through a REVOKE override without touching their role.
  */
 @Controller
 @RequestMapping(URL_ADMIN_DEPARTMENTS)
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_department.manage')")
 public class AdminDepartmentsController {
 
     private static final String REDIRECT_BASE = "redirect:" + URL_ADMIN_DEPARTMENTS;

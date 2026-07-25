@@ -4,8 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.logout;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
@@ -28,6 +33,13 @@ class AuthLoginIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    /** Flattens an authentication's authorities to plain strings for assertions. */
+    private static List<String> authorityNames(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+    }
+
     @Test
     void trangLogin_truyCapCongKhai_tra200() throws Exception {
         mockMvc.perform(get("/login"))
@@ -43,8 +55,12 @@ class AuthLoginIntegrationTest {
 
     @Test
     void dangNhap_dungThongTin_thanhCongVaChuyenVeTrangChu() throws Exception {
+        // withRoles() asserts an exact authority set, so it cannot be used now that RBAC
+        // appends PERM_* alongside ROLE_*. The assertion below keeps the original intent:
+        // logging in maps the account to its role.
         mockMvc.perform(formLogin("/login").user("admin@ulp.edu.vn").password("123456"))
-                .andExpect(authenticated().withRoles("ADMIN"))
+                .andExpect(authenticated().withAuthentication(
+                        auth -> assertThat(authorityNames(auth)).contains("ROLE_ADMIN")))
                 .andExpect(redirectedUrl("/"));
     }
 
@@ -65,7 +81,12 @@ class AuthLoginIntegrationTest {
     @Test
     void dangNhap_taiKhoanStudent_mapDungRole() throws Exception {
         mockMvc.perform(formLogin("/login").user("student@ulp.edu.vn").password("123456"))
-                .andExpect(authenticated().withRoles("STUDENT"));
+                .andExpect(authenticated().withAuthentication(auth -> {
+                    assertThat(authorityNames(auth)).contains("ROLE_STUDENT");
+                    // A student must not pick up a higher role's authority.
+                    assertThat(authorityNames(auth))
+                            .doesNotContain("ROLE_ADMIN", "ROLE_HEAD", "ROLE_LECTURER");
+                }));
     }
 
     @Test

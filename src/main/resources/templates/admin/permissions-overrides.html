@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Ngoại lệ quyền', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin-permissions.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('permissions')}"></aside>
+
+  <main class="col">
+    <h1 class="detail-title">Ngoại lệ quyền theo người dùng</h1>
+    <p class="detail-sub">Ngoại lệ điều chỉnh quyền của một người dùng so với vai trò
+      của họ. <b>REVOKE</b> luôn thắng <b>GRANT</b>. Ngoại lệ hết hạn hoặc đã huỷ vẫn
+      được giữ lại làm lịch sử và không còn ảnh hưởng tới quyền.</p>
+
+    <!-- Flash → toast trigger -->
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},
+                   data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <section class="perm-toolbar">
+      <div class="perm-toolbar-meta">
+        <span class="perm-stat"><b th:text="${overrides.size()}">0</b> ngoại lệ</span>
+      </div>
+      <a th:href="@{/admin/permissions}" class="btn-ghost">Bảng phân quyền</a>
+    </section>
+
+    <!-- ── Create / replace form ──────────────────────────────────────── -->
+    <section class="admin-list-panel perm-form-panel">
+      <h2 class="perm-form-title">Thêm ngoại lệ</h2>
+      <form method="post" th:action="@{/admin/permissions/overrides}" class="perm-form">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+        <div class="form-row">
+          <label for="overrideUserId">Người dùng<span class="req">*</span></label>
+          <select id="overrideUserId" name="userId" required>
+            <option value="" disabled th:selected="${overrideForm.userId() == null}">— Chọn người dùng —</option>
+            <option th:each="u : ${overrideUsers}" th:value="${u.id()}"
+                    th:selected="${u.id() == overrideForm.userId()}"
+                    th:text="${u.fullName()} + ' (' + ${u.email()} + ') — ' + ${u.role()}">Người dùng</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="overrideFeatureKey">Quyền<span class="req">*</span></label>
+          <select id="overrideFeatureKey" name="featureKey" required>
+            <option value="" disabled th:selected="${overrideForm.featureKey() == null}">— Chọn quyền —</option>
+            <option th:each="p : ${permissionCatalog}" th:value="${p.featureKey()}"
+                    th:selected="${p.featureKey() == overrideForm.featureKey()}"
+                    th:text="${p.group()} + ' · ' + ${p.name()} + ' (' + ${p.featureKey()} + ')'">Quyền</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="overrideType">Loại<span class="req">*</span></label>
+          <select id="overrideType" name="overrideType" required>
+            <option value="GRANT" th:selected="${overrideForm.overrideType() != 'REVOKE'}">GRANT — cấp thêm quyền</option>
+            <option value="REVOKE" th:selected="${overrideForm.overrideType() == 'REVOKE'}">REVOKE — thu hồi quyền</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="overrideReason">Lý do<span class="req">*</span></label>
+          <input type="text" id="overrideReason" name="reason" maxlength="255"
+                 th:value="${overrideForm.reason()}"
+                 th:attr="aria-invalid=${flashReasonError != null} ? 'true' : 'false'">
+          <!-- Field-level error stays inline; toasts are for top-level feedback. -->
+          <span class="field-error" th:if="${flashReasonError != null}"
+                th:text="${flashReasonError}">Lý do không được để trống</span>
+          <span class="field-hint" th:if="${flashReasonError == null}">
+            Bắt buộc — ghi lại vì sao người dùng này cần ngoại lệ.
+          </span>
+        </div>
+
+        <div class="form-row">
+          <label for="overrideExpiresAt">Hết hạn</label>
+          <!-- datetime-local only accepts yyyy-MM-ddTHH:mm, not LocalDateTime#toString. -->
+          <input type="datetime-local" id="overrideExpiresAt" name="expiresAt"
+                 th:value="${overrideForm.expiresAt() != null}
+                           ? ${#temporals.format(overrideForm.expiresAt(), 'yyyy-MM-dd''T''HH:mm')} : ''">
+          <span class="field-hint">Để trống nếu ngoại lệ không bao giờ hết hạn.</span>
+        </div>
+
+        <div class="perm-form-actions">
+          <button type="submit" class="btn-primary">Lưu ngoại lệ</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ── Existing overrides ─────────────────────────────────────────── -->
+    <section class="admin-list-panel perm-panel">
+      <div th:if="${overrides.isEmpty()}" class="admin-list-empty" role="status" aria-live="polite">
+        Chưa có ngoại lệ nào. Dùng biểu mẫu phía trên để thêm.
+      </div>
+
+      <div class="admin-list-table-scroll" th:if="${not overrides.isEmpty()}">
+        <table class="admin-list-table perm-override-table">
+          <thead>
+            <tr>
+              <th>Người dùng</th>
+              <th>Quyền</th>
+              <th class="perm-col-type">Loại</th>
+              <th>Lý do</th>
+              <th class="perm-col-expiry">Hết hạn</th>
+              <th class="perm-col-status">Trạng thái</th>
+              <th class="perm-col-actions" aria-label="Thao tác"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="row : ${overrides}"
+                th:classappend="${row.inEffect()} ? '' : 'perm-row-inactive'">
+              <td th:text="${row.userEmail()}">email</td>
+              <td><code class="perm-key" th:text="${row.featureKey()}">feature.key</code></td>
+              <td class="perm-col-type">
+                <span class="perm-type-pill"
+                      th:classappend="${row.overrideType()} == 'REVOKE' ? 'perm-type-revoke' : 'perm-type-grant'"
+                      th:text="${row.overrideType()}">GRANT</span>
+              </td>
+              <td class="perm-reason" th:text="${row.reason()}">lý do</td>
+              <td class="perm-col-expiry"
+                  th:text="${row.expiresAt() != null}
+                           ? ${#temporals.format(row.expiresAt(), 'dd/MM/yyyy HH:mm')} : 'Không'">Không</td>
+              <td class="perm-col-status">
+                <span class="status-pill" th:if="${row.inEffect()}"
+                      th:classappend="'status-active'">Đang áp dụng</span>
+                <span class="status-pill" th:if="${row.expired() and row.active()}"
+                      th:classappend="'status-inactive'">Hết hạn</span>
+                <span class="status-pill" th:if="${not row.active()}"
+                      th:classappend="'status-inactive'">Đã huỷ</span>
+              </td>
+              <td class="perm-col-actions">
+                <form th:if="${row.active()}" method="post"
+                      th:action="@{'/admin/permissions/overrides/' + ${row.id()} + '/deactivate'}">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                  <button type="submit" class="btn-ghost btn-sm">Huỷ</button>
+                </form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin-permissions.js}"></script>
+</body>
+</html>

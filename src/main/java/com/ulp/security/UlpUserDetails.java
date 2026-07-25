@@ -1,10 +1,12 @@
 package com.ulp.security;
 
+import com.ulp.entities.Permission;
 import com.ulp.entities.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -28,11 +30,32 @@ public class UlpUserDetails implements UserDetails {
     private final Collection<GrantedAuthority> authorities;
 
     /**
-     * Constructs a {@code UlpUserDetails} from a {@link User} entity.
+     * Constructs a {@code UlpUserDetails} from a {@link User} entity with role-only
+     * authorities.
      *
      * @param user the authenticated user entity; must not be {@code null}
      */
     public UlpUserDetails(User user) {
+        this(user, null);
+    }
+
+    /**
+     * Constructs a {@code UlpUserDetails} carrying both role and permission authorities.
+     *
+     * <p>The {@code ROLE_<role>} authority is always present and is added first; the
+     * {@code PERM_<feature_key>} entries derived from {@code featureKeys} are only ever
+     * appended to it, never substituted for it. Every {@code hasRole} check in the
+     * codebase therefore behaves exactly as it did before permissions existed.
+     *
+     * <p>{@code featureKeys} being {@code null} or empty is a supported, non-exceptional
+     * state: it yields role-only authorities. This is what makes permission resolution
+     * unable to break authentication — a caller whose resolver failed can pass
+     * {@code null} and still produce a fully valid principal.
+     *
+     * @param user        the authenticated user entity; must not be {@code null}
+     * @param featureKeys effective permission feature keys, or {@code null} for none
+     */
+    public UlpUserDetails(User user, Collection<String> featureKeys) {
         this.id = user.getId();
         this.role = user.getRole();
         this.username = user.getEmail();
@@ -40,7 +63,18 @@ public class UlpUserDetails implements UserDetails {
         this.fullName = user.getFullName();
         this.active = user.isActive();
         this.locked = user.isLocked();
-        this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
+
+        List<GrantedAuthority> granted = new ArrayList<>();
+        granted.add(new SimpleGrantedAuthority(user.getRole().authority()));
+        if (featureKeys != null) {
+            for (String featureKey : featureKeys) {
+                // Skip blanks so a malformed catalogue row cannot create an empty authority.
+                if (featureKey != null && !featureKey.isBlank()) {
+                    granted.add(new SimpleGrantedAuthority(Permission.authorityOf(featureKey)));
+                }
+            }
+        }
+        this.authorities = List.copyOf(granted);
     }
 
     /**

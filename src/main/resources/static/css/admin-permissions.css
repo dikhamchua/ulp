@@ -1,0 +1,208 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Admin Permissions pages styles
+   Role x permission matrix (grouped rows, muted core cells) and the
+   per-user override list + create form.
+   Loaded after main.css + app-shell.css + detail-page.css + admin.css.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Toolbar ─────────────────────────────────────────────────────────── */
+.perm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.perm-toolbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.perm-stat {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.perm-stat b {
+  color: var(--text, #1f2430);
+}
+
+.perm-panel {
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(16, 24, 40, .05));
+}
+
+/* ── Matrix table ────────────────────────────────────────────────────── */
+.perm-table thead th {
+  background: var(--bg-soft, #f9fafb);
+  border-bottom: 1px solid var(--border, #e6e8ec);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--muted, #6b7280);
+  white-space: nowrap;
+}
+
+.perm-col-name { width: 46%; }
+
+.perm-col-role {
+  width: 110px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Group separator row — a full-width band naming the permission group. */
+.perm-tr-group td {
+  background: var(--primary-soft, #eef5ff);
+  border-bottom: 1px solid var(--border, #e6e8ec);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--primary-dark, #1d4ed8);
+  padding: 8px 12px;
+}
+
+.perm-tr-group:hover td {
+  background: var(--primary-soft, #eef5ff);
+}
+
+.perm-name {
+  font-weight: 600;
+  color: var(--text, #1f2430);
+}
+
+.perm-key {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+}
+
+.perm-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+}
+
+/* One form per cell — keep it inline so the checkbox stays centred. */
+.perm-cell-form {
+  display: inline;
+}
+
+.perm-check {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary, #2563eb);
+}
+
+/* ── Core (frozen) ADMIN cells ───────────────────────────────────────── */
+.perm-cell-core {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  opacity: .55;
+}
+
+.perm-cell-core .perm-check {
+  cursor: not-allowed;
+  accent-color: var(--muted, #6b7280);
+}
+
+.perm-core-label {
+  font-size: 10px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  color: var(--muted, #6b7280);
+  white-space: nowrap;
+}
+
+/* ── Override create form ────────────────────────────────────────────── */
+.perm-form-panel {
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.perm-form-title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text, #1f2430);
+}
+
+.perm-form select,
+.perm-form input[type="datetime-local"] {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border, #e6e8ec);
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  color: var(--text, #1f2430);
+}
+
+.perm-form select:focus,
+.perm-form input[type="datetime-local"]:focus {
+  outline: none;
+  border-color: var(--primary, #2563eb);
+}
+
+.perm-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Override list ───────────────────────────────────────────────────── */
+.perm-override-table thead th {
+  background: var(--bg-soft, #f9fafb);
+  border-bottom: 1px solid var(--border, #e6e8ec);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--muted, #6b7280);
+  white-space: nowrap;
+}
+
+.perm-col-type    { width: 110px; }
+.perm-col-expiry  { width: 150px; white-space: nowrap; }
+.perm-col-status  { width: 140px; }
+.perm-col-actions { width: 90px; text-align: right; }
+
+.perm-reason {
+  color: var(--muted, #6b7280);
+  font-size: 13px;
+}
+
+/* Expired or deactivated rows stay visible as history, visibly dimmed. */
+.perm-row-inactive td {
+  opacity: .55;
+}
+
+.perm-type-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+
+.perm-type-grant  { background: var(--success-soft, #e6f6ef); color: #1B7E51; border-color: #BFEBD6; }
+.perm-type-revoke { background: #FDECEC; color: #B42318; border-color: #F8C9C4; }
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .perm-col-name { width: auto; }
+  .perm-desc { display: none; }
+}

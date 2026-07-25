@@ -3,7 +3,6 @@ package com.ulp.features.admin.settings.controller;
 import com.ulp.features.admin.settings.dto.EmailSettingsDtos.EmailSettingsForm;
 import com.ulp.features.admin.settings.dto.EmailSettingsDtos.TestResult;
 import com.ulp.features.admin.settings.service.EmailSettingsService;
-import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
@@ -31,10 +30,15 @@ import static com.ulp.common.IConstant.*;
  *   <li>{@code POST /admin/settings/email}      — save the form (full page reload)</li>
  *   <li>{@code POST /admin/settings/email/test} — send a test email (AJAX, returns JSON)</li>
  * </ul>
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate so the SMTP screen can be withheld from an individual admin
+ * through a REVOKE override without touching their role.
  */
 @Controller
 @RequestMapping("/admin/settings/email")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_system.smtp')")
 public class EmailSettingsController {
 
     // ── Paths ─────────────────────────────────────────────────────

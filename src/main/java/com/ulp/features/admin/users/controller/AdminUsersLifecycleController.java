@@ -3,7 +3,6 @@ package com.ulp.features.admin.users.controller;
 import com.ulp.features.admin.users.dto.LockForm;
 import com.ulp.features.admin.users.dto.ResetPasswordForm;
 import com.ulp.features.admin.users.service.AdminUsersLifecycleService;
-import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,15 +26,21 @@ import static com.ulp.common.IConstant.*;
  * {@link AdminUsersController}; both controllers share the same
  * {@code /admin/users} base mapping and ADMIN role precondition.
  *
- * <p>All endpoints are restricted to the {@code ADMIN} role at the class
- * level. Lock and reset-password lifecycle errors (blank reason, blank
- * password) round-trip through flash attributes that the page-level JS
- * uses to re-open the offending modal with the previously-entered text
- * preserved.
+ * <p>Lock and reset-password lifecycle errors (blank reason, blank password)
+ * round-trip through flash attributes that the page-level JS uses to re-open
+ * the offending modal with the previously-entered text preserved.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts every endpoint here to the ADMIN role, and the permission checks add a
+ * second, finer gate. The class-level {@code user.edit} is the baseline for the screen;
+ * the activate/deactivate and lock/unlock endpoints additionally require the dedicated
+ * permission the catalogue defines for them, so those two capabilities can be revoked
+ * from an individual admin independently. All of these live in the USER_MANAGE group,
+ * which the permission guard refuses to detach from ADMIN.
  */
 @Controller
 @RequestMapping("/admin/users")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_user.edit')")
 public class AdminUsersLifecycleController {
 
     // ── Paths ─────────────────────────────────────────────────────
@@ -64,6 +69,7 @@ public class AdminUsersLifecycleController {
     }
 
     /** Activates a deactivated user account. */
+    @PreAuthorize("hasAuthority('PERM_user.activate_deactivate')")
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id,
                            @AuthenticationPrincipal UlpUserDetails user,
@@ -74,6 +80,7 @@ public class AdminUsersLifecycleController {
     }
 
     /** Deactivates an active user account (login blocked). */
+    @PreAuthorize("hasAuthority('PERM_user.activate_deactivate')")
     @PostMapping("/{id}/deactivate")
     public String deactivate(@PathVariable Long id,
                              @AuthenticationPrincipal UlpUserDetails user,
@@ -84,6 +91,7 @@ public class AdminUsersLifecycleController {
     }
 
     /** Locks a user account with a reason; re-opens the modal on validation failure. */
+    @PreAuthorize("hasAuthority('PERM_user.lock_unlock')")
     @PostMapping("/{id}/lock")
     public String lock(@PathVariable Long id,
                        @Valid @ModelAttribute("lockForm") LockForm lockForm,
@@ -102,6 +110,7 @@ public class AdminUsersLifecycleController {
     }
 
     /** Unlocks a locked user account. */
+    @PreAuthorize("hasAuthority('PERM_user.lock_unlock')")
     @PostMapping("/{id}/unlock")
     public String unlock(@PathVariable Long id,
                          @AuthenticationPrincipal UlpUserDetails user,

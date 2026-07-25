@@ -2,7 +2,6 @@ package com.ulp.features.admin.settings.controller;
 
 import com.ulp.features.admin.settings.dto.OauthSettingsDtos.OauthSettingsForm;
 import com.ulp.features.admin.settings.service.OauthSettingsService;
-import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,10 +30,15 @@ import static com.ulp.common.IConstant.*;
  * <p>Saved values take effect on the next HTTP request because the
  * {@code DbClientRegistrationRepository} re-reads from the database on every
  * lookup — no application restart is required.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate so the OAuth screen can be withheld from an individual admin
+ * through a REVOKE override without touching their role.
  */
 @Controller
 @RequestMapping("/admin/settings/oauth")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_system.oauth')")
 public class OauthSettingsController {
 
     // ── Paths ─────────────────────────────────────────────────────

@@ -5,7 +5,6 @@ import com.ulp.features.admin.users.dto.EditUserForm;
 import com.ulp.features.admin.users.service.AdminUsersReadService;
 import com.ulp.features.admin.users.service.AdminUsersWriteService;
 import com.ulp.features.admin.users.service.EmailAlreadyUsedException;
-import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -38,10 +37,15 @@ import static com.ulp.features.admin.users.controller.AdminUsersFormSupport.user
  * so each controller stays focused on a single screen. Both controllers share
  * the {@code /admin/users} base mapping, the ADMIN role precondition, and
  * {@link AdminUsersFormSupport} for common form rendering.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate. {@code user.edit} belongs to the USER_MANAGE group, which the
+ * permission guard refuses to detach from ADMIN.
  */
 @Controller
 @RequestMapping("/admin/users")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_user.edit')")
 public class AdminUsersEditController {
 
     // ── Paths ─────────────────────────────────────────────────────
