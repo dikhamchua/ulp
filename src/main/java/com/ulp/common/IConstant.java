@@ -545,6 +545,31 @@ public interface IConstant {
     String MSG_DEPARTMENT_DEACTIVATED = "Đã ẩn bộ môn";
     String MSG_DEPARTMENT_NOT_FOUND   = "Không tìm thấy bộ môn";
 
+    // ───────── Admin RBAC permissions (ULP-11.8) ─────────────────────
+    String URL_ADMIN_PERMISSIONS           = "/admin/permissions";
+    String URL_ADMIN_PERMISSIONS_OVERRIDES = URL_ADMIN_PERMISSIONS + "/overrides";
+
+    String VIEW_ADMIN_PERMISSIONS_ROLES     = "admin/permissions-roles";
+    String VIEW_ADMIN_PERMISSIONS_OVERRIDES = "admin/permissions-overrides";
+
+    // Tab key (admin sidebar active state — shared by both permission pages).
+    String TAB_PERMISSIONS = "permissions";
+
+    String ATTR_PERMISSION_MATRIX    = "matrix";
+    String ATTR_PERMISSION_OVERRIDES = "overrides";
+    String ATTR_PERMISSION_CATALOG   = "permissionCatalog";
+    String ATTR_OVERRIDE_USERS       = "overrideUsers";
+    String ATTR_FLASH_REASON_ERROR   = "flashReasonError";
+
+    // Submitted override form values, flashed back so a rejected form keeps its input.
+    String ATTR_OVERRIDE_FORM = "overrideForm";
+
+    String MSG_PERMISSION_ATTACHED     = "Đã cấp quyền cho vai trò";
+    String MSG_PERMISSION_DETACHED     = "Đã gỡ quyền khỏi vai trò";
+    String MSG_OVERRIDE_SAVED          = "Đã lưu ngoại lệ quyền";
+    String MSG_OVERRIDE_DEACTIVATED    = "Đã huỷ ngoại lệ quyền";
+    String MSG_PERMISSION_NOT_FOUND    = "Không tìm thấy quyền";
+
     // HEAD product area.
     String BASE_HEAD              = "/head";
     String URL_HEAD_DASHBOARD     = BASE_HEAD;

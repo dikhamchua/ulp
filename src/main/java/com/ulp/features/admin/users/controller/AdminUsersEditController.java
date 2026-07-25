@@ -5,10 +5,12 @@ import com.ulp.features.admin.users.dto.EditUserForm;
 import com.ulp.features.admin.users.service.AdminUsersReadService;
 import com.ulp.features.admin.users.service.AdminUsersWriteService;
 import com.ulp.features.admin.users.service.EmailAlreadyUsedException;
-import com.ulp.security.Roles;
+import com.ulp.features.admin.users.service.UserPermissionToggleService;
+import com.ulp.features.admin.users.service.UserPermissionViewBuilder;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 import static com.ulp.common.IConstant.*;
@@ -38,20 +41,27 @@ import static com.ulp.features.admin.users.controller.AdminUsersFormSupport.user
  * so each controller stays focused on a single screen. Both controllers share
  * the {@code /admin/users} base mapping, the ADMIN role precondition, and
  * {@link AdminUsersFormSupport} for common form rendering.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate. {@code user.edit} belongs to the USER_MANAGE group, which the
+ * permission guard refuses to detach from ADMIN.
  */
 @Controller
 @RequestMapping("/admin/users")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_user.edit')")
 public class AdminUsersEditController {
 
     // ── Paths ─────────────────────────────────────────────────────
     private static final String EDIT_TAB_INFO_SUFFIX = "/edit?tab=" + TAB_INFO;
+    private static final String EDIT_TAB_PERMISSIONS_SUFFIX = "/edit?tab=" + TAB_PERMISSIONS;
 
     // ── Local model attribute keys ────────────────────────────────
     private static final String ATTR_TARGET_USER       = "targetUser";
     private static final String ATTR_STATUS_LABEL      = "statusLabel";
     private static final String ATTR_TARGET_CREATED_AT = "targetCreatedAt";
     private static final String ATTR_ACTIVITIES_PAGE   = "activitiesPage";
+    private static final String ATTR_PERMISSION_VIEW   = "permissionView";
 
     // ── Status labels (domain enum-like) ──────────────────────────
     private static final String STATUS_ACTIVE   = "ACTIVE";
@@ -62,23 +72,32 @@ public class AdminUsersEditController {
     // ── Flash messages (Vietnamese UI text) ───────────────────────
     private static final String MSG_USER_UPDATED    = "Đã cập nhật tài khoản";
     private static final String MSG_EMAIL_DUPLICATE = "Email đã được sử dụng";
+    private static final String MSG_PERMISSION_GRANTED = "Đã cấp quyền ";
+    private static final String MSG_PERMISSION_REVOKED = "Đã thu hồi quyền ";
 
     /** Page size used by the "Lịch sử cập nhật" tab (fixed per Decision 4 in design.md). */
     private static final int HISTORY_PAGE_SIZE = 20;
 
     /** Whitelist of valid {@code tab} query-parameter values; anything else falls back to {@code info}. */
-    private static final Set<String> VALID_TABS = Set.of(TAB_INFO, TAB_ACTIVITY, TAB_HISTORY);
+    private static final Set<String> VALID_TABS =
+            Set.of(TAB_INFO, TAB_ACTIVITY, TAB_HISTORY, TAB_PERMISSIONS);
 
     private final AdminUsersReadService readService;
     private final AdminUsersWriteService writeService;
     private final AdminUsersFormSupport formSupport;
+    private final UserPermissionViewBuilder permissionViewBuilder;
+    private final UserPermissionToggleService permissionToggleService;
 
     public AdminUsersEditController(AdminUsersReadService readService,
                                     AdminUsersWriteService writeService,
-                                    AdminUsersFormSupport formSupport) {
+                                    AdminUsersFormSupport formSupport,
+                                    UserPermissionViewBuilder permissionViewBuilder,
+                                    UserPermissionToggleService permissionToggleService) {
         this.readService = readService;
         this.writeService = writeService;
         this.formSupport = formSupport;
+        this.permissionViewBuilder = permissionViewBuilder;
+        this.permissionToggleService = permissionToggleService;
     }
 
     /** Renders the edit-user form with three sub-tabs (info / activity / history). */
@@ -114,7 +133,33 @@ public class AdminUsersEditController {
             model.addAttribute(ATTR_ACTIVITIES_PAGE,
                     readService.listActivities(id, PageRequest.of(safePage, HISTORY_PAGE_SIZE)));
         }
+        if (TAB_PERMISSIONS.equals(activeTab)) {
+            String roleCode = u.getRole() == null ? null : u.getRole().name();
+            model.addAttribute(ATTR_PERMISSION_VIEW, permissionViewBuilder.build(id, roleCode));
+        }
         return VIEW_FORM;
+    }
+
+    /**
+     * Ticks or unticks one permission for this user, then returns to the tab.
+     *
+     * <p>The screen asks for no reason: the change is applied immediately and recorded
+     * on the account's "Lịch sử cập nhật" timeline as actor plus old state → new state.
+     */
+    @PostMapping("/{id}/permissions")
+    public String togglePermission(@PathVariable Long id,
+                                   @RequestParam String featureKey,
+                                   @RequestParam(defaultValue = "false") boolean granted,
+                                   @AuthenticationPrincipal UlpUserDetails user,
+                                   RedirectAttributes ra) {
+        try {
+            String name = permissionToggleService.toggle(id, featureKey, granted, user.getId());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS,
+                    (granted ? MSG_PERMISSION_GRANTED : MSG_PERMISSION_REVOKED) + name);
+        } catch (AccessDeniedException | NoSuchElementException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+        }
+        return "redirect:" + userUrl(id) + EDIT_TAB_PERMISSIONS_SUFFIX;
     }
 
     /** Submits the edit-user form; same re-render / redirect contract as create. */

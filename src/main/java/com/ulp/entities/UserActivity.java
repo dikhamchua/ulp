@@ -45,6 +45,7 @@ public class UserActivity {
     public static final String TYPE_PASSWORD_RESET  = "PASSWORD_RESET";
     public static final String TYPE_DELETED         = "DELETED";
     public static final String TYPE_RESTORED        = "RESTORED";
+    public static final String TYPE_PERMISSION_CHANGED = "PERMISSION_CHANGED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

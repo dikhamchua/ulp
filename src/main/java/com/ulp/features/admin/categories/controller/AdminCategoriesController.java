@@ -3,7 +3,6 @@ package com.ulp.features.admin.categories.controller;
 import com.ulp.features.admin.categories.dto.CategoryDtos.CategoryForm;
 import com.ulp.features.admin.categories.service.CategoryService;
 import com.ulp.features.admin.categories.service.CategoryValidationException;
-import com.ulp.security.Roles;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -26,10 +25,15 @@ import static com.ulp.common.IConstant.*;
  * delete, and toggle-active. Field-level validation errors re-render the form
  * inline; hierarchy/delete-guard breaches from the service surface as error
  * toasts via the flash → toast pattern. CSRF protects every POST.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate so category management can be withheld from an individual admin
+ * through a REVOKE override without touching their role.
  */
 @Controller
 @RequestMapping("/admin/categories")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_category.manage')")
 public class AdminCategoriesController {
 
     private static final String REDIRECT_BASE = "redirect:/admin/categories";

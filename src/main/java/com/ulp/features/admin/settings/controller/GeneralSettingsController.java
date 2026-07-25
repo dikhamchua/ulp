@@ -2,7 +2,6 @@ package com.ulp.features.admin.settings.controller;
 
 import com.ulp.features.admin.settings.dto.GeneralSettingsDtos.GeneralSettingsForm;
 import com.ulp.features.admin.settings.service.GeneralSettingsService;
-import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,10 +31,15 @@ import static com.ulp.common.IConstant.*;
  * plain, non-secret values persisted to the {@code system_settings} GENERAL
  * group. They are stored for administration; consuming them at render time
  * (header logo, page title) is out of scope for this MVP.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate so this screen can be withheld from an individual admin through a
+ * REVOKE override without touching their role.
  */
 @Controller
 @RequestMapping("/admin/settings/general")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_system.settings')")
 public class GeneralSettingsController {
 
     // ── Paths ─────────────────────────────────────────────────────

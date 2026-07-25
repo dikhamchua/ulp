@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Phân quyền', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin-permissions.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('permissions')}"></aside>
+
+  <main class="col">
+    <h1 class="detail-title">Phân quyền theo vai trò</h1>
+    <p class="detail-sub">Bảng quyền hiển thị các quyền được cấp <b>trực tiếp</b> cho
+      từng vai trò. Quyền kế thừa qua cây vai trò (STUDENT ← LECTURER ← HEAD ← ADMIN)
+      không hiện dấu tích ở đây. Một số quyền cốt lõi của ADMIN bị khoá để quản trị
+      viên không tự khoá mình khỏi hệ thống.</p>
+
+    <!-- Flash → toast trigger -->
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},
+                   data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <section class="perm-toolbar">
+      <div class="perm-toolbar-meta">
+        <span class="perm-stat">
+          <b th:text="${matrix.groups().size()}">0</b> nhóm quyền
+        </span>
+      </div>
+      <a th:href="@{/admin/permissions/overrides}" class="btn-ghost">
+        Ghi đè quyền
+      </a>
+    </section>
+
+    <div th:if="${matrix.groups().isEmpty()}" class="admin-list-panel">
+      <div class="admin-list-empty" role="status" aria-live="polite">
+        Chưa có quyền nào trong danh mục. Chạy migration RBAC để nạp danh mục quyền.
+      </div>
+    </div>
+
+    <!-- Master/detail: group list on the left, that group's permissions on the right. -->
+    <section class="perm-split" th:if="${not matrix.groups().isEmpty()}">
+      <nav class="perm-master admin-list-panel" aria-label="Nhóm quyền">
+        <div class="perm-master-head">Nhóm quyền</div>
+        <ul class="perm-master-list">
+          <li th:each="group : ${matrix.groups()}">
+            <a class="perm-master-item"
+               th:href="'#' + ${group.group()}"
+               th:attr="data-group=${group.group()}">
+              <span class="perm-master-name" th:text="${group.group()}">NHÓM</span>
+              <span class="perm-master-count" th:text="${group.rows().size()}">0</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="perm-detail admin-list-panel">
+        <section class="perm-detail-pane" th:each="group : ${matrix.groups()}"
+                 th:attr="data-group=${group.group()}" hidden>
+          <header class="perm-detail-head">
+            <h2 class="perm-detail-title" th:text="${group.group()}">NHÓM</h2>
+            <span class="perm-detail-count">
+              <b th:text="${group.rows().size()}">0</b> quyền
+            </span>
+          </header>
+
+          <div class="admin-list-table-scroll">
+            <table class="admin-list-table perm-table">
+              <thead>
+                <tr>
+                  <th class="perm-col-name">Quyền</th>
+                  <th class="perm-col-role" th:each="roleCode : ${matrix.roleCodes()}"
+                      th:text="${roleCode}">ROLE</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="perm-tr-row" th:each="row : ${group.rows()}">
+                  <td class="perm-col-name">
+                    <div class="perm-name" th:text="${row.name()}">Tên quyền</div>
+                    <code class="perm-key" th:text="${row.featureKey()}">feature.key</code>
+                    <div class="perm-desc" th:if="${row.description() != null}"
+                         th:text="${row.description()}">Mô tả</div>
+                  </td>
+
+                  <td class="perm-col-role" th:each="cell : ${row.cells()}">
+                    <!-- Core ADMIN cells are frozen: the server rejects detaching them. -->
+                    <form th:if="${not cell.core()}" method="post" th:action="@{/admin/permissions}"
+                          class="perm-cell-form">
+                      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                      <input type="hidden" name="roleCode" th:value="${cell.roleCode()}">
+                      <input type="hidden" name="featureKey" th:value="${row.featureKey()}">
+                      <input type="hidden" name="granted" th:value="${cell.granted()} ? 'false' : 'true'">
+                      <input type="checkbox" class="perm-check" th:checked="${cell.granted()}"
+                             th:attr="aria-label=${cell.roleCode()} + ' — ' + ${row.name()}">
+                    </form>
+
+                    <span th:if="${cell.core()}" class="perm-cell-core"
+                          title="Quyền cốt lõi — không thể gỡ khỏi ADMIN">
+                      <input type="checkbox" class="perm-check" checked disabled
+                             th:attr="aria-label=${cell.roleCode()} + ' — ' + ${row.name()} + ' (quyền cốt lõi)'">
+                      <span class="perm-core-label">quyền cốt lõi</span>
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin-permissions.js}"></script>
+</body>
+</html>

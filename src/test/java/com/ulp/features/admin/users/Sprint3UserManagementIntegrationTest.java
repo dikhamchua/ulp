@@ -619,10 +619,11 @@ class Sprint3UserManagementIntegrationTest {
 
     @Test
     @WithUserDetails("admin@ulp.edu.vn")
-    void admin_departments_still_renders_placeholder() throws Exception {
+    void admin_departments_no_longer_renders_placeholder() throws Exception {
         mockMvc.perform(get("/admin/departments"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("admin/placeholder"));
+                .andExpect(view().name("admin/departments"))
+                .andExpect(model().attribute("activeTab", "departments"));
     }
 
     @Test

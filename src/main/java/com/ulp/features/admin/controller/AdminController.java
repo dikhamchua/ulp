@@ -4,7 +4,6 @@ import com.ulp.features.admin.dto.AdminDashboardDtos.DashboardStats;
 import com.ulp.features.admin.dto.AdminDashboardDtos.RecentClass;
 import com.ulp.features.admin.dto.AdminDashboardDtos.UserRoleCount;
 import com.ulp.features.admin.service.AdminDashboardService;
-import com.ulp.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -32,10 +31,15 @@ import static com.ulp.common.IConstant.*;
  *
  * <p>The {@code /admin/settings/email} sub-tab is handled by
  * {@link com.ulp.features.admin.settings.controller.EmailSettingsController}.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate. {@code dashboard.system} is the entry permission for the admin
+ * shell; it belongs to the DASHBOARD group and is seeded to ADMIN by V4.
  */
 @Controller
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_dashboard.system')")
 public class AdminController {
 
     // ── Paths ─────────────────────────────────────────────────────

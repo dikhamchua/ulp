@@ -1,0 +1,116 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Searchable combobox
+   Styles the progressive enhancement applied by ulp-combobox.js over a
+   native <select data-combobox>. Loaded after main.css + admin.css.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ulp-combo {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+}
+
+.ulp-combo-input {
+  width: 100%;
+  padding: 8px 30px 8px 12px;
+  border: 1px solid var(--border-soft, #e6e8ec);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--surface, #fff);
+  color: var(--fg, #1f2430);
+}
+
+.ulp-combo-input:focus {
+  outline: none;
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 3px var(--primary-soft, #eef5ff);
+}
+
+.ulp-combo-input[aria-invalid="true"] {
+  border-color: #DC2626;
+}
+
+/* The native select stays in the DOM as the submitted control. The double
+   class beats page rules that size `.perm-form select` and would otherwise
+   stretch this hidden control back over the clear button. */
+.ulp-combo .ulp-combo-native.ulp-combo-native {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+}
+
+.ulp-combo-clear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg-soft, #f3f4f6);
+  color: var(--muted, #6b7280);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ulp-combo-clear:hover {
+  background: var(--border-soft, #e6e8ec);
+  color: var(--fg, #1f2430);
+}
+
+.ulp-combo-list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--border-soft, #e6e8ec);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(16, 24, 40, .12));
+}
+
+.ulp-combo-option {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--fg, #1f2430);
+  cursor: pointer;
+}
+
+.ulp-combo-option:hover,
+.ulp-combo-option.is-active {
+  background: var(--primary-soft, #eef5ff);
+  color: var(--primary-dark, #1d4ed8);
+}
+
+.ulp-combo-option[aria-selected="true"] {
+  font-weight: 600;
+}
+
+.ulp-combo-empty {
+  padding: 10px;
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+
+@media (max-width: 860px) {
+  .ulp-combo { max-width: none; }
+}

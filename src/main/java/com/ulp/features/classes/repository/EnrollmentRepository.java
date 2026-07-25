@@ -117,6 +117,27 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     long countActiveByClassId(@Param("classId") Long classId);
 
     /**
+     * Capacity-check variant of {@link #countActiveByClassId(Long)} that reads
+     * the latest committed rows rather than the transaction's snapshot.
+     *
+     * <p>Required because MySQL defaults to REPEATABLE READ: a plain count is a
+     * non-locking consistent read served from the snapshot taken at the
+     * transaction's first read. An admission that waited on the class-row lock
+     * would therefore still count the pre-admission total and overshoot
+     * {@code max_students}. Adding {@code FOR SHARE} makes this a locking read,
+     * which InnoDB always serves from the current row version.
+     *
+     * <p>{@code FOR SHARE} (not {@code FOR UPDATE}) is enough: the write
+     * serialisation is already provided by the class-row lock taken first in
+     * {@code JoinTokenValidator#enforceCapacity}; this only needs snapshot
+     * bypass. Must be called inside an active transaction.
+     */
+    @Query(value = "SELECT COUNT(*) FROM enrollments "
+            + "WHERE class_id = :classId AND status = 'ACTIVE' FOR SHARE",
+            nativeQuery = true)
+    long countActiveByClassIdForUpdate(@Param("classId") Long classId);
+
+    /**
      * Returns the distinct class ids the given user is ACTIVE-enrolled in. Used
      * by messaging's recipient gate to resolve a student's set of classes before
      * mapping them to the lecturers that teach them.

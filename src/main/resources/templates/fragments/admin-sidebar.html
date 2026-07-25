@@ -2,7 +2,8 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <!--
   Fragment: adminSidebar(activeTab)
-    activeTab : 'dashboard' | 'users' | 'departments' | 'classes' | 'settings'
+    activeTab : 'dashboard' | 'users' | 'departments' | 'categories' | 'classes'
+              | 'permissions' | 'settings'
 
   Render mot card sidebar 280px (cot trai layout admin).
   Reuse cau truc visual cua class-detail sidebar de UI nhat quan.
@@ -72,6 +73,15 @@
             <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
             <path d="M6 12v5c3 3 9 3 12 0v-5"/>
           </svg>Lớp học
+        </a>
+      </li>
+      <li>
+        <a th:href="@{/admin/permissions}"
+           th:classappend="${activeTab == 'permissions'} ? 'active' : ''">
+          <svg class="ico ico-sm" viewBox="0 0 24 24">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>Phân quyền
         </a>
       </li>
     </ul>

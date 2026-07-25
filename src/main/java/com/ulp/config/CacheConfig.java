@@ -26,6 +26,10 @@ import java.time.Duration;
  *       Write-through invalidation is performed by
  *       {@link com.ulp.features.admin.settings.service.EmailSettingsService#save} and
  *       {@link com.ulp.features.admin.settings.service.OauthSettingsService#save}.</li>
+ *   <li>{@code userPermissions} — caches the resolved effective permission set of a
+ *       single user, keyed by user id. Write-through invalidation is performed by
+ *       {@code PermissionResolver}'s eviction methods whenever a role permission or a
+ *       user override changes.</li>
  * </ul>
  *
  * <p>Tuning rationale:
@@ -37,6 +41,10 @@ import java.time.Duration;
  *       ({@code GENERAL}, {@code SMTP}, {@code OAUTH}, {@code AI}) with
  *       comfortable headroom for future additions, while keeping the cache
  *       footprint tiny.</li>
+ *   <li>{@code userPermissions} needs its own, much larger bound: it holds one entry
+ *       per signed-in user, so the 50-entry settings cap would thrash and send every
+ *       request back to the recursive permission view. It is therefore registered
+ *       against a separate Caffeine spec rather than the shared one.</li>
  * </ul>
  */
 @Configuration
@@ -46,11 +54,17 @@ public class CacheConfig {
     /** Spring Cache name for the system_settings group lookups. */
     public static final String CACHE_SETTINGS_GROUP = "settingsGroup";
 
+    /** Spring Cache name for per-user resolved permission sets, keyed by user id. */
+    public static final String CACHE_USER_PERMISSIONS = "userPermissions";
+
     /** Maximum number of entries the cache may hold before LRU eviction kicks in. */
     private static final long CACHE_MAX_SIZE = 50L;
 
     /** Maximum age of a cache entry before it is automatically evicted. */
     private static final Duration CACHE_TTL = Duration.ofMinutes(5);
+
+    /** Entry cap for {@link #CACHE_USER_PERMISSIONS} — one entry per concurrent user. */
+    private static final long PERMISSIONS_CACHE_MAX_SIZE = 5_000L;
 
     /**
      * Builds the single {@link CacheManager} for the application.
@@ -60,6 +74,11 @@ public class CacheConfig {
      * fail fast at startup if the cache name is ever mistyped (instead of
      * silently being created on first use).
      *
+     * <p>{@code userPermissions} is registered through
+     * {@link CaffeineCacheManager#registerCustomCache} because it is sized for
+     * concurrent users rather than for the handful of setting groups; a custom cache
+     * keeps its own bound instead of inheriting the shared 50-entry spec.
+     *
      * @return a {@link CaffeineCacheManager} pre-configured with TTL and max size
      */
     @Bean
@@ -68,6 +87,10 @@ public class CacheConfig {
         manager.setCaffeine(Caffeine.newBuilder()
                 .expireAfterWrite(CACHE_TTL)
                 .maximumSize(CACHE_MAX_SIZE));
+        manager.registerCustomCache(CACHE_USER_PERMISSIONS, Caffeine.newBuilder()
+                .expireAfterWrite(CACHE_TTL)
+                .maximumSize(PERMISSIONS_CACHE_MAX_SIZE)
+                .build());
         return manager;
     }
 }

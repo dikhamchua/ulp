@@ -95,11 +95,31 @@ final class JoinTokenValidator {
         return clazz;
     }
 
-    /** Enforces {@code max_students} for the given class before inserting / reviving. */
+    /**
+     * Enforces {@code max_students} for the given class before inserting / reviving.
+     *
+     * <p>Correctness needs two things, because concurrent admissions write
+     * *different* enrollment rows and so nothing orders them by default:
+     * <ol>
+     *   <li>a pessimistic write lock on the shared class row, so the two
+     *       admissions run their check-then-admit sequences one after the
+     *       other rather than interleaved; and</li>
+     *   <li>a <em>locking</em> count. Under MySQL's default REPEATABLE READ a
+     *       plain count is served from the snapshot taken at the transaction's
+     *       first read — which predates the competing admission's commit — so
+     *       the waiter would still see the pre-admission total and overshoot
+     *       {@code max_students} despite having waited.</li>
+     * </ol>
+     *
+     * <p>Must therefore be called inside an active transaction; every caller in
+     * {@link JoinClassService} is {@code @Transactional}.
+     */
     void enforceCapacity(ClassEntity clazz) {
         Integer cap = clazz.getMaxStudents();
         if (cap == null) return;
-        long active = enrollmentRepository.countActiveByClassId(clazz.getId());
+        // Lock before counting so a competing admission waits for our commit.
+        classRepository.findByIdForUpdate(clazz.getId());
+        long active = enrollmentRepository.countActiveByClassIdForUpdate(clazz.getId());
         if (active >= cap) {
             throw new InviteCodeValidationException(InviteRejectionReason.CLASS_FULL);
         }
