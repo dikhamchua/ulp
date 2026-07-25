@@ -162,7 +162,7 @@ class JoinClassServiceTest {
         when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
         when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
                 .thenReturn(Optional.empty());
-        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(30L);
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(30L);
 
         assertThatThrownBy(() -> service.join("AB23CD", USER_ID))
                 .isInstanceOf(InviteCodeValidationException.class)
@@ -244,7 +244,7 @@ class JoinClassServiceTest {
 
         ClassEntity clazz = buildClass();
         when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
-        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(0L);
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
 
         Enrollment removed = buildEnrollment(Enrollment.STATUS_REMOVED);
         when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
@@ -269,7 +269,7 @@ class JoinClassServiceTest {
         when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
         ClassEntity clazz = buildClass();
         when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
-        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(0L);
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
 
         Enrollment rejected = buildEnrollment(Enrollment.STATUS_REJECTED);
         when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
@@ -312,7 +312,7 @@ class JoinClassServiceTest {
         when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
         when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
                 .thenReturn(Optional.empty());
-        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(0L);
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(buildUser()));
 
         JoinResult result = service.join("AB23CD", USER_ID);
@@ -354,7 +354,7 @@ class JoinClassServiceTest {
         when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
         when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
                 .thenReturn(Optional.empty());
-        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(0L);
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(buildUser()));
 
         service.join("k".repeat(32), USER_ID);
@@ -375,7 +375,7 @@ class JoinClassServiceTest {
         when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
         when(enrollmentRepository.findByUserIdAndClassId(eq(USER_ID), eq(CLASS_ID)))
                 .thenReturn(Optional.empty());
-        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(0L);
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(buildUser()));
 
         JoinResult result = service.join("ab23cd", USER_ID);
@@ -442,7 +442,7 @@ class JoinClassServiceTest {
         ReflectionTestUtils.setField(pending, "inviteCodeId", 5L);
         when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
                 .thenReturn(Optional.of(pending));
-        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(0L);
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
 
         ClassInviteCode invite = activeToken("AB23CD");
         ReflectionTestUtils.setField(invite, "id", 5L);
@@ -468,7 +468,7 @@ class JoinClassServiceTest {
         Enrollment pending = buildEnrollment(Enrollment.STATUS_PENDING);
         when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
                 .thenReturn(Optional.of(pending));
-        when(enrollmentRepository.countActiveByClassId(CLASS_ID)).thenReturn(1L);
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(1L);
 
         assertThatThrownBy(() -> service.approve(CLASS_ID, USER_ID, OWNER_ID, Role.LECTURER))
                 .isInstanceOf(InviteCodeValidationException.class)

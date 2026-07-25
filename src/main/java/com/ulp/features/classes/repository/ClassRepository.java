@@ -1,9 +1,11 @@
 package com.ulp.features.classes.repository;
 
 import com.ulp.entities.ClassEntity;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -84,6 +86,20 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      */
     @Query("SELECT c.id FROM ClassEntity c WHERE c.lecturerId = :lecturerId")
     List<Long> findClassIdsForLecturer(@Param("lecturerId") Long lecturerId);
+
+    /**
+     * Pessimistic-locked load by primary key. Capacity checks must run under
+     * this lock: two admissions to the same class otherwise each read the same
+     * pre-admission active count and both pass a {@code max_students} that only
+     * has room for one.
+     *
+     * <p>Serialising on the class row (rather than on the enrollment rows) is
+     * what makes the check correct — concurrent approvals target *different*
+     * enrollment rows, so locking those would not order them against each other.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ClassEntity c WHERE c.id = :id")
+    Optional<ClassEntity> findByIdForUpdate(@Param("id") Long id);
 
     /** Non-deleted classes owned by a department, newest first. */
     List<ClassEntity> findAllByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
