@@ -27,6 +27,19 @@
     <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
          th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
 
+    <p class="ai-logs-link">
+      <a th:href="@{/admin/settings/ai/logs}" class="btn-ghost">
+        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="8" y1="13" x2="16" y2="13"/>
+          <line x1="8" y1="17" x2="13" y2="17"/>
+        </svg>
+        Xem nhật ký gọi AI
+      </a>
+    </p>
+
     <!-- Every provider exists but none is usable — AI calls would fail outright. -->
     <div th:if="${allDisabled}" class="alert alert-warning" role="alert">
       Tất cả provider đang bị tắt. Mọi tính năng AI sẽ báo lỗi cho tới khi bạn

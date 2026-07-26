@@ -177,13 +177,17 @@ public class AiSettingsController {
      * <p>Returns 200 with {@code {"ok":false,"error":...}} on a logical failure so the
      * client can toast the reason; a non-2xx here means a transport or auth problem.
      *
-     * @param id provider identifier
+     * @param id        provider identifier
+     * @param principal the acting admin, recorded on the log row
      * @return the test outcome
      */
     @PostMapping(value = "/{id}/test", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public TestResult test(@PathVariable Long id) {
-        return service.test(id);
+    public TestResult test(@PathVariable Long id,
+                           @AuthenticationPrincipal UlpUserDetails principal) {
+        // An OAuth2-authenticated admin has a different principal type; the test still
+        // runs, the log row simply carries no actor.
+        return service.test(id, principal == null ? null : principal.getId());
     }
 
     /**

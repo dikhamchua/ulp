@@ -2,6 +2,7 @@ package com.ulp.features.ai.client;
 
 import com.ulp.entities.AiProvider;
 import com.ulp.features.admin.settings.repository.AiProviderRepository;
+import com.ulp.features.ai.log.AiRequestLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +60,7 @@ public class AiClient {
 
     private final AiProviderRepository repository;
     private final RestClient restClient;
+    private final AiRequestLogger requestLogger;
 
     /**
      * Builds the client on top of Spring's auto-configured {@link RestClient.Builder}.
@@ -73,12 +75,15 @@ public class AiClient {
      * in a builder that already carries a request factory.
      */
     @Autowired
-    public AiClient(AiProviderRepository repository, RestClient.Builder builder) {
-        this(repository, builder, true);
+    public AiClient(AiProviderRepository repository, RestClient.Builder builder,
+                    AiRequestLogger requestLogger) {
+        this(repository, builder, requestLogger, true);
     }
 
-    private AiClient(AiProviderRepository repository, RestClient.Builder builder, boolean applyTimeouts) {
+    private AiClient(AiProviderRepository repository, RestClient.Builder builder,
+                     AiRequestLogger requestLogger, boolean applyTimeouts) {
         this.repository = repository;
+        this.requestLogger = requestLogger;
         this.restClient = (applyTimeouts ? applyDefaultTimeouts(builder) : builder).build();
     }
 
@@ -92,12 +97,14 @@ public class AiClient {
      * factory so the stubbed transport survives; production code must use the public
      * constructor, which always applies the timeouts.
      *
-     * @param builder a builder whose request factory is already configured by the caller
+     * @param builder       a builder whose request factory is already configured by the caller
+     * @param requestLogger the logger that records each provider attempt
      * @return a client wired to that transport
      */
     public static AiClient withPreconfiguredTransport(AiProviderRepository repository,
-                                                      RestClient.Builder builder) {
-        return new AiClient(repository, builder, false);
+                                                      RestClient.Builder builder,
+                                                      AiRequestLogger requestLogger) {
+        return new AiClient(repository, builder, requestLogger, false);
     }
 
     /** Installs the production connect/read timeouts on the given builder. */
@@ -119,6 +126,18 @@ public class AiClient {
      *                           request permanently, or every provider failed
      */
     public String chat(String userMessage, int maxTokens) {
+        return chat(userMessage, maxTokens, null);
+    }
+
+    /**
+     * Same as {@link #chat(String, int)} but attributes the logged attempts to a user.
+     *
+     * @param userMessage the message to send as the sole {@code user} turn
+     * @param maxTokens   upper bound on the generated response length
+     * @param userId      the acting user recorded on each log row, or {@code null}
+     * @return the assistant reply from the first provider that answered successfully
+     */
+    public String chat(String userMessage, int maxTokens, Long userId) {
         List<AiProvider> providers = repository.findEnabledOrdered();
         if (providers.isEmpty()) {
             throw new AiClientException(MSG_NOT_CONFIGURED);
@@ -127,7 +146,8 @@ public class AiClient {
         List<String> failures = new ArrayList<>();
         for (AiProvider provider : providers) {
             try {
-                return callProvider(provider, userMessage, maxTokens);
+                return callProvider(provider, userMessage, maxTokens,
+                        AiRequestLogger.SOURCE_CHAT, userId).content();
             } catch (PermanentProviderException e) {
                 // A rejected credential or a malformed request is not fixed by another
                 // endpoint — stop the chain instead of burning quota on the rest.
@@ -153,38 +173,73 @@ public class AiClient {
      * @return the reply text when the call succeeded
      */
     public String callOne(AiProvider provider, String userMessage, int maxTokens) {
-        return callProvider(provider, userMessage, maxTokens);
+        return callOne(provider, userMessage, maxTokens, AiRequestLogger.SOURCE_CHAT, null);
+    }
+
+    /**
+     * Same as {@link #callOne(AiProvider, String, int)} but tags the logged attempt with
+     * what triggered it and who was acting.
+     *
+     * @param provider    the provider to contact
+     * @param userMessage the message to send
+     * @param maxTokens   upper bound on the generated response length
+     * @param source      what triggered the call, e.g. {@code TEST_CONNECTION}
+     * @param userId      the acting user recorded on the log row, or {@code null}
+     * @return the reply text when the call succeeded
+     */
+    public String callOne(AiProvider provider, String userMessage, int maxTokens,
+                          String source, Long userId) {
+        return callProvider(provider, userMessage, maxTokens, source, userId).content();
     }
 
     // ─────────────────────────────────────────────────────────────────
 
     /**
-     * Performs one chat completion call against a single provider.
+     * Performs one chat completion call against a single provider and records the
+     * attempt in {@code ai_request_logs}, whether it succeeded or failed.
+     *
+     * <p>Exactly one log row is written per invocation. Failures are logged and then
+     * rethrown unchanged, so the fallback policy in {@link #chat(String, int, Long)} is
+     * unaffected by the logging.
      *
      * @throws PermanentProviderException when the provider rejects the request in a way
      *                                    that another provider could not resolve
      */
-    private String callProvider(AiProvider provider, String userMessage, int maxTokens) {
+    private AiResult callProvider(AiProvider provider, String userMessage, int maxTokens,
+                                  String source, Long userId) {
         Map<String, Object> payload = Map.of(
                 "model", provider.getModel(),
                 "max_tokens", maxTokens,
                 "messages", List.of(Map.of("role", "user", "content", userMessage))
         );
 
-        Map<?, ?> body = restClient.post()
-                .uri(normalizeBaseUrl(provider.getBaseUrl()) + CHAT_COMPLETIONS_PATH)
-                .header("Authorization", "Bearer " + provider.getApiKey())
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(payload)
-                .exchange((request, response) -> {
-                    HttpStatusCode status = response.getStatusCode();
-                    if (status.isError()) {
-                        throw classify(status, readErrorBody(response.getBody()));
-                    }
-                    return response.bodyTo(Map.class);
-                });
+        long startedAt = System.nanoTime();
+        try {
+            Map<?, ?> body = restClient.post()
+                    .uri(normalizeBaseUrl(provider.getBaseUrl()) + CHAT_COMPLETIONS_PATH)
+                    .header("Authorization", "Bearer " + provider.getApiKey())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .exchange((request, response) -> {
+                        HttpStatusCode status = response.getStatusCode();
+                        if (status.isError()) {
+                            throw classify(status, readErrorBody(response.getBody()));
+                        }
+                        return response.bodyTo(Map.class);
+                    });
 
-        return extractContent(body);
+            AiResult result = new AiResult(extractContent(body), extractUsage(body));
+            requestLogger.logSuccess(provider, result.usage(), elapsedMs(startedAt), source, userId);
+            return result;
+        } catch (RuntimeException e) {
+            requestLogger.logFailure(provider, describe(e), elapsedMs(startedAt), source, userId);
+            throw e;
+        }
+    }
+
+    /** Wall-clock duration since the given {@code System.nanoTime()} reading. */
+    private static long elapsedMs(long startedAtNanos) {
+        return (System.nanoTime() - startedAtNanos) / 1_000_000L;
     }
 
     /**
@@ -232,6 +287,40 @@ public class AiClient {
     }
 
     /**
+     * Pulls the OpenAI-compatible {@code usage} object out of a response.
+     *
+     * <p>Absent or malformed usage yields a record of three {@code null}s rather than
+     * zeros — the call did consume tokens, we simply were not told how many, and
+     * recording zero would misreport it as free.
+     *
+     * @param body the parsed response body
+     * @return the token counts, each member possibly {@code null}
+     */
+    private static AiRequestLogger.TokenUsage extractUsage(Map<?, ?> body) {
+        Object usage = body == null ? null : body.get("usage");
+        if (!(usage instanceof Map<?, ?> map)) {
+            return new AiRequestLogger.TokenUsage(null, null, null);
+        }
+        return new AiRequestLogger.TokenUsage(
+                toInteger(map.get("prompt_tokens")),
+                toInteger(map.get("completion_tokens")),
+                toInteger(map.get("total_tokens")));
+    }
+
+    /**
+     * Coerces a JSON number to {@link Integer}, tolerating the {@code Double} that a
+     * lenient parser may hand back for an integral value.
+     *
+     * @return the value as an int, or {@code null} when absent or not numeric
+     */
+    private static Integer toInteger(Object value) {
+        if (value instanceof Number n) {
+            return n.intValue();
+        }
+        return null;
+    }
+
+    /**
      * Strips a single trailing slash so {@code baseUrl + path} never yields a double slash.
      *
      * <p>Public because the settings service normalizes the same way before persisting,
@@ -253,6 +342,17 @@ public class AiClient {
     private static String describe(RuntimeException e) {
         String msg = e.getMessage();
         return (msg == null || msg.isBlank()) ? e.getClass().getSimpleName() : msg;
+    }
+
+    /**
+     * One successful provider answer: the reply text plus whatever token counts the
+     * provider reported.
+     *
+     * <p>Internal to this class. The public {@code chat} and {@code callOne} entry points
+     * still return a bare {@link String}, so adding token capture did not change any
+     * caller's contract.
+     */
+    private record AiResult(String content, AiRequestLogger.TokenUsage usage) {
     }
 
     /** Failure another provider might succeed at — network, timeout, 5xx, 429. */

@@ -715,4 +715,13 @@ public interface IConstant {
     String MSG_AI_PROVIDER_NOT_FOUND = "Không tìm thấy AI provider";
     String MSG_AI_NAME_DUPLICATE     = "Tên provider đã tồn tại";
     String MSG_AI_KEY_REQUIRED       = "API key là bắt buộc khi thêm provider mới";
+
+    // ───────── AI request logs ───────────────────────────────────────
+    String URL_SETTINGS_AI_LOGS  = "/admin/settings/ai/logs";
+    String VIEW_SETTINGS_AI_LOGS = "admin/settings-ai-logs";
+
+    String ATTR_AI_LOGS_PAGE      = "page";
+    String ATTR_AI_LOGS_FILTER    = "filter";
+    String ATTR_AI_LOGS_TOTALS    = "totals";
+    String ATTR_AI_LOGS_PROVIDERS = "providerNames";
 }

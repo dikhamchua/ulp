@@ -6,6 +6,7 @@ import com.ulp.features.admin.settings.dto.AiSettingsDtos.AiProviderRow;
 import com.ulp.features.admin.settings.dto.AiSettingsDtos.TestResult;
 import com.ulp.features.admin.settings.repository.AiProviderRepository;
 import com.ulp.features.ai.client.AiClient;
+import com.ulp.features.ai.log.AiRequestLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -213,16 +214,21 @@ public class AiProviderService {
      * the database. Any failure is converted into a {@link TestResult} the UI toasts,
      * rather than propagating as a 500.
      *
-     * @param id provider identifier
+     * <p>The attempt is recorded in {@code ai_request_logs} under the
+     * {@code TEST_CONNECTION} source by {@code AiClient}, attributed to {@code actorId}.
+     *
+     * @param id      provider identifier
+     * @param actorId the admin who pressed the test button, or {@code null} when unknown
      * @return the outcome, with a human-readable error on failure
      */
-    public TestResult test(Long id) {
+    public TestResult test(Long id, Long actorId) {
         Optional<AiProvider> found = repository.findById(id);
         if (found.isEmpty()) {
             return new TestResult(false, "Không tìm thấy provider");
         }
         try {
-            aiClient.callOne(found.get(), PING_MESSAGE, PING_MAX_TOKENS);
+            aiClient.callOne(found.get(), PING_MESSAGE, PING_MAX_TOKENS,
+                    AiRequestLogger.SOURCE_TEST_CONNECTION, actorId);
             return new TestResult(true, null);
         } catch (RuntimeException e) {
             String detail = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();

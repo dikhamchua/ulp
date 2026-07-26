@@ -639,3 +639,62 @@
   .ai-cell-url { max-width: 160px; }
   .ai-key-text { min-width: 80px; max-width: 140px; }
 }
+
+/* ── AI request logs ──────────────────────────────────────────────── */
+
+.ai-logs-link {
+  margin: 0 0 16px;
+}
+
+.ai-logs-link .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-log-totals {
+  margin-bottom: 16px;
+  padding: 16px 20px;
+}
+
+.ai-log-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.ai-log-totals-grid dt {
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.ai-log-totals-grid dd {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-log-totals-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Numeric columns read far better right-aligned and tabular. */
+.ai-log-table td:nth-child(6),
+.ai-log-table td:nth-child(7),
+.ai-log-table td:nth-child(8),
+.ai-log-table td:nth-child(9),
+.ai-log-table th:nth-child(6),
+.ai-log-table th:nth-child(7),
+.ai-log-table th:nth-child(8),
+.ai-log-table th:nth-child(9) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

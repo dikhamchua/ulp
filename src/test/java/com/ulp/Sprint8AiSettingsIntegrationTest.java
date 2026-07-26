@@ -6,6 +6,8 @@ import com.ulp.features.admin.settings.repository.AiProviderRepository;
 import com.ulp.features.admin.settings.service.AiProviderService;
 import com.ulp.features.ai.client.AiClient;
 import com.ulp.features.ai.client.AiClientException;
+import com.ulp.features.ai.log.AiRequestLogger;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,8 +21,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.ulp.common.IConstant.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -87,6 +95,21 @@ class Sprint8AiSettingsIntegrationTest {
     /** Name that must never appear in a failure message once the chain has halted. */
     private static final String CANARY = "CanaryNeverCalled";
 
+    /**
+     * Every provider name the logging tests write rows under.
+     *
+     * <p>Drives the {@code @AfterEach} cleanup. Scoped on purpose: a blanket
+     * {@code deleteAll()} would wipe an operator's real log history when the suite runs
+     * against a local database, and log rows escape the test rollback.
+     *
+     * <p>Must list every provider name any test here drives an AI call under, including
+     * the fallback-chain fixtures — those attempts write rows too, and a name missing
+     * from this set leaks a committed row into the developer database.
+     */
+    private static final Set<String> LOG_FIXTURE_PROVIDERS = Set.of(
+            "LoggedProvider", "NoUsageProvider", "FlakyProvider", "HealthyProvider",
+            "BadKeyProvider", CANARY, "Unreachable", "Alpha", "Beta", "Tried");
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -98,6 +121,13 @@ class Sprint8AiSettingsIntegrationTest {
 
     @Autowired
     private AiClient aiClient;
+
+    @Autowired
+    private AiRequestLogger requestLogger;
+
+    /** Used to read committed rows outside this class's rolled-back test transaction. */
+    @Autowired
+    private DataSource dataSource;
 
     /**
      * Clears {@code ai_providers} so every test starts from a known-empty table.
@@ -112,6 +142,42 @@ class Sprint8AiSettingsIntegrationTest {
     void clearProviders() {
         repository.deleteAll();
         repository.flush();
+    }
+
+    /**
+     * Deletes any {@code ai_request_logs} row a test in this class committed.
+     *
+     * <p>The AI calls here still reach {@link AiRequestLogger}, and its write runs with
+     * {@code REQUIRES_NEW} — so those rows commit on their own connection and survive the
+     * rollback of the surrounding test. They are the one thing the class-level
+     * {@code @Transactional} does not clean up.
+     *
+     * <p>Kept in {@code @AfterEach} rather than at the end of each test so it still runs
+     * when an assertion fails; that omission is how a previous change leaked committed
+     * rows into the developer database. Scoped to the fixture provider names so a real
+     * operator's log history is never destroyed by a local test run.
+     *
+     * <p>Runs on its own JDBC connection, deliberately. Going through
+     * {@code AiRequestLogRepository} cannot work here for two compounding reasons: the read joins
+     * this test's REPEATABLE READ snapshot and so never sees a row the writer committed
+     * afterwards, and the delete would join the test transaction and be discarded by its
+     * rollback. Cleanup has to happen on the same terms as the write — its own
+     * connection, committed.
+     */
+    @AfterEach
+    void clearCommittedLogs() throws Exception {
+        String placeholders = String.join(",",
+                Collections.nCopies(LOG_FIXTURE_PROVIDERS.size(), "?"));
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "DELETE FROM ai_request_logs WHERE provider_name IN ("
+                             + placeholders + ")")) {
+            int index = 1;
+            for (String name : LOG_FIXTURE_PROVIDERS) {
+                statement.setString(index++, name);
+            }
+            statement.executeUpdate();
+        }
     }
 
     // ───────── Access control ────────────────────────────────────────
@@ -417,7 +483,7 @@ class Sprint8AiSettingsIntegrationTest {
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
-        AiClient client = AiClient.withPreconfiguredTransport(repository, builder);
+        AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
 
         // Exactly one request is programmed. A second call has no expectation left and
         // fails the exchange, and verify() below re-checks the recorded count.
@@ -448,7 +514,7 @@ class Sprint8AiSettingsIntegrationTest {
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
-        AiClient client = AiClient.withPreconfiguredTransport(repository, builder);
+        AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
 
         mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
                 .andRespond(withServerError().body("upstream down"));
@@ -459,6 +525,67 @@ class Sprint8AiSettingsIntegrationTest {
         assertThat(client.chat("hello", 5)).isEqualTo("pong");
 
         mockServer.verify();
+    }
+
+    // ───────── Request logging ───────────────────────────────────────
+    // Full row-level logging assertions live in Sprint8AiRequestLoggingIntegrationTest,
+    // which must run without an enclosing transaction. See that class for why.
+
+    /**
+     * A log write still succeeds while the caller's transaction holds the provider row.
+     *
+     * <p>Regression guard. {@code ai_request_logs.provider_id} used to carry an FK to
+     * {@code ai_providers}, which made the insert take a shared lock on the parent row.
+     * This class is {@code @Transactional}, so {@link #persist} left that row locked
+     * exclusively for the whole test — every log write here then blocked, timed out, and
+     * was silently dropped by the swallow-and-warn path. The suite stayed green because
+     * nothing asserted the row existed.
+     *
+     * <p>The count is read on a separate JDBC connection, not through
+     * {@code AiRequestLogRepository}. The repository would run inside this test's transaction,
+     * whose REPEATABLE READ snapshot was taken before the writer committed and therefore
+     * cannot see the new row however well the write went — the assertion would fail even
+     * on correct behaviour. A fresh connection takes its own snapshot and sees the
+     * committed row, which is exactly what production readers do.
+     */
+    @Test
+    void a_log_row_is_written_even_while_the_test_transaction_holds_the_provider_row()
+            throws Exception {
+        AiProvider provider = persist("Unreachable", true, UNREACHABLE_URL);
+
+        assertThat(service.test(provider.getId(), null).ok()).isFalse();
+
+        assertThat(committedLogCount("Unreachable")).isEqualTo(1);
+    }
+
+    /** Counts committed log rows for one provider, outside the test transaction. */
+    private int committedLogCount(String providerName) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM ai_request_logs WHERE provider_name = ?")) {
+            statement.setString(1, providerName);
+            try (ResultSet rs = statement.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
+    @Test
+    @WithUserDetails("admin@ulp.edu.vn")
+    void admin_can_open_the_ai_logs_screen() throws Exception {
+        mockMvc.perform(get(URL_SETTINGS_AI_LOGS))
+                .andExpect(status().isOk())
+                .andExpect(view().name(VIEW_SETTINGS_AI_LOGS))
+                .andExpect(model().attributeExists(ATTR_AI_LOGS_PAGE, ATTR_AI_LOGS_FILTER,
+                        ATTR_AI_LOGS_TOTALS, ATTR_AI_LOGS_PROVIDERS));
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ulp.edu.vn")
+    void lecturer_cannot_open_the_ai_logs_screen() throws Exception {
+        mockMvc.perform(get(URL_SETTINGS_AI_LOGS))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -494,7 +621,7 @@ class Sprint8AiSettingsIntegrationTest {
     void test_endpoint_reports_a_failure_instead_of_throwing() {
         AiProvider provider = persist("Unreachable", true, UNREACHABLE_URL);
 
-        var result = service.test(provider.getId());
+        var result = service.test(provider.getId(), null);
         assertThat(result.ok()).isFalse();
         assertThat(result.error()).isNotBlank();
     }
