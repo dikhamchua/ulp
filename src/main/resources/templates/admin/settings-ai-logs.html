@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Nhật ký AI', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+
+  <main class="col">
+    <nav class="settings-breadcrumb" aria-label="Breadcrumb">
+      <a th:href="@{/admin/settings}">Cài đặt hệ thống</a>
+      <span class="sep" aria-hidden="true">/</span>
+      <a th:href="@{/admin/settings/ai}">AI Providers</a>
+      <span class="sep" aria-hidden="true">/</span>
+      <span aria-current="page">Nhật ký</span>
+    </nav>
+
+    <h1 class="detail-title">Nhật ký gọi AI</h1>
+    <p class="detail-sub">Mỗi dòng là một lần gọi tới một provider. Khi hệ thống
+      chuyển dự phòng, mỗi provider đã thử sẽ có một dòng riêng. Nhật ký chỉ lưu
+      thông tin kỹ thuật và số token — không lưu nội dung câu hỏi hay câu trả lời.</p>
+
+    <!-- ===== Filter toolbar ===== -->
+    <section class="users-toolbar">
+      <form method="get" th:action="@{/admin/settings/ai/logs}" class="users-filter-form">
+        <div class="users-toolbar-row">
+          <label for="logProvider" class="sr-only">Lọc theo provider</label>
+          <select id="logProvider" name="provider" aria-label="Lọc theo provider">
+            <option value="" th:selected="${filter.provider() == null}">Tất cả provider</option>
+            <option th:each="name : ${providerNames}"
+                    th:value="${name}"
+                    th:text="${name}"
+                    th:selected="${filter.provider() == name}">Provider</option>
+          </select>
+          <label for="logStatus" class="sr-only">Lọc theo trạng thái</label>
+          <select id="logStatus" name="status" aria-label="Lọc theo trạng thái">
+            <option value="" th:selected="${filter.status() == null}">Tất cả trạng thái</option>
+            <option value="SUCCESS" th:selected="${filter.status() == 'SUCCESS'}">Thành công</option>
+            <option value="FAILED" th:selected="${filter.status() == 'FAILED'}">Thất bại</option>
+          </select>
+          <button type="submit" class="btn-ghost">Áp dụng</button>
+          <a th:href="@{/admin/settings/ai}" class="btn-ghost">← Quay lại provider</a>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== Token totals for the current filter ===== -->
+    <section class="admin-list-panel ai-log-totals" aria-label="Tổng hợp token">
+      <dl class="ai-log-totals-grid">
+        <div>
+          <dt>Số lần gọi</dt>
+          <dd th:text="${totals.rowCount()}">0</dd>
+        </div>
+        <div>
+          <dt>Token đầu vào</dt>
+          <dd th:text="${totals.promptTokens()}">0</dd>
+        </div>
+        <div>
+          <dt>Token đầu ra</dt>
+          <dd th:text="${totals.completionTokens()}">0</dd>
+        </div>
+        <div>
+          <dt>Tổng token</dt>
+          <dd th:text="${totals.totalTokens()}">0</dd>
+        </div>
+      </dl>
+      <p class="ai-log-totals-note">Tổng tính trên toàn bộ kết quả khớp bộ lọc,
+        không chỉ trang đang xem. Riêng ở bốn ô tổng phía trên, lần gọi mà provider
+        không báo <code>usage</code> được cộng như 0; trong bảng bên dưới, những lần
+        gọi đó vẫn hiển thị dấu <code>—</code> (không rõ), không phải 0.</p>
+    </section>
+
+    <!-- ===== Log table ===== -->
+    <section class="admin-list-panel">
+      <div class="admin-list-table-scroll">
+        <table class="admin-list-table ai-log-table" th:if="${not page.isEmpty()}">
+          <caption class="sr-only">
+            Danh sách các lần gọi AI, mới nhất trước, kèm provider, model, trạng
+            thái, số token, thời gian phản hồi và lý do lỗi.
+          </caption>
+          <thead>
+          <tr>
+            <th scope="col">Thời điểm</th>
+            <th scope="col">Provider</th>
+            <th scope="col">Model</th>
+            <th scope="col">Nguồn</th>
+            <th scope="col">Trạng thái</th>
+            <th scope="col">Vào</th>
+            <th scope="col">Ra</th>
+            <th scope="col">Tổng</th>
+            <th scope="col">Thời gian</th>
+            <th scope="col">Lỗi</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="row : ${page.content}">
+            <td th:text="${row.createdAt() != null
+                            ? #temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm:ss')
+                            : '—'}">01/01/2026 00:00:00</td>
+            <td th:text="${row.providerName()}">OpenAI</td>
+            <td class="ai-cell-url" th:text="${row.model()}" th:title="${row.model()}">gpt-4o-mini</td>
+            <td th:text="${row.source()}">TEST_CONNECTION</td>
+            <td>
+              <span class="ai-badge"
+                    th:classappend="${row.succeeded()} ? 'ai-badge-on' : 'ai-badge-off'"
+                    th:text="${row.succeeded()} ? 'Thành công' : 'Thất bại'">Thành công</span>
+            </td>
+            <!-- Null token means the provider reported no usage — a dash, never 0. -->
+            <td th:text="${row.promptTokens() != null ? row.promptTokens() : '—'}">—</td>
+            <td th:text="${row.completionTokens() != null ? row.completionTokens() : '—'}">—</td>
+            <td th:text="${row.totalTokens() != null ? row.totalTokens() : '—'}">—</td>
+            <td th:text="${row.durationMs() != null ? row.durationMs() + ' ms' : '—'}">—</td>
+            <td class="ai-cell-url"
+                th:text="${row.errorMessage() != null ? row.errorMessage() : '—'}"
+                th:title="${row.errorMessage()}">—</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div th:if="${page.isEmpty()}" class="admin-list-empty" role="status" aria-live="polite">
+        Chưa có lần gọi AI nào khớp bộ lọc hiện tại.
+      </div>
+
+      <!-- Pagination -->
+      <nav th:if="${page.totalPages > 1}" class="detail-pagination" aria-label="Phân trang">
+        <a class="page-link"
+           th:if="${!page.first}"
+           th:href="@{/admin/settings/ai/logs(provider=${filter.provider()},status=${filter.status()},page=${page.number - 1})}">‹ Trước</a>
+        <span class="page-current"
+              th:text="'Trang ' + (${page.number + 1}) + ' / ' + ${page.totalPages}">Trang 1 / 1</span>
+        <a class="page-link"
+           th:if="${!page.last}"
+           th:href="@{/admin/settings/ai/logs(provider=${filter.provider()},status=${filter.status()},page=${page.number + 1})}">Sau ›</a>
+      </nav>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin.js}"></script>
+<script th:src="@{/js/admin-settings-ai-logs.js}"></script>
+</body>
+</html>

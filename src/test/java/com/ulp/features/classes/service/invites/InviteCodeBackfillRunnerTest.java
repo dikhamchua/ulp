@@ -6,6 +6,7 @@ import com.ulp.entities.ClassEntity;
 import com.ulp.entities.ClassInviteCode;
 import com.ulp.features.classes.repository.ClassInviteCodeRepository;
 import com.ulp.features.classes.repository.ClassRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,8 +16,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -25,9 +24,17 @@ import static org.assertj.core.api.Assertions.assertThat;
  * active) and asserts the runner brings them all into the
  * "one active per type" invariant — and that a second run is a
  * no-op.
+ *
+ * <p>The test is {@code @Commit} by necessity: {@code backfill()} opens its
+ * own transaction and cannot see uncommitted rows. Nothing rolls back, so
+ * seeded rows are removed by the {@link #cleanUp()} {@code @AfterEach} hook,
+ * which runs on failure as well as on success.
  */
 @SpringBootTest
 class InviteCodeBackfillRunnerTest {
+
+    /** Name prefix identifying every class this test seeds. */
+    private static final String CLASS_NAME_PREFIX = "Backfill-";
 
     @Autowired private InviteCodeBackfillRunner runner;
     @Autowired private ClassRepository classRepository;
@@ -42,10 +49,10 @@ class InviteCodeBackfillRunnerTest {
     void backfill_brings_missing_classes_to_invariant_and_is_idempotent() {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
 
-        // â”€â”€ Seed 3 classes â”€â”€
-        ClassEntity none = createClass(lecturer.getId(), "Backfill-None");
-        ClassEntity codeOnly = createClass(lecturer.getId(), "Backfill-CodeOnly");
-        ClassEntity full = createClass(lecturer.getId(), "Backfill-Full");
+        // Seed 3 classes in three different invite-token shapes.
+        ClassEntity none = createClass(lecturer.getId(), CLASS_NAME_PREFIX + "None");
+        ClassEntity codeOnly = createClass(lecturer.getId(), CLASS_NAME_PREFIX + "CodeOnly");
+        ClassEntity full = createClass(lecturer.getId(), CLASS_NAME_PREFIX + "Full");
 
         // Clean any pre-existing tokens left by ClassesService.create
         // so we control the starting state of each class precisely.
@@ -76,7 +83,7 @@ class InviteCodeBackfillRunnerTest {
                     fullLinkValue, "LINK", lecturer.getId()));
         });
 
-        // â”€â”€ First run â”€â”€
+        // First run.
         // backfill() requires a transaction (the production caller
         // opens one via TransactionTemplate). Wrap each invocation
         // here so the call mirrors the real bootstrap flow.
@@ -87,27 +94,56 @@ class InviteCodeBackfillRunnerTest {
         assertInvariant(codeOnly.getId());
         assertInvariant(full.getId());
 
-        // â”€â”€ Second run is a no-op (idempotent) â”€â”€
+        // Second run must be a no-op (idempotent).
         tx.executeWithoutResult(s -> runner.backfill());
         assertInvariant(none.getId());
         assertInvariant(codeOnly.getId());
         assertInvariant(full.getId());
 
-        // â”€â”€ Sentinel rows are gone â”€â”€
+        // Sentinel rows the runner uses as placeholders must be gone. This is
+        // a database-wide check, so it stays meaningful regardless of cleanup.
         Number sentinelCount = (Number) em.createNativeQuery(
                         "SELECT COUNT(*) FROM class_invite_codes WHERE code LIKE 'SEED-%'")
                 .getSingleResult();
         assertThat(sentinelCount.intValue()).isZero();
+    }
 
-        // Cleanup
+    /**
+     * Removes every class this test seeds, keyed by name prefix rather than by
+     * id, so leftovers from earlier aborted runs are reclaimed too.
+     *
+     * <p>Runs even when the test fails, which is what stops {@code @Commit}
+     * rows from accumulating in the developer database. Failures here are
+     * swallowed so a cleanup problem cannot mask the real assertion failure.
+     */
+    @AfterEach
+    void cleanUp() {
+        try {
+            deleteSeededClasses();
+        } catch (RuntimeException ex) {
+            // Never let cleanup replace the assertion error under diagnosis.
+            System.err.println("[InviteCodeBackfillRunnerTest] cleanup failed: " + ex);
+        }
+    }
+
+    /** Deletes seeded classes child-rows-first to satisfy FK constraints. */
+    private void deleteSeededClasses() {
         tx.executeWithoutResult(s -> {
-            for (Long id : List.of(none.getId(), codeOnly.getId(), full.getId())) {
-                em.createNativeQuery("DELETE FROM class_invite_codes WHERE class_id = :id")
-                        .setParameter("id", id).executeUpdate();
-                em.createNativeQuery("DELETE FROM activity_classes WHERE class_id = :id")
-                        .setParameter("id", id).executeUpdate();
-                em.createNativeQuery("DELETE FROM classes WHERE id = :id")
-                        .setParameter("id", id).executeUpdate();
+            String subQuery = "(SELECT id FROM (SELECT id FROM classes "
+                    + "WHERE name LIKE :prefix) AS c)";
+            // This test seeds no enrollments, but they are cleared first
+            // anyway: enrollments FK-reference class_invite_codes.
+            String[] statements = {
+                    "DELETE FROM enrollments WHERE class_id IN " + subQuery,
+                    "DELETE FROM activity_classes WHERE class_id IN " + subQuery,
+                    "DELETE FROM sections WHERE class_id IN " + subQuery,
+                    "DELETE FROM class_invite_codes WHERE class_id IN " + subQuery,
+                    "DELETE FROM classes WHERE name LIKE :prefix",
+            };
+            for (String sql : statements) {
+                em.createNativeQuery(sql)
+                        .setParameter("prefix", CLASS_NAME_PREFIX + "%")
+                        .executeUpdate();
             }
         });
     }

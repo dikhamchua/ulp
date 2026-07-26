@@ -296,6 +296,11 @@
   color: var(--primary-dark, #1E40AF);
   border-color: #BFDEFC;
 }
+.alert-warning {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #FDE68A;
+}
 
 /* Visually hidden but available to screen readers (WCAG SC 4.1.3) */
 .sr-only {
@@ -496,4 +501,200 @@
 
 .btn-danger:hover {
   background: #b91c1c;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI provider settings (/admin/settings/ai)
+   Layers on top of .admin-list-panel / .admin-list-table. Only the bits the
+   shared shell does not cover live here: the key cell, the icon-button row,
+   the on/off badge and the dimmed styling for a disabled provider.
+   ══════════════════════════════════════════════════════════════════════════ */
+.ai-list-panel {
+  margin-bottom: 24px;
+}
+
+.ai-provider-table .ai-col-index { width: 48px; }
+.ai-provider-table .ai-col-actions { width: 168px; }
+
+.ai-cell-name { font-weight: 600; color: #111827; }
+
+/* Long endpoints must not stretch the table; truncate with the full value in
+   the cell so a horizontal scroll or tooltip still reveals it. */
+.ai-cell-url {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6b7280;
+}
+
+.ai-cell-key {
+  white-space: nowrap;
+}
+
+/* Fixed min-width keeps the row from jumping when a key is revealed. */
+.ai-key-text {
+  display: inline-block;
+  min-width: 120px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #374151;
+}
+
+.ai-cell-actions {
+  white-space: nowrap;
+}
+
+/* Inline toggle form must not break the action row onto its own line. */
+.ai-inline-form {
+  display: inline;
+}
+
+.ai-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin-left: 4px;
+  border: 1px solid var(--border-soft, #e5e7eb);
+  border-radius: 8px;
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.ai-icon-btn .ico {
+  width: 16px;
+  height: 16px;
+}
+
+.ai-icon-btn:hover {
+  background: #f9fafb;
+  color: #111827;
+}
+
+.ai-icon-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.ai-icon-btn[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.ai-icon-btn.is-loading .ico {
+  animation: ai-spin .8s linear infinite;
+}
+
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-icon-danger {
+  color: #dc2626;
+}
+
+.ai-icon-danger:hover {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.ai-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ai-badge-on  { background: #dcfce7; color: #166534; }
+.ai-badge-off { background: #f3f4f6; color: #6b7280; }
+
+/* A disabled provider is skipped entirely by AiClient — dim it so the reason a
+   call never reached it is visible at a glance. Actions stay full opacity so
+   re-enabling remains easy to hit. */
+.ai-row-disabled td { opacity: .55; }
+.ai-row-disabled td.ai-cell-actions { opacity: 1; }
+
+.ai-check-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.ai-check-wrap .field-hint { margin: 0; }
+
+.admin-list-empty .btn { margin-top: 12px; }
+
+@media (max-width: 720px) {
+  .ai-cell-url { max-width: 160px; }
+  .ai-key-text { min-width: 80px; max-width: 140px; }
+}
+
+/* ── AI request logs ──────────────────────────────────────────────── */
+
+.ai-logs-link {
+  margin: 0 0 16px;
+}
+
+.ai-logs-link .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-log-totals {
+  margin-bottom: 16px;
+  padding: 16px 20px;
+}
+
+.ai-log-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.ai-log-totals-grid dt {
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.ai-log-totals-grid dd {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-log-totals-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Numeric columns read far better right-aligned and tabular. */
+.ai-log-table td:nth-child(6),
+.ai-log-table td:nth-child(7),
+.ai-log-table td:nth-child(8),
+.ai-log-table td:nth-child(9),
+.ai-log-table th:nth-child(6),
+.ai-log-table th:nth-child(7),
+.ai-log-table th:nth-child(8),
+.ai-log-table th:nth-child(9) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
