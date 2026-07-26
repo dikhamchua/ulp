@@ -698,4 +698,21 @@ public interface IConstant {
             "Bài giảng chưa đủ nội dung để lưu mẫu (thiếu PDF/video/nội dung)";
     String MSG_TEMPLATE_PROMOTE_FAILED =
             "Không thể đưa tệp đính kèm vào kho học liệu";
+
+    // ───────── AI provider settings ──────────────────────────────────
+    String URL_SETTINGS_AI  = "/admin/settings/ai";
+    String VIEW_SETTINGS_AI = "admin/settings-ai";
+
+    String ATTR_AI_PROVIDERS    = "providers";
+    String ATTR_AI_ALL_DISABLED = "allDisabled";
+
+    // ───────── AI provider settings (Vietnamese UI text) ─────────────
+    String MSG_AI_PROVIDER_CREATED   = "Đã thêm AI provider";
+    String MSG_AI_PROVIDER_UPDATED   = "Đã cập nhật AI provider";
+    String MSG_AI_PROVIDER_DELETED   = "Đã xoá AI provider";
+    String MSG_AI_PROVIDER_ENABLED   = "Đã bật AI provider";
+    String MSG_AI_PROVIDER_DISABLED  = "Đã tắt AI provider";
+    String MSG_AI_PROVIDER_NOT_FOUND = "Không tìm thấy AI provider";
+    String MSG_AI_NAME_DUPLICATE     = "Tên provider đã tồn tại";
+    String MSG_AI_KEY_REQUIRED       = "API key là bắt buộc khi thêm provider mới";
 }
