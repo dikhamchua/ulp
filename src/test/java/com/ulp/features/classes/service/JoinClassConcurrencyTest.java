@@ -9,6 +9,7 @@ import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.invites.InviteCodeService;
 import com.ulp.security.Role;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,11 +28,19 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Concurrency stress for the approval pipeline. Two threads race to approve
  * the last capacity slot ({@code max_students=1}); capacity re-check under
  * transaction must yield exactly one ACTIVE enrollment.
+ *
+ * <p>The test is {@code @Commit} by necessity: the racing threads use their
+ * own JDBC connections and cannot see rows the test thread has not committed.
+ * Nothing rolls back, so seeded rows are removed by the {@link #cleanUp()}
+ * {@code @AfterEach} hook, which runs on failure as well as on success.
  */
 @SpringBootTest
 class JoinClassConcurrencyTest {
 
     private static final int RUNS = 10;
+
+    /** Name prefix identifying every class this test seeds. */
+    private static final String CLASS_NAME_PREFIX = "Race-";
 
     @Autowired private JoinClassService joinClassService;
     @Autowired private InviteCodeService inviteCodeService;
@@ -52,7 +61,7 @@ class JoinClassConcurrencyTest {
 
         for (int iter = 0; iter < RUNS; iter++) {
             ClassEntity clazz = tx.execute(s -> {
-                ClassEntity c = new ClassEntity("Race-" + System.nanoTime(),
+                ClassEntity c = new ClassEntity(CLASS_NAME_PREFIX + System.nanoTime(),
                         lecturer.getId(), lecturer.getId(), null, null, null, 1);
                 c.setCode(uniqueClassCode());
                 return classRepository.saveAndFlush(c);
@@ -136,19 +145,53 @@ class JoinClassConcurrencyTest {
                     .as("iteration %d: use_count increments once on approve", iter)
                     .isEqualTo(1L);
 
-            tx.executeWithoutResult(s -> {
-                em.createNativeQuery("DELETE FROM enrollments WHERE class_id = :id")
-                        .setParameter("id", classId).executeUpdate();
-                em.createNativeQuery("DELETE FROM activity_classes WHERE class_id = :id")
-                        .setParameter("id", classId).executeUpdate();
-                em.createNativeQuery("DELETE FROM notifications WHERE reference_id = :id")
-                        .setParameter("id", classId).executeUpdate();
-                em.createNativeQuery("DELETE FROM class_invite_codes WHERE class_id = :id")
-                        .setParameter("id", classId).executeUpdate();
-                em.createNativeQuery("DELETE FROM classes WHERE id = :id")
-                        .setParameter("id", classId).executeUpdate();
-            });
+            // Each iteration expects a clean slate, so drop this class now.
+            // The @AfterEach net below only covers rows an abort leaves behind.
+            deleteSeededClasses();
         }
+    }
+
+    /**
+     * Removes every class this test seeds, keyed by name prefix rather than by
+     * id, so leftovers from earlier aborted runs are reclaimed too.
+     *
+     * <p>Runs even when the test fails, which is what stops {@code @Commit}
+     * rows from accumulating in the developer database. Failures here are
+     * swallowed so a cleanup problem cannot mask the real assertion failure.
+     */
+    @AfterEach
+    void cleanUp() {
+        try {
+            deleteSeededClasses();
+        } catch (RuntimeException ex) {
+            // Never let cleanup replace the assertion error under diagnosis.
+            System.err.println("[JoinClassConcurrencyTest] cleanup failed: " + ex);
+        }
+    }
+
+    /** Deletes seeded classes child-rows-first to satisfy FK constraints. */
+    private void deleteSeededClasses() {
+        tx.executeWithoutResult(s -> {
+            String subQuery = "(SELECT id FROM (SELECT id FROM classes "
+                    + "WHERE name LIKE :prefix) AS c)";
+            // activity_enrollments cascades from enrollments; sections and
+            // class_invite_codes cascade from classes, but are removed
+            // explicitly so the delete order holds if a cascade is dropped.
+            String[] statements = {
+                    "DELETE FROM notifications WHERE reference_type = 'CLASS' "
+                            + "AND reference_id IN " + subQuery,
+                    "DELETE FROM enrollments WHERE class_id IN " + subQuery,
+                    "DELETE FROM activity_classes WHERE class_id IN " + subQuery,
+                    "DELETE FROM sections WHERE class_id IN " + subQuery,
+                    "DELETE FROM class_invite_codes WHERE class_id IN " + subQuery,
+                    "DELETE FROM classes WHERE name LIKE :prefix",
+            };
+            for (String sql : statements) {
+                em.createNativeQuery(sql)
+                        .setParameter("prefix", CLASS_NAME_PREFIX + "%")
+                        .executeUpdate();
+            }
+        });
     }
 
     private static String uniqueClassCode() {
