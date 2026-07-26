@@ -221,13 +221,13 @@ public class LessonsService {
         // lesson is soft-deleted — see design D2. A failure here aborts the
         // soft-delete so the lesson is never half-deleted with orphan files.
         attachmentsService.deleteAllByLesson(lessonId);
-        // One-off VIDEO/UPLOAD: drop the lesson MP4 dir. Library videos must
+        // One-off VIDEO/UPLOAD: drop the lesson MP4 object. Library videos must
         // never be deleted — only clear the FK on the lesson row.
         boolean oneOffUploadVideo = CONTENT_TYPE_VIDEO.equals(lesson.getContentType())
                 && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
                 && !lesson.hasLibraryVideo();
-        if (oneOffUploadVideo) {
-            videoStorageService.deleteByLessonId(lessonId);
+        if (oneOffUploadVideo && lesson.getVideoUrl() != null) {
+            videoStorageService.delete(lesson.getVideoUrl());
         }
         // Release library video reference before soft-delete so delete-guard
         // counts stay accurate for the library asset.
@@ -269,8 +269,9 @@ public class LessonsService {
         // External URL replaces any previous library/one-off upload binding.
         if (lesson.hasLibraryVideo()) {
             lesson.setVideoLibraryAssetId(null);
-        } else if (VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())) {
-            videoStorageService.deleteByLessonId(lessonId);
+        } else if (VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
+                && lesson.getVideoUrl() != null) {
+            videoStorageService.delete(lesson.getVideoUrl());
         }
         lesson.setVideoProvider(provider);
         lesson.setVideoUrl(url);
@@ -291,7 +292,14 @@ public class LessonsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
-        // Classic upload is one-off — clear any prior library video FK.
+        // Classic upload is one-off — clear any prior library video FK and
+        // drop the previous one-off object so disk/R2 usage stays bounded.
+        if (!lesson.hasLibraryVideo()
+                && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
+                && lesson.getVideoUrl() != null
+                && !lesson.getVideoUrl().equals(relativePath)) {
+            videoStorageService.delete(lesson.getVideoUrl());
+        }
         lesson.setVideoLibraryAssetId(null);
         lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
         lesson.setVideoUrl(relativePath);
@@ -319,8 +327,9 @@ public class LessonsService {
         }
         // Wipe previous one-off upload only — never delete library blobs.
         if (!lesson.hasLibraryVideo()
-                && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())) {
-            videoStorageService.deleteByLessonId(lessonId);
+                && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
+                && lesson.getVideoUrl() != null) {
+            videoStorageService.delete(lesson.getVideoUrl());
         }
         lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
         lesson.setVideoLibraryAssetId(asset.getId());

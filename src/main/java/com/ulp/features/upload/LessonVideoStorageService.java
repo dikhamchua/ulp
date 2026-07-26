@@ -1,27 +1,20 @@
 package com.ulp.features.upload;
 
+import com.ulp.features.storage.ObjectStorage;
+import com.ulp.features.storage.StorageKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.stream.Stream;
+import java.io.InputStream;
 
 /**
- * Filesystem storage for lesson VIDEO uploads (add-lesson-content-types,
- * Sprint 3).
+ * Object storage for lesson VIDEO uploads.
  *
- * <p>Separate from {@link LessonAttachmentStorageService} so the 200 MB
- * cap and {@code video/mp4} MIME requirement do not weaken the attachment
- * service's multi-format guarantee. Validation is shared via
- * {@link UploadFileHelper}.
- *
- * <p>Files land under {@code <uploadRoot>/lessons/{lessonId}/video/{uuid}.mp4}.
+ * <p>Files land under {@code lessons/{lessonId}/video/{uuid}.mp4}.
+ * Exactly one video per lesson — store replaces the previous key when known.
  */
 @Service
 public class LessonVideoStorageService {
@@ -30,68 +23,59 @@ public class LessonVideoStorageService {
 
     private static final String PATH_PREFIX = "lessons/";
 
-    private final Path uploadRoot;
+    private final ObjectStorage objectStorage;
 
-    public LessonVideoStorageService(@Value("${app.upload.dir:uploads}") String dir) {
-        this.uploadRoot = Paths.get(dir, "lessons").toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.uploadRoot);
-        } catch (IOException e) {
-            throw new RuntimeException("Cannot create lesson video root: " + uploadRoot, e);
-        }
+    public LessonVideoStorageService(ObjectStorage objectStorage) {
+        this.objectStorage = objectStorage;
     }
 
     /**
-     * Stores the uploaded MP4 under {@code lessons/{lessonId}/video/<uuid>.mp4}.
+     * Stores the uploaded MP4 under {@code lessons/{lessonId}/video/&lt;uuid&gt;.mp4}.
      *
      * @return the stored relative path suitable for {@code lessons.video_url}
      */
     public StoredVideo store(MultipartFile file, Long lessonId) throws IOException {
         UploadFileHelper.validateMp4Video(file);
 
-        Path videoDir = UploadFileHelper.requireChildOf(
-                uploadRoot,
-                uploadRoot.resolve(String.valueOf(lessonId)).resolve("video"));
-        // Exactly one video per lesson — replace keeps disk usage bounded.
-        deleteByLessonId(lessonId);
-        Files.createDirectories(videoDir);
-
+        // Best-effort cleanup of a previous video key is done by callers that
+        // know the old video_url; we still stamp a unique uuid each upload.
         String filename = UploadFileHelper.newUuidFilename(UploadFileHelper.EXT_MP4);
-        Path dest = videoDir.resolve(filename);
-        file.transferTo(dest.toFile());
+        String key = PATH_PREFIX + lessonId + "/video/" + filename;
+        StorageKeys.requireSafeKey(key);
 
-        String relative = PATH_PREFIX + lessonId + "/video/" + filename;
-        return new StoredVideo(relative, file.getSize());
+        try (InputStream in = file.getInputStream()) {
+            objectStorage.put(key, in, UploadFileHelper.MIME_MP4, file.getSize());
+        }
+
+        return new StoredVideo(key, file.getSize());
     }
 
     /**
-     * Removes every MP4 stored under {@code lessons/{lessonId}/video/}.
-     * Safe to call when the directory does not exist (no-op).
+     * Deletes a previously stored video key. Prefer this over directory listing
+     * (R2 has no cheap list-by-prefix in this abstraction).
      */
+    public void delete(String storedRelativePath) {
+        if (storedRelativePath == null || storedRelativePath.isBlank()) return;
+        try {
+            objectStorage.delete(StorageKeys.requireSafeKey(storedRelativePath));
+        } catch (IllegalArgumentException | IOException e) {
+            log.warn("Failed to delete video {}: {}", storedRelativePath, e.getMessage());
+        }
+    }
+
+    /**
+     * @deprecated Prefer {@link #delete(String)} with the known video key.
+     * Kept as a no-op for callers that used directory wipe; R2 has no list-dir.
+     */
+    @Deprecated
     public void deleteByLessonId(Long lessonId) {
-        Path videoDir = uploadRoot.resolve(String.valueOf(lessonId)).resolve("video").normalize();
-        if (!videoDir.startsWith(uploadRoot) || !Files.exists(videoDir)) {
-            return;
-        }
-        try (Stream<Path> stream = Files.list(videoDir)) {
-            stream.forEach(p -> {
-                try {
-                    Files.deleteIfExists(p);
-                } catch (IOException e) {
-                    log.warn("Failed to delete video file {}: {}", p, e.getMessage());
-                }
-            });
-        } catch (IOException e) {
-            log.warn("Failed to list video dir {}: {}", videoDir, e.getMessage());
-        }
+        // Object storage has no directory listing; callers must pass the key.
+        log.debug("deleteByLessonId({}) is a no-op under ObjectStorage — pass the key to delete()", lessonId);
     }
 
-    /**
-     * Resolves a stored relative path to an absolute {@link Path}, rejecting
-     * any value that escapes the upload root.
-     */
-    public Path resolveAbsolutePath(String storedRelativePath) {
-        return UploadFileHelper.resolveUnderRoot(uploadRoot, storedRelativePath, PATH_PREFIX);
+    /** Validates a stored relative key (rejects traversal). */
+    public String requireSafeKey(String storedRelativePath) {
+        return StorageKeys.requireSafeKey(storedRelativePath);
     }
 
     /** Result of a successful {@link #store(MultipartFile, Long)} call. */

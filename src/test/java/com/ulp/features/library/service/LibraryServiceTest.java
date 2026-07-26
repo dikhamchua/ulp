@@ -19,7 +19,7 @@ import com.ulp.features.library.dto.LibraryDtos.AttachTargetSectionRow;
 import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPickerPage;
 import com.ulp.features.library.repository.LibraryAssetRepository;
-import com.ulp.features.upload.LibraryStorageService;
+import com.ulp.features.storage.ObjectStorage;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,8 +30,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,7 +47,7 @@ class LibraryServiceTest {
     @Autowired private LibraryService libraryService;
     @Autowired private LibraryAttachTargetsService attachTargetsService;
     @Autowired private LibraryAssetRepository assetRepository;
-    @Autowired private LibraryStorageService libraryStorage;
+    @Autowired private ObjectStorage objectStorage;
     @Autowired private UserRepository userRepository;
     @Autowired private ClassRepository classRepository;
     @Autowired private SectionRepository sectionRepository;
@@ -122,13 +120,13 @@ class LibraryServiceTest {
     void delete_unreferenced_soft_deletes_and_removes_disk_file() throws Exception {
         LibraryAssetRow row = libraryService.upload(lecturer.getId(), somePdf("free.pdf"), null);
         LibraryAsset asset = assetRepository.findByIdAndOwnerId(row.id(), lecturer.getId()).orElseThrow();
-        Path absolute = libraryStorage.resolveAbsolutePath(asset.getStoredPath());
-        assertThat(Files.exists(absolute)).isTrue();
+        String key = asset.getStoredPath();
+        assertThat(objectStorage.exists(key)).isTrue();
 
         libraryService.delete(lecturer.getId(), row.id());
 
         assertThat(assetRepository.findByIdAndOwnerId(row.id(), lecturer.getId())).isEmpty();
-        assertThat(Files.exists(absolute)).isFalse();
+        assertThat(objectStorage.exists(key)).isFalse();
     }
 
     @Test

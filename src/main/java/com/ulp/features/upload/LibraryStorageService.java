@@ -1,16 +1,15 @@
 package com.ulp.features.upload;
 
+import com.ulp.features.storage.ObjectStorage;
+import com.ulp.features.storage.StorageKeys;
+import com.ulp.features.storage.StoredObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.io.InputStream;
 import java.util.Locale;
 
 import static com.ulp.common.IConstant.MSG_ATTACHMENT_EXT_NOT_ALLOWED;
@@ -23,10 +22,7 @@ import static com.ulp.features.upload.UploadFileHelper.LIBRARY_PATH_PREFIX;
 import static com.ulp.features.upload.UploadFileHelper.MAX_DOCUMENT_SIZE_BYTES;
 
 /**
- * Filesystem storage for personal library assets under
- * {@code uploads/library/{ownerId}/}.
- *
- * <p>Document and MP4 validation is shared via {@link UploadFileHelper}.
+ * Object storage for personal library assets under {@code library/{ownerId}/}.
  */
 @Service
 public class LibraryStorageService {
@@ -36,22 +32,14 @@ public class LibraryStorageService {
     /** @deprecated use {@link UploadFileHelper#MAX_DOCUMENT_SIZE_BYTES} */
     public static final long MAX_DOCUMENT_SIZE = MAX_DOCUMENT_SIZE_BYTES;
 
-    private final Path libraryRoot;
+    private final ObjectStorage objectStorage;
 
-    public LibraryStorageService(@Value("${app.upload.dir:uploads}") String dir) {
-        this.libraryRoot = Paths.get(dir, "library").toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.libraryRoot);
-        } catch (IOException e) {
-            throw new RuntimeException("Cannot create library upload root: " + libraryRoot, e);
-        }
+    public LibraryStorageService(ObjectStorage objectStorage) {
+        this.objectStorage = objectStorage;
     }
 
     /**
      * Stores a document or video under {@code library/{ownerId}/{uuid}.ext}.
-     *
-     * @param kind {@code DOCUMENT} or {@code VIDEO}; when null/blank, inferred
-     *             from the file extension
      */
     public StoredLibraryFile store(MultipartFile file, Long ownerId, String kind)
             throws IOException {
@@ -65,17 +53,16 @@ public class LibraryStorageService {
             UploadFileHelper.validateMp4Video(file);
         }
 
-        Path ownerDir = UploadFileHelper.requireChildOf(
-                libraryRoot, libraryRoot.resolve(String.valueOf(ownerId)));
-        Files.createDirectories(ownerDir);
-
         String filename = UploadFileHelper.newUuidFilename(ext);
-        Path dest = ownerDir.resolve(filename);
-        file.transferTo(dest.toFile());
+        String key = LIBRARY_PATH_PREFIX + ownerId + "/" + filename;
+        StorageKeys.requireSafeKey(key);
 
-        String storedRelative = LIBRARY_PATH_PREFIX + ownerId + "/" + filename;
+        try (InputStream in = file.getInputStream()) {
+            objectStorage.put(key, in, UploadFileHelper.mimeForExtension(ext), file.getSize());
+        }
+
         return new StoredLibraryFile(
-                storedRelative,
+                key,
                 UploadFileHelper.mimeForExtension(ext),
                 file.getSize(),
                 originalName,
@@ -83,63 +70,58 @@ public class LibraryStorageService {
     }
 
     /**
-     * Copies an existing on-disk file into {@code library/{ownerId}/} as a new
-     * library blob. Used when promoting one-off lesson uploads into the personal
-     * library so templates/clones never share lesson-scoped paths.
-     *
-     * @param sourceAbsolute absolute path of the source file (must exist)
-     * @param ownerId        library owner
-     * @param originalFilename client-facing filename (extension drives MIME/kind)
-     * @param kind           DOCUMENT or VIDEO
+     * Copies an existing storage object into {@code library/{ownerId}/} as a new
+     * library blob (used when promoting one-off lesson uploads).
      */
-    public StoredLibraryFile copyFromPath(Path sourceAbsolute, Long ownerId,
-                                          String originalFilename, String kind)
+    public StoredLibraryFile copyFromKey(String sourceKey, Long ownerId,
+                                         String originalFilename, String kind)
             throws IOException {
-        if (sourceAbsolute == null || !Files.isRegularFile(sourceAbsolute)) {
+        if (sourceKey == null || sourceKey.isBlank()) {
             throw new IllegalArgumentException(MSG_ATTACHMENT_INVALID);
         }
+        String safeSource = StorageKeys.requireSafeKey(sourceKey);
+        if (!objectStorage.exists(safeSource)) {
+            throw new IllegalArgumentException(MSG_ATTACHMENT_INVALID);
+        }
+
         String name = originalFilename == null || originalFilename.isBlank()
-                ? sourceAbsolute.getFileName().toString()
+                ? leafName(safeSource)
                 : originalFilename;
         String ext = UploadFileHelper.extractLowercaseExtension(name);
         String resolvedKind = resolveKind(kind, ext);
 
-        Path ownerDir = UploadFileHelper.requireChildOf(
-                libraryRoot, libraryRoot.resolve(String.valueOf(ownerId)));
-        Files.createDirectories(ownerDir);
-
         String filename = UploadFileHelper.newUuidFilename(ext);
-        Path dest = ownerDir.resolve(filename);
-        Files.copy(sourceAbsolute, dest, StandardCopyOption.REPLACE_EXISTING);
+        String destKey = LIBRARY_PATH_PREFIX + ownerId + "/" + filename;
+        StorageKeys.requireSafeKey(destKey);
 
-        String storedRelative = LIBRARY_PATH_PREFIX + ownerId + "/" + filename;
-        long size = Files.size(dest);
+        objectStorage.copy(safeSource, destKey);
+
+        long size;
+        try (StoredObject opened = objectStorage.open(destKey)) {
+            size = opened.contentLength() >= 0 ? opened.contentLength() : 0L;
+        }
+
         return new StoredLibraryFile(
-                storedRelative,
+                destKey,
                 UploadFileHelper.mimeForExtension(ext),
                 size,
                 name,
                 resolvedKind);
     }
 
-    /** Deletes a previously stored library file; no-op on missing/invalid paths. */
+    /** Deletes a previously stored library object; no-op on missing/invalid keys. */
     public void delete(String storedRelativePath) {
         if (storedRelativePath == null || storedRelativePath.isBlank()) return;
         try {
-            Path target = resolveAbsolutePath(storedRelativePath);
-            Files.deleteIfExists(target);
+            objectStorage.delete(StorageKeys.requireSafeKey(storedRelativePath));
         } catch (IllegalArgumentException | IOException e) {
             log.warn("Failed to delete library file {}: {}", storedRelativePath, e.getMessage());
         }
     }
 
-    /**
-     * Resolves a stored relative path under the library root with path-traversal
-     * protection. Accepts paths starting with {@code library/} or already trimmed.
-     */
-    public Path resolveAbsolutePath(String storedRelativePath) {
-        return UploadFileHelper.resolveUnderRoot(
-                libraryRoot, storedRelativePath, LIBRARY_PATH_PREFIX);
+    /** Validates a stored relative key (rejects traversal). */
+    public String requireSafeKey(String storedRelativePath) {
+        return StorageKeys.requireSafeKey(storedRelativePath);
     }
 
     private static String resolveKind(String kind, String ext) {
@@ -153,6 +135,11 @@ public class LibraryStorageService {
         if (EXT_MP4.equals(ext)) return KIND_VIDEO;
         if (DOCUMENT_EXTENSIONS.contains(ext)) return KIND_DOCUMENT;
         throw new IllegalArgumentException(MSG_ATTACHMENT_EXT_NOT_ALLOWED);
+    }
+
+    private static String leafName(String key) {
+        int slash = key.lastIndexOf('/');
+        return slash >= 0 ? key.substring(slash + 1) : key;
     }
 
     /** Result of a successful {@link #store} call. */

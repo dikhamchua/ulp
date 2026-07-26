@@ -1,7 +1,12 @@
 package com.ulp.features.upload;
 
+import com.ulp.features.storage.LocalObjectStorage;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
+
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -9,16 +14,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit test cho {@link AvatarStorageService}.
- *
- * <p>Test nay khoa lai Bug #2: nhanh kiem tra WebP doc header[8..11] tren mang
- * 8 byte gay ArrayIndexOutOfBoundsException. Phai chap nhan WebP hop le va tu
- * choi file sai type/qua lon ma KHONG van exception runtime.
+ * Unit tests for {@link AvatarStorageService} against {@link LocalObjectStorage}.
  */
 class AvatarStorageServiceTest {
 
-    private final AvatarStorageService service =
-            new AvatarStorageService(System.getProperty("java.io.tmpdir") + "/ulp-test-uploads");
+    @TempDir
+    Path tempRoot;
+
+    private AvatarStorageService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new AvatarStorageService(new LocalObjectStorage(tempRoot));
+    }
 
     private static byte[] jpegBytes() {
         byte[] b = new byte[20];
@@ -57,7 +65,6 @@ class AvatarStorageServiceTest {
 
     @Test
     void luuFileWebpHopLe_khongVanException_traVeUrl() {
-        // Bug #2 regression: nhanh WebP truoc day doc header[8..11] tren mang 8 byte -> AIOOBE
         var file = new MockMultipartFile("avatar", "a.webp", "image/webp", webpBytes());
         String url = assertDoesNotThrow(() -> service.store(file));
         assertTrue(url.endsWith(".webp"));
@@ -79,7 +86,6 @@ class AvatarStorageServiceTest {
 
     @Test
     void tuChoiFileDungContentTypeNhungNoiDungKhongPhaiAnh() {
-        // content-type noi la jpeg nhung magic bytes khong khop -> tu choi, khong van exception
         var file = new MockMultipartFile("avatar", "fake.jpg", "image/jpeg", new byte[]{0, 1, 2, 3, 4, 5});
         assertThrows(IllegalArgumentException.class, () -> service.store(file));
     }

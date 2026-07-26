@@ -17,13 +17,9 @@
 (function () {
   'use strict';
 
-  // ── Flash drain → toast + modal re-open ──────────────────────────
+  // Flash toasts are drained once by notifications.js (app-header).
+  // Keep #flash-data only for lock/reset modal re-open attrs below.
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
-    if (flashData.dataset.flashSuccess) window.UlpToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError)   window.UlpToast.error(flashData.dataset.flashError);
-    if (flashData.dataset.flashWarning) window.UlpToast.warning(flashData.dataset.flashWarning);
-  }
 
   // ── Confirmation prompts (simple POST submissions) ──────────────
   // Each action maps to: confirmation message, target hidden-form prefix,

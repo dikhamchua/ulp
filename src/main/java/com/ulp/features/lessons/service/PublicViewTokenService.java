@@ -4,9 +4,7 @@ import com.ulp.entities.LessonAttachment;
 import com.ulp.entities.PublicViewToken;
 import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.PublicViewTokenRepository;
-import com.ulp.features.upload.LessonAttachmentStorageService;
-import com.ulp.features.upload.LibraryStorageService;
-import com.ulp.features.upload.UploadFileHelper;
+import com.ulp.features.storage.StorageKeys;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Path;
 import java.time.LocalDateTime;
 
 /**
@@ -30,19 +27,13 @@ public class PublicViewTokenService {
 
     private final PublicViewTokenRepository tokenRepository;
     private final LessonAttachmentRepository attachmentRepository;
-    private final LessonAttachmentStorageService storage;
-    private final LibraryStorageService libraryStorage;
     private final String appBaseUrl;
 
     public PublicViewTokenService(PublicViewTokenRepository tokenRepository,
                                    LessonAttachmentRepository attachmentRepository,
-                                   LessonAttachmentStorageService storage,
-                                   LibraryStorageService libraryStorage,
                                    @Value("${app.base-url:http://localhost:8080}") String appBaseUrl) {
         this.tokenRepository = tokenRepository;
         this.attachmentRepository = attachmentRepository;
-        this.storage = storage;
-        this.libraryStorage = libraryStorage;
         this.appBaseUrl = appBaseUrl;
     }
 
@@ -64,7 +55,7 @@ public class PublicViewTokenService {
     }
 
     /**
-     * Resolves a token to the attachment's file handle.
+     * Resolves a token to the attachment's storage key handle.
      *
      * @throws EntityNotFoundException if the token is invalid or expired
      */
@@ -78,12 +69,8 @@ public class PublicViewTokenService {
         }
         LessonAttachment att = attachmentRepository.findById(tok.getAttachmentId())
                 .orElseThrow(() -> new EntityNotFoundException("Attachment not found"));
-        // Dual-root: library-backed rows live under uploads/library, not lessons/.
-        Path absolute = att.isLibraryBacked()
-                || UploadFileHelper.isLibraryStoredPath(att.getStoredPath())
-                ? libraryStorage.resolveAbsolutePath(att.getStoredPath())
-                : storage.resolveAbsolutePath(att.getStoredPath());
-        return new AttachmentHandle(absolute, att.getOriginalFilename(),
+        String key = StorageKeys.requireSafeKey(att.getStoredPath());
+        return new AttachmentHandle(key, att.getOriginalFilename(),
                 att.getMimeType(), att.getSizeBytes());
     }
 
@@ -94,7 +81,7 @@ public class PublicViewTokenService {
     }
 
     /** Tuple returned by {@link #resolve} so the controller can stream the file. */
-    public record AttachmentHandle(Path absolutePath, String originalFilename,
+    public record AttachmentHandle(String storageKey, String originalFilename,
                                     String mimeType, long sizeBytes) {
     }
 }

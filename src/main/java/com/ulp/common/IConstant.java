@@ -208,9 +208,26 @@ public interface IConstant {
     String ATTR_PENDING_ROWS    = "pendingRows";
 
     // Cross-controller admin-settings session guard
-    // (used by EmailSettingsController + OauthSettingsController).
+    // (used by EmailSettingsController + OauthSettingsController + StorageSettingsController).
     String MSG_OAUTH_SESSION_UNSUPPORTED =
             "Phiên đăng nhập của bạn không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email và mật khẩu.";
+
+    // ───────── Object storage (Cloudflare R2) ─────────────────────────
+    String STORAGE_PROVIDER_LOCAL = "local";
+    String STORAGE_PROVIDER_R2    = "r2";
+
+    String MSG_STORAGE_SETTINGS_SAVED =
+            "Đã lưu cấu hình lưu trữ.";
+    String MSG_STORAGE_R2_NOT_CONFIGURED =
+            "Cloudflare R2 chưa được cấu hình đầy đủ. Vui lòng kiểm tra Cài đặt > Lưu trữ.";
+    String MSG_STORAGE_PROVIDER_INVALID =
+            "Nhà cung cấp lưu trữ không hợp lệ (chọn local hoặc r2).";
+    String MSG_STORAGE_R2_FIELDS_REQUIRED =
+            "Khi chọn R2, Access Key, Secret, Bucket và Endpoint là bắt buộc.";
+    String MSG_STORAGE_UPLOAD_FAILED =
+            "Không lưu được tệp lên kho lưu trữ. Vui lòng thử lại.";
+    String MSG_STORAGE_R2_CONNECT_FAILED =
+            "Không kết nối được tới Cloudflare R2";
 
     // ───────── Lesson status discriminators ─────────────────────────
     String LESSON_STATUS_DRAFT     = "DRAFT";

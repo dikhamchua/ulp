@@ -1,15 +1,13 @@
 package com.ulp.features.upload;
 
+import com.ulp.features.storage.ObjectStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.InputStream;
 import java.util.Set;
 import java.util.UUID;
 
@@ -19,9 +17,8 @@ import static com.ulp.common.IConstant.MSG_EXAM_IMAGE_TOO_LARGE;
 import static com.ulp.common.IConstant.MSG_EXAM_IMAGE_TYPE;
 
 /**
- * Stores images embedded in exam question HTML (Quill editor) under
- * {@code uploads/exams/}. Same validation style as {@link AvatarStorageService}:
- * JPEG/PNG/WebP, max 2 MB, magic-byte check, UUID filenames.
+ * Stores images embedded in exam question HTML via {@link ObjectStorage}.
+ * Returns public relative URLs under {@code /uploads/exams/}.
  */
 @Service
 public class ExamImageStorageService {
@@ -30,16 +27,12 @@ public class ExamImageStorageService {
     private static final long MAX_SIZE = 2 * 1024 * 1024;
     private static final Set<String> ALLOWED_TYPES = Set.of(
             "image/jpeg", "image/png", "image/webp");
+    private static final String KEY_PREFIX = "exams/";
 
-    private final Path uploadDir;
+    private final ObjectStorage objectStorage;
 
-    public ExamImageStorageService(@Value("${app.upload.dir:uploads}") String dir) {
-        this.uploadDir = Paths.get(dir, "exams").toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.uploadDir);
-        } catch (IOException e) {
-            throw new RuntimeException("Cannot create exam image upload directory: " + uploadDir, e);
-        }
+    public ExamImageStorageService(ObjectStorage objectStorage) {
+        this.objectStorage = objectStorage;
     }
 
     /**
@@ -67,9 +60,11 @@ public class ExamImageStorageService {
             default -> ".bin";
         };
         String filename = UUID.randomUUID() + ext;
-        Path dest = uploadDir.resolve(filename);
-        file.transferTo(dest.toFile());
-        log.debug("Stored exam image {}", filename);
+        String key = KEY_PREFIX + filename;
+        try (InputStream in = file.getInputStream()) {
+            objectStorage.put(key, in, contentType, file.getSize());
+        }
+        log.debug("Stored exam image {}", key);
         return "/uploads/exams/" + filename;
     }
 

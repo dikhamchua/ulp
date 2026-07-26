@@ -28,7 +28,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -109,8 +108,8 @@ class PublicViewTokenServiceTest {
         assertThat(handle.mimeType())
                 .isEqualTo("application/vnd.openxmlformats-officedocument.presentationml.presentation");
         assertThat(handle.sizeBytes()).isEqualTo(4096L);
-        assertThat(handle.absolutePath()).isNotNull();
-        assertThat(handle.absolutePath().toString()).endsWith("slides.pptx");
+        assertThat(handle.storageKey()).isNotNull();
+        assertThat(handle.storageKey()).endsWith("slides.pptx");
     }
 
     @Test
@@ -173,9 +172,8 @@ class PublicViewTokenServiceTest {
 
         assertThat(handle.originalFilename()).isEqualTo("lib-slides.pdf");
         assertThat(handle.mimeType()).isEqualTo("application/pdf");
-        assertThat(handle.absolutePath().toString()).contains("library");
-        assertThat(Files.exists(handle.absolutePath())).isTrue();
-        assertThat(Files.readAllBytes(handle.absolutePath())).startsWith("%PDF-".getBytes());
+        assertThat(handle.storageKey()).contains("library");
+        assertThat(handle.storageKey()).startsWith("library/");
     }
 
     private ClassEntity saveClass(String name, String code) {

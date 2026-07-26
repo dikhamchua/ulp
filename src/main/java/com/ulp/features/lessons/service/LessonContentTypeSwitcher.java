@@ -68,8 +68,11 @@ public class LessonContentTypeSwitcher {
         Long previousPdfId = lesson.getPdfAttachmentId();
         boolean hadUploadVideo = (CONTENT_TYPE_VIDEO.equals(oldType)
                 && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider()));
-        // Library videos must never be wiped from disk on type switch.
+        // Library videos must never be wiped from storage on type switch.
         boolean hadLibraryVideo = hadUploadVideo && lesson.hasLibraryVideo();
+        // Capture key before switchContentTypeTo nulls video_url.
+        String previousVideoKey = hadUploadVideo && !hadLibraryVideo
+                ? lesson.getVideoUrl() : null;
 
         applyNewTypeData(lesson, form, newType);
         // switchContentTypeTo nulls fields not belonging to the new type so
@@ -79,8 +82,7 @@ public class LessonContentTypeSwitcher {
         lesson.switchContentTypeTo(newType);
         lessonRepository.saveAndFlush(lesson);
 
-        cleanupForOldType(oldType, newType, previousPdfId, hadUploadVideo,
-                hadLibraryVideo, lesson.getId());
+        cleanupForOldType(oldType, newType, previousPdfId, previousVideoKey);
     }
 
     /**
@@ -112,8 +114,7 @@ public class LessonContentTypeSwitcher {
 
     /** Drops files / FK references that no longer belong to the lesson. */
     private void cleanupForOldType(String oldType, String newType, Long previousPdfId,
-                                   boolean hadUploadVideo, boolean hadLibraryVideo,
-                                   Long lessonId) {
+                                   String previousVideoKey) {
         if (oldType == null || oldType.equals(newType)) return;
         if (CONTENT_TYPE_PDF.equals(oldType) && previousPdfId != null) {
             // Lesson row has already been re-typed; the FK column is now
@@ -128,9 +129,9 @@ public class LessonContentTypeSwitcher {
                 attachmentRepository.delete(att);
             });
         }
-        // Only wipe the lesson video directory for one-off uploads.
-        if (hadUploadVideo && !hadLibraryVideo) {
-            videoStorage.deleteByLessonId(lessonId);
+        // Only wipe one-off upload video objects (never library blobs).
+        if (previousVideoKey != null && !previousVideoKey.isBlank()) {
+            videoStorage.delete(previousVideoKey);
         }
     }
 

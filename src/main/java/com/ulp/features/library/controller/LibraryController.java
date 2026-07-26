@@ -5,6 +5,7 @@ import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPageView;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPickerPage;
 import com.ulp.features.library.service.LibraryService;
+import com.ulp.features.storage.StorageNotConfiguredException;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -50,6 +51,8 @@ import static com.ulp.common.IConstant.MSG_GENERIC_RETRY;
 import static com.ulp.common.IConstant.MSG_LIBRARY_DELETED;
 import static com.ulp.common.IConstant.MSG_LIBRARY_RENAMED;
 import static com.ulp.common.IConstant.MSG_LIBRARY_UPLOADED;
+import static com.ulp.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
+import static com.ulp.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
 import static com.ulp.common.IConstant.PATH_LIBRARY;
 import static com.ulp.common.IConstant.URL_LIBRARY;
 import static com.ulp.common.IConstant.VIEW_LIBRARY;
@@ -135,9 +138,12 @@ public class LibraryController {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
         } catch (MaxUploadSizeExceededException ex) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_ATTACHMENT_TOO_LARGE);
+        } catch (StorageNotConfiguredException ex) {
+            // Active provider is R2 but credentials/bucket/endpoint are incomplete.
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_STORAGE_R2_NOT_CONFIGURED);
         } catch (IOException ex) {
             log.error("Failed to store library file for user {}", user.getId(), ex);
-            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_GENERIC_RETRY);
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_STORAGE_UPLOAD_FAILED);
         } catch (RuntimeException ex) {
             log.error("Unexpected library upload error for user {}", user.getId(), ex);
             ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_GENERIC_RETRY);

@@ -11,6 +11,7 @@ import com.ulp.features.tests.dto.TestDtos.PreviewView;
 import com.ulp.features.tests.service.ExamMonitorService;
 import com.ulp.features.tests.service.ExamQuestionBankPickerService;
 import com.ulp.features.tests.service.LecturerExamService;
+import com.ulp.features.storage.StorageNotConfiguredException;
 import com.ulp.features.upload.ExamImageStorageService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
@@ -35,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
@@ -53,6 +55,8 @@ import static com.ulp.common.IConstant.ATTR_TEST_ACTIVITIES_PAGE;
 import static com.ulp.common.IConstant.BASE_LECTURER_TESTS;
 import static com.ulp.common.IConstant.MODE_CREATE;
 import static com.ulp.common.IConstant.MODE_EDIT;
+import static com.ulp.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
+import static com.ulp.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
 import static com.ulp.common.IConstant.TAB_HISTORY;
 import static com.ulp.common.IConstant.TAB_INFO;
 import static com.ulp.common.IConstant.TAB_MONITOR;
@@ -221,6 +225,11 @@ public class LecturerTestController {
             return ResponseEntity.ok(AjaxResult.success(Map.of("url", url)));
         } catch (IllegalArgumentException ex) {
             return badRequest(ex.getMessage());
+        } catch (StorageNotConfiguredException ex) {
+            return badRequest(MSG_STORAGE_R2_NOT_CONFIGURED);
+        } catch (IOException ex) {
+            log.error("Failed to upload exam image", ex);
+            return badRequest(MSG_STORAGE_UPLOAD_FAILED);
         } catch (Exception ex) {
             log.error("Failed to upload exam image", ex);
             return internalError();

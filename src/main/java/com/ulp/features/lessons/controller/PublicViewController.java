@@ -2,10 +2,12 @@ package com.ulp.features.lessons.controller;
 
 import com.ulp.features.lessons.service.PublicViewTokenService;
 import com.ulp.features.lessons.service.PublicViewTokenService.AttachmentHandle;
+import com.ulp.features.storage.ObjectStorage;
+import com.ulp.features.storage.StoredObject;
+import com.ulp.features.storage.StoredObjectResource;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -18,10 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 
 /**
  * Serves attachment files to anonymous viewers via short-lived tokens.
@@ -39,9 +38,12 @@ public class PublicViewController {
     private static final Logger log = LoggerFactory.getLogger(PublicViewController.class);
 
     private final PublicViewTokenService tokenService;
+    private final ObjectStorage objectStorage;
 
-    public PublicViewController(PublicViewTokenService tokenService) {
+    public PublicViewController(PublicViewTokenService tokenService,
+                                ObjectStorage objectStorage) {
         this.tokenService = tokenService;
+        this.objectStorage = objectStorage;
     }
 
     @GetMapping("/public/view/{token}")
@@ -53,14 +55,17 @@ public class PublicViewController {
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-        InputStream in;
+        StoredObject obj;
         try {
-            in = Files.newInputStream(handle.absolutePath());
-        } catch (NoSuchFileException ex) {
-            log.warn("Public view token resolved to missing file: {}", handle.absolutePath());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            if (!objectStorage.exists(handle.storageKey())) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            obj = objectStorage.open(handle.storageKey());
         } catch (IOException ex) {
-            log.error("Failed to read attachment file {}", handle.absolutePath(), ex);
+            log.warn("Public view token resolved to missing object: {}", handle.storageKey());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (RuntimeException ex) {
+            log.error("Failed to read attachment object {}", handle.storageKey(), ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
         ContentDisposition disposition = ContentDisposition.inline()
@@ -69,12 +74,14 @@ public class PublicViewController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDisposition(disposition);
         headers.setContentType(parseMime(handle.mimeType()));
+        if (obj.contentLength() >= 0) {
+            headers.setContentLength(obj.contentLength());
+        }
         // Allow MS Office Online Viewer to embed this file in its iframe.
-        // Only CSP frame-ancestors is honoured by modern browsers; the
-        // deprecated X-Frame-Options ALLOW-FROM is intentionally omitted.
         headers.set("Content-Security-Policy",
                 "frame-ancestors https://view.officeapps.live.com");
-        return new ResponseEntity<>(new InputStreamResource(in), headers, HttpStatus.OK);
+        return new ResponseEntity<>(new StoredObjectResource(obj, handle.storageKey()),
+                headers, HttpStatus.OK);
     }
 
     private static String safeFilename(String name) {
