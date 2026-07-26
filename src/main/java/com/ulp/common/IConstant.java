@@ -717,8 +717,9 @@ public interface IConstant {
             "Không thể đưa tệp đính kèm vào kho học liệu";
 
     // ───────── AI provider settings ──────────────────────────────────
-    String URL_SETTINGS_AI  = "/admin/settings/ai";
-    String VIEW_SETTINGS_AI = "admin/settings-ai";
+    String URL_SETTINGS_AI       = "/admin/settings/ai";
+    String VIEW_SETTINGS_AI      = "admin/settings-ai";
+    String VIEW_SETTINGS_AI_FORM = "admin/settings-ai-form";
 
     String ATTR_AI_PROVIDERS    = "providers";
     String ATTR_AI_ALL_DISABLED = "allDisabled";
@@ -732,6 +733,21 @@ public interface IConstant {
     String MSG_AI_PROVIDER_NOT_FOUND = "Không tìm thấy AI provider";
     String MSG_AI_NAME_DUPLICATE     = "Tên provider đã tồn tại";
     String MSG_AI_KEY_REQUIRED       = "API key là bắt buộc khi thêm provider mới";
+
+    // ───────── AI system prompts ─────────────────────────────────────
+    String URL_SETTINGS_AI_PROMPTS  = "/admin/settings/ai/prompts";
+    String VIEW_SETTINGS_AI_PROMPTS = "admin/settings-ai-prompts";
+
+    String ATTR_AI_PROMPTS = "prompts";
+
+    // ───────── AI system prompts (Vietnamese UI text) ────────────────
+    String MSG_AI_PROMPT_CREATED       = "Đã thêm system prompt";
+    String MSG_AI_PROMPT_UPDATED       = "Đã cập nhật system prompt";
+    String MSG_AI_PROMPT_DELETED       = "Đã xoá system prompt";
+    String MSG_AI_PROMPT_ENABLED       = "Đã bật system prompt";
+    String MSG_AI_PROMPT_DISABLED      = "Đã tắt system prompt";
+    String MSG_AI_PROMPT_NOT_FOUND     = "Không tìm thấy system prompt";
+    String MSG_AI_PROMPT_NAME_DUPLICATE = "Tên prompt đã tồn tại";
 
     // ───────── AI request logs ───────────────────────────────────────
     String URL_SETTINGS_AI_LOGS  = "/admin/settings/ai/logs";

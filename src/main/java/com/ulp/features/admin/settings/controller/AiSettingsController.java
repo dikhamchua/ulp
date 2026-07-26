@@ -29,8 +29,9 @@ import static com.ulp.common.IConstant.*;
  *
  * <p>Exposed URLs:
  * <ul>
- *   <li>{@code GET  /admin/settings/ai}             — list providers + add/edit panel</li>
- *   <li>{@code GET  /admin/settings/ai/{id}/edit}   — load one provider into the panel</li>
+ *   <li>{@code GET  /admin/settings/ai}             — list providers</li>
+ *   <li>{@code GET  /admin/settings/ai/new}         — blank provider form (own page)</li>
+ *   <li>{@code GET  /admin/settings/ai/{id}/edit}   — load one provider into the form page</li>
  *   <li>{@code POST /admin/settings/ai}             — create or update (full page reload)</li>
  *   <li>{@code POST /admin/settings/ai/{id}/toggle} — enable / disable</li>
  *   <li>{@code POST /admin/settings/ai/{id}/delete} — hard delete</li>
@@ -48,7 +49,7 @@ import static com.ulp.common.IConstant.*;
  * behind the same permission gate.
  */
 @Controller
-@RequestMapping("/admin/settings/ai")
+@RequestMapping(URL_SETTINGS_AI)
 @PreAuthorize("hasAuthority('PERM_system.ai')")
 public class AiSettingsController {
 
@@ -61,29 +62,36 @@ public class AiSettingsController {
     }
 
     /**
-     * Renders the provider table plus the add/edit panel.
-     *
-     * <p>A {@code form} already in the model (flashed back from a rejected POST) is kept
-     * so inline field errors and the user's input survive the redirect.
+     * Renders the provider table. The add/edit form lives on its own page.
      *
      * @param model the Spring MVC model
      * @return the logical view name {@code admin/settings-ai}
      */
     @GetMapping
     public String list(Model model) {
-        if (!model.containsAttribute(ATTR_FORM)) {
-            model.addAttribute(ATTR_FORM, AiProviderForm.empty());
-        }
         populate(model);
         return VIEW_SETTINGS_AI;
     }
 
     /**
-     * Loads one provider into the edit panel. Falls back to the empty add panel with an
-     * error flash when the id no longer exists.
+     * Renders the blank provider form on its own page.
+     *
+     * @param model the Spring MVC model
+     * @return the logical view name {@code admin/settings-ai-form}
+     */
+    @GetMapping("/new")
+    public String create(Model model) {
+        model.addAttribute(ATTR_FORM, AiProviderForm.empty());
+        populateForm(model, MODE_CREATE);
+        return VIEW_SETTINGS_AI_FORM;
+    }
+
+    /**
+     * Loads one provider into the form page. Falls back to the list with an error flash
+     * when the id no longer exists.
      *
      * @param id provider identifier
-     * @return the settings view, or a redirect when the provider is gone
+     * @return the form view, or a redirect when the provider is gone
      */
     @GetMapping("/{id}/edit")
     public String edit(@PathVariable Long id, Model model, RedirectAttributes ra) {
@@ -93,8 +101,8 @@ public class AiSettingsController {
             return REDIRECT_BASE;
         }
         model.addAttribute(ATTR_FORM, form.get());
-        populate(model);
-        return VIEW_SETTINGS_AI;
+        populateForm(model, MODE_EDIT);
+        return VIEW_SETTINGS_AI_FORM;
     }
 
     /**
@@ -126,8 +134,8 @@ public class AiSettingsController {
             result.rejectValue("apiKey", "required", MSG_AI_KEY_REQUIRED);
         }
         if (result.hasErrors()) {
-            populate(model);
-            return VIEW_SETTINGS_AI;
+            populateForm(model, form.id() == null ? MODE_CREATE : MODE_EDIT);
+            return VIEW_SETTINGS_AI_FORM;
         }
 
         if (form.id() == null) {
@@ -210,10 +218,17 @@ public class AiSettingsController {
 
     // ─────────────────────────────────────────────────────────────────
 
-    /** Adds the table rows and sidebar state shared by every render of this screen. */
+    /** Adds the table rows and sidebar state shared by every render of the list screen. */
     private void populate(Model model) {
         model.addAttribute(ATTR_AI_PROVIDERS, service.listRows());
         model.addAttribute(ATTR_AI_ALL_DISABLED, service.hasProvidersButAllDisabled());
+        model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
+    }
+
+    /** Adds the state the standalone form page needs; the provider list is not loaded here. */
+    private void populateForm(Model model, String mode) {
+        model.addAttribute(ATTR_MODE, mode);
+        model.addAttribute(ATTR_FORM_ACTION, URL_SETTINGS_AI);
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
     }
 }

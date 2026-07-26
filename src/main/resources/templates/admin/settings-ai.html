@@ -38,6 +38,14 @@
         </svg>
         Xem nhật ký gọi AI
       </a>
+      <a th:href="@{/admin/settings/ai/new}" class="btn btn-primary">
+        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Thêm provider
+      </a>
     </p>
 
     <!-- Every provider exists but none is usable — AI calls would fail outright. -->
@@ -169,86 +177,8 @@
 
       <div th:if="${#lists.isEmpty(providers)}" class="admin-list-empty">
         <p>Chưa có AI provider nào.</p>
-        <a href="#aiProviderForm" class="btn btn-primary">Thêm provider đầu tiên</a>
+        <a th:href="@{/admin/settings/ai/new}" class="btn btn-primary">Thêm provider đầu tiên</a>
       </div>
-    </section>
-
-    <!-- ===== Add / edit panel ===== -->
-    <section class="settings-form-panel" id="aiProviderForm">
-      <h2 class="panel-title"
-          th:text="${form.id} != null ? 'Sửa provider' : 'Thêm provider'">Thêm provider</h2>
-      <p class="panel-sub">Provider mới luôn được thêm vào cuối chuỗi fallback.</p>
-
-      <form th:action="@{/admin/settings/ai}" method="post"
-            th:object="${form}" class="settings-form" novalidate>
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <input type="hidden" th:field="*{id}">
-
-        <fieldset class="settings-fieldset">
-          <legend>Thông tin provider</legend>
-
-          <div class="form-row">
-            <label for="name">Tên <span class="req" aria-hidden="true">*</span></label>
-            <input type="text" id="name" th:field="*{name}"
-                   placeholder="OpenAI" autocomplete="off"
-                   maxlength="100" required aria-required="true"
-                   th:attr="aria-invalid=${#fields.hasErrors('name')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('name')} ? 'name-error' : ''">
-            <span id="name-error" class="field-error" role="alert"
-                  th:if="${#fields.hasErrors('name')}" th:errors="*{name}">Lỗi tên</span>
-          </div>
-
-          <div class="form-row">
-            <label for="baseUrl">Base URL <span class="req" aria-hidden="true">*</span></label>
-            <input type="text" id="baseUrl" th:field="*{baseUrl}"
-                   placeholder="https://api.openai.com/v1" autocomplete="off"
-                   maxlength="500" required aria-required="true"
-                   th:attr="aria-invalid=${#fields.hasErrors('baseUrl')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('baseUrl')} ? 'baseUrl-error' : 'baseUrl-hint'">
-            <span id="baseUrl-error" class="field-error" role="alert"
-                  th:if="${#fields.hasErrors('baseUrl')}" th:errors="*{baseUrl}">Lỗi base URL</span>
-            <p id="baseUrl-hint" class="field-hint" th:unless="${#fields.hasErrors('baseUrl')}">
-              Endpoint tương thích OpenAI. Hệ thống tự nối <code>/chat/completions</code>.
-            </p>
-          </div>
-
-          <div class="form-row">
-            <label for="model">Model <span class="req" aria-hidden="true">*</span></label>
-            <input type="text" id="model" th:field="*{model}"
-                   placeholder="gpt-4o-mini" autocomplete="off"
-                   maxlength="150" required aria-required="true"
-                   th:attr="aria-invalid=${#fields.hasErrors('model')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('model')} ? 'model-error' : ''">
-            <span id="model-error" class="field-error" role="alert"
-                  th:if="${#fields.hasErrors('model')}" th:errors="*{model}">Lỗi model</span>
-          </div>
-
-          <div class="form-row">
-            <label for="apiKey">API key
-              <span class="req" th:if="${form.id} == null" aria-hidden="true">*</span>
-            </label>
-            <input type="password" id="apiKey" th:field="*{apiKey}"
-                   autocomplete="new-password" maxlength="500"
-                   th:attr="aria-invalid=${#fields.hasErrors('apiKey')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('apiKey')} ? 'apiKey-error' : 'apiKey-hint'">
-            <span id="apiKey-error" class="field-error" role="alert"
-                  th:if="${#fields.hasErrors('apiKey')}" th:errors="*{apiKey}">Lỗi API key</span>
-            <p id="apiKey-hint" class="field-hint" th:unless="${#fields.hasErrors('apiKey')}">
-              Khi sửa, để trống hoặc giữ <code>********</code> để giữ nguyên key hiện tại.
-            </p>
-          </div>
-
-          <div class="form-row">
-            <label for="enabled">Bật provider</label>
-            <div class="ai-check-wrap">
-              <input type="checkbox" id="enabled" th:field="*{enabled}">
-              <span class="field-hint">Provider đang tắt sẽ bị bỏ qua hoàn toàn khi gọi AI.</span>
-            </div>
-          </div>
-        </fieldset>
-
-        <div class="settings-form-actions">
-          <a th:href="@{/admin/settings/ai}" class="btn btn-ghost">Hủy</a>
-          <button type="submit" class="btn btn-primary"
-                  th:text="${form.id} != null ? 'Lưu thay đổi' : 'Thêm provider'">Thêm provider</button>
-        </div>
-      </form>
     </section>
 
     <!-- ===== Delete confirmation ===== -->
