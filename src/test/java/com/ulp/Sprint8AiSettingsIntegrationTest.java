@@ -185,10 +185,43 @@ class Sprint8AiSettingsIntegrationTest {
     @Test
     @WithUserDetails("admin@ulp.edu.vn")
     void admin_can_open_ai_settings() throws Exception {
+        // The list screen is table-only; the form moved to its own page.
         mockMvc.perform(get(URL_SETTINGS_AI))
                 .andExpect(status().isOk())
                 .andExpect(view().name(VIEW_SETTINGS_AI))
-                .andExpect(model().attributeExists(ATTR_AI_PROVIDERS, ATTR_FORM));
+                .andExpect(model().attributeExists(ATTR_AI_PROVIDERS))
+                .andExpect(model().attributeDoesNotExist(ATTR_FORM));
+    }
+
+    @Test
+    @WithUserDetails("admin@ulp.edu.vn")
+    void admin_can_open_the_blank_provider_form() throws Exception {
+        mockMvc.perform(get(URL_SETTINGS_AI + "/new"))
+                .andExpect(status().isOk())
+                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
+                .andExpect(model().attribute(ATTR_MODE, MODE_CREATE))
+                .andExpect(model().attributeExists(ATTR_FORM));
+    }
+
+    @Test
+    @WithUserDetails("admin@ulp.edu.vn")
+    void edit_loads_the_provider_into_the_form_page() throws Exception {
+        AiProvider provider = persist("Editable", true);
+
+        mockMvc.perform(get(URL_SETTINGS_AI + "/" + provider.getId() + "/edit"))
+                .andExpect(status().isOk())
+                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
+                .andExpect(model().attribute(ATTR_MODE, MODE_EDIT))
+                .andExpect(model().attributeExists(ATTR_FORM));
+    }
+
+    @Test
+    @WithUserDetails("admin@ulp.edu.vn")
+    void edit_of_a_missing_provider_redirects_with_an_error_flash() throws Exception {
+        mockMvc.perform(get(URL_SETTINGS_AI + "/999999/edit"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(URL_SETTINGS_AI))
+                .andExpect(flash().attribute(ATTR_FLASH_ERROR, MSG_AI_PROVIDER_NOT_FOUND));
     }
 
     @Test
@@ -242,7 +275,8 @@ class Sprint8AiSettingsIntegrationTest {
                         .param("apiKey", "")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(view().name(VIEW_SETTINGS_AI))
+                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
+                .andExpect(model().attribute(ATTR_MODE, MODE_CREATE))
                 .andExpect(model().attributeHasFieldErrors(ATTR_FORM, "apiKey"));
 
         assertThat(repository.findByName("No key")).isEmpty();
@@ -260,7 +294,7 @@ class Sprint8AiSettingsIntegrationTest {
                         .param("apiKey", "sk-another")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(view().name(VIEW_SETTINGS_AI))
+                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
                 .andExpect(model().attributeHasFieldErrors(ATTR_FORM, "name"))
                 // A field problem must not surface as a toast.
                 .andExpect(flash().attributeCount(0));

@@ -647,10 +647,36 @@
   margin: 0 0 16px;
 }
 
-.ai-logs-link .btn-ghost {
+/* Both the ghost log link and the primary add button carry a leading icon. */
+.ai-logs-link .btn-ghost,
+.ai-logs-link .btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Two sibling controls share this row on the provider screen — keep them apart. */
+.ai-logs-link > * + * {
+  margin-left: 8px;
+}
+
+/* ── AI system prompts (/admin/settings/ai/prompts) ───────────────── */
+
+/* Description and the body preview are free text of unbounded length; cap both
+   so one long prompt cannot stretch the table. The title attribute on the
+   preview cell still surfaces the full excerpt on hover. */
+.ai-cell-desc,
+.ai-cell-preview {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6b7280;
+}
+
+@media (max-width: 720px) {
+  .ai-cell-desc,
+  .ai-cell-preview { max-width: 160px; }
 }
 
 .ai-log-totals {

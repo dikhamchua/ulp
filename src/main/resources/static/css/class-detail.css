@@ -106,6 +106,28 @@
 .side-nav a.active .ico { color: var(--primary); }
 .side-nav .ico { color: var(--muted-2); flex: none; }
 
+/* ── Collapsible nav group (<details>/<summary>) ───────────────────── */
+.side-group-toggle {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 10px 12px;
+  border-radius: 9px;
+  font-weight: 600; font-size: 13.5px;
+  color: var(--fg); cursor: pointer;
+  list-style: none; /* hide native marker (Firefox) */
+  transition: background .13s, color .13s;
+}
+.side-group-toggle::-webkit-details-marker { display: none; }
+.side-group-toggle:hover { background: var(--bg-soft); }
+.side-group-toggle:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: -2px;
+}
+.side-group-label { flex: 1; }
+.side-group-caret { transition: transform .15s; }
+.side-group[open] > .side-group-toggle > .side-group-caret { transform: rotate(90deg); }
+
+.side-subnav { list-style: none; padding: 2px 0 2px 14px; margin: 0; }
+.side-subnav a { font-size: 13px; font-weight: 500; }
+
 .side-foot { padding: 10px; border-top: 1px solid var(--border-soft); }
 .settings-btn {
   display: flex; align-items: center; gap: 11px;
