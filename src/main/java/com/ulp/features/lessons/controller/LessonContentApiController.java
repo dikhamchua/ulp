@@ -9,6 +9,7 @@ import com.ulp.features.lessons.service.LessonAttachmentsService;
 import com.ulp.features.lessons.service.LessonsService;
 import com.ulp.features.lessons.support.VimeoEmbedUrl;
 import com.ulp.features.lessons.support.YouTubeEmbedUrl;
+import com.ulp.features.storage.StorageNotConfiguredException;
 import com.ulp.features.upload.LessonVideoStorageService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
@@ -30,6 +31,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
+import static com.ulp.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
+import static com.ulp.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
 import static com.ulp.common.IConstant.MSG_VIDEO_FILE_TOO_LARGE;
 import static com.ulp.common.IConstant.MSG_VIDEO_URL_INVALID;
 import static com.ulp.common.IConstant.VIDEO_PROVIDER_VIMEO;
@@ -93,13 +96,15 @@ public class LessonContentApiController {
             return badRequest(ex.getMessage());
         } catch (MaxUploadSizeExceededException ex) {
             return badRequest(MSG_VIDEO_FILE_TOO_LARGE);
+        } catch (StorageNotConfiguredException ex) {
+            return badRequest(MSG_STORAGE_R2_NOT_CONFIGURED);
         } catch (AccessDeniedException ex) {
             return forbidden();
         } catch (EntityNotFoundException ex) {
             return notFound(ex.getMessage());
         } catch (IOException ex) {
             log.error("Failed to write PDF for lesson {}", lessonId, ex);
-            return internalError();
+            return badRequest(MSG_STORAGE_UPLOAD_FAILED);
         } catch (RuntimeException ex) {
             log.error("Unexpected error uploading PDF for lesson {}", lessonId, ex);
             return internalError();
@@ -125,13 +130,15 @@ public class LessonContentApiController {
             return badRequest(ex.getMessage());
         } catch (MaxUploadSizeExceededException ex) {
             return badRequest(MSG_VIDEO_FILE_TOO_LARGE);
+        } catch (StorageNotConfiguredException ex) {
+            return badRequest(MSG_STORAGE_R2_NOT_CONFIGURED);
         } catch (AccessDeniedException ex) {
             return forbidden();
         } catch (EntityNotFoundException ex) {
             return notFound(ex.getMessage());
         } catch (IOException ex) {
             log.error("Failed to write MP4 for lesson {}", lessonId, ex);
-            return internalError();
+            return badRequest(MSG_STORAGE_UPLOAD_FAILED);
         } catch (RuntimeException ex) {
             log.error("Unexpected error uploading MP4 for lesson {}", lessonId, ex);
             return internalError();

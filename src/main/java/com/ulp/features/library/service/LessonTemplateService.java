@@ -27,11 +27,10 @@ import com.ulp.features.library.dto.LibraryDtos.LessonTemplateRow;
 import com.ulp.features.library.repository.LessonTemplateAttachmentRepository;
 import com.ulp.features.library.repository.LessonTemplateRepository;
 import com.ulp.features.library.repository.LibraryAssetRepository;
-import com.ulp.features.upload.LessonAttachmentStorageService;
-import com.ulp.features.upload.LessonVideoStorageService;
+import com.ulp.features.storage.ObjectStorage;
+import com.ulp.features.storage.StorageKeys;
 import com.ulp.features.upload.LibraryStorageService;
 import com.ulp.features.upload.LibraryStorageService.StoredLibraryFile;
-import com.ulp.features.upload.UploadFileHelper;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
@@ -40,8 +39,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -82,8 +79,7 @@ public class LessonTemplateService {
     private final LibraryAssetRepository assetRepository;
     private final LibraryService libraryService;
     private final LibraryStorageService libraryStorage;
-    private final LessonAttachmentStorageService attachmentStorage;
-    private final LessonVideoStorageService videoStorage;
+    private final ObjectStorage objectStorage;
     private final LessonRepository lessonRepository;
     private final LessonAttachmentRepository attachmentRepository;
     private final SectionRepository sectionRepository;
@@ -98,8 +94,7 @@ public class LessonTemplateService {
                                  LibraryAssetRepository assetRepository,
                                  LibraryService libraryService,
                                  LibraryStorageService libraryStorage,
-                                 LessonAttachmentStorageService attachmentStorage,
-                                 LessonVideoStorageService videoStorage,
+                                 ObjectStorage objectStorage,
                                  LessonRepository lessonRepository,
                                  LessonAttachmentRepository attachmentRepository,
                                  SectionRepository sectionRepository,
@@ -113,8 +108,7 @@ public class LessonTemplateService {
         this.assetRepository = assetRepository;
         this.libraryService = libraryService;
         this.libraryStorage = libraryStorage;
-        this.attachmentStorage = attachmentStorage;
-        this.videoStorage = videoStorage;
+        this.objectStorage = objectStorage;
         this.lessonRepository = lessonRepository;
         this.attachmentRepository = attachmentRepository;
         this.sectionRepository = sectionRepository;
@@ -550,9 +544,9 @@ public class LessonTemplateService {
             return libraryService.getOwnedAsset(ownerId, att.getLibraryAssetId());
         }
         try {
-            Path source = resolveAttachmentSource(att);
-            StoredLibraryFile stored = libraryStorage.copyFromPath(
-                    source, ownerId, att.getOriginalFilename(), KIND_DOCUMENT);
+            String sourceKey = StorageKeys.requireSafeKey(att.getStoredPath());
+            StoredLibraryFile stored = libraryStorage.copyFromKey(
+                    sourceKey, ownerId, att.getOriginalFilename(), KIND_DOCUMENT);
             LibraryAsset asset = new LibraryAsset(
                     ownerId, att.getOriginalFilename(), stored.originalFilename(),
                     stored.storedPath(), stored.mimeType(), stored.sizeBytes(), stored.kind());
@@ -568,19 +562,13 @@ public class LessonTemplateService {
             throw new IllegalArgumentException(MSG_TEMPLATE_BODY_INCOMPLETE);
         }
         try {
-            Path source;
-            if (UploadFileHelper.isLibraryStoredPath(url)) {
-                // Defensive: treat as already-library path without FK.
-                source = libraryStorage.resolveAbsolutePath(url);
-            } else {
-                source = videoStorage.resolveAbsolutePath(url);
-            }
-            if (!Files.isRegularFile(source)) {
+            String sourceKey = StorageKeys.requireSafeKey(url);
+            if (!objectStorage.exists(sourceKey)) {
                 throw new IllegalArgumentException(MSG_TEMPLATE_BODY_INCOMPLETE);
             }
-            String filename = source.getFileName().toString();
-            StoredLibraryFile stored = libraryStorage.copyFromPath(
-                    source, ownerId, filename, KIND_VIDEO);
+            String filename = leafName(sourceKey);
+            StoredLibraryFile stored = libraryStorage.copyFromKey(
+                    sourceKey, ownerId, filename, KIND_VIDEO);
             LibraryAsset asset = new LibraryAsset(
                     ownerId, filename, stored.originalFilename(),
                     stored.storedPath(), stored.mimeType(), stored.sizeBytes(), stored.kind());
@@ -590,11 +578,9 @@ public class LessonTemplateService {
         }
     }
 
-    private Path resolveAttachmentSource(LessonAttachment att) {
-        if (att.isLibraryBacked() || UploadFileHelper.isLibraryStoredPath(att.getStoredPath())) {
-            return libraryStorage.resolveAbsolutePath(att.getStoredPath());
-        }
-        return attachmentStorage.resolveAbsolutePath(att.getStoredPath());
+    private static String leafName(String key) {
+        int slash = key.lastIndexOf('/');
+        return slash >= 0 ? key.substring(slash + 1) : key;
     }
 
     private Lesson materializeDraft(Long sectionId, String title, String contentType, Long userId) {

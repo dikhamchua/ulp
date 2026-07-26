@@ -14,10 +14,10 @@ import com.ulp.features.lessons.repository.LessonAttachmentRepository;
 import com.ulp.features.lessons.repository.LessonRepository;
 import com.ulp.features.lessons.repository.SectionRepository;
 import com.ulp.features.library.service.LibraryService;
+import com.ulp.features.storage.ObjectStorage;
+import com.ulp.features.storage.StorageKeys;
 import com.ulp.features.upload.LessonAttachmentStorageService;
 import com.ulp.features.upload.LessonAttachmentStorageService.StoredAttachment;
-import com.ulp.features.upload.LibraryStorageService;
-import com.ulp.features.upload.UploadFileHelper;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -26,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -59,7 +58,7 @@ public class LessonAttachmentsService {
     private final LessonRepository lessonRepository;
     private final SectionRepository sectionRepository;
     private final LessonAttachmentStorageService storage;
-    private final LibraryStorageService libraryStorage;
+    private final ObjectStorage objectStorage;
     private final LibraryService libraryService;
     private final ClassesService classesService;
     private final LessonsReorderService reorderService;
@@ -71,7 +70,7 @@ public class LessonAttachmentsService {
                                     LessonRepository lessonRepository,
                                     SectionRepository sectionRepository,
                                     LessonAttachmentStorageService storage,
-                                    LibraryStorageService libraryStorage,
+                                    ObjectStorage objectStorage,
                                     LibraryService libraryService,
                                     ClassesService classesService,
                                     LessonsReorderService reorderService,
@@ -82,7 +81,7 @@ public class LessonAttachmentsService {
         this.lessonRepository = lessonRepository;
         this.sectionRepository = sectionRepository;
         this.storage = storage;
-        this.libraryStorage = libraryStorage;
+        this.objectStorage = objectStorage;
         this.libraryService = libraryService;
         this.classesService = classesService;
         this.reorderService = reorderService;
@@ -299,21 +298,22 @@ public class LessonAttachmentsService {
                 : isEnrolledStudentForPublishedLesson(classId, userId, lesson);
         if (!allowed) throw new AccessDeniedException(MSG_FORBIDDEN_FOR_CLASS);
 
-        // Dual-root: library-backed attachments resolve under uploads/library.
-        Path absolute = resolveAttachmentPath(att);
-        return new DownloadHandle(absolute, att.getOriginalFilename(),
+        // storageKey is the relative object key (lessons/... or library/...).
+        String key = StorageKeys.requireSafeKey(att.getStoredPath());
+        return new DownloadHandle(key, att.getOriginalFilename(),
                 att.getMimeType(), att.getSizeBytes());
     }
 
     /**
-     * Picks library vs lesson storage from the attachment FK / path prefix.
+     * True when the attachment blob exists in object storage.
      * Shared with public-view so both entry points stay consistent.
      */
-    Path resolveAttachmentPath(LessonAttachment att) {
-        if (att.isLibraryBacked() || UploadFileHelper.isLibraryStoredPath(att.getStoredPath())) {
-            return libraryStorage.resolveAbsolutePath(att.getStoredPath());
+    boolean attachmentExists(LessonAttachment att) {
+        try {
+            return objectStorage.exists(StorageKeys.requireSafeKey(att.getStoredPath()));
+        } catch (IllegalArgumentException ex) {
+            return false;
         }
-        return storage.resolveAbsolutePath(att.getStoredPath());
     }
 
     // ── Internal helpers ───────────────────────────────────────────────
@@ -362,7 +362,7 @@ public class LessonAttachmentsService {
     }
 
     /** Tuple returned by {@link #download} so the controller can stream the file. */
-    public record DownloadHandle(Path absolutePath, String originalFilename,
+    public record DownloadHandle(String storageKey, String originalFilename,
                                  String mimeType, long sizeBytes) {
     }
 }

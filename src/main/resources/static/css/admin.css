@@ -226,7 +226,8 @@
 .form-row input[type="text"],
 .form-row input[type="email"],
 .form-row input[type="password"],
-.form-row input[type="number"] {
+.form-row input[type="number"],
+.form-row select {
   padding: 8px 12px;
   border: 1px solid var(--border-soft);
   border-radius: 6px;

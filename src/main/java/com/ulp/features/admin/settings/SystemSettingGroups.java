@@ -13,6 +13,7 @@ public final class SystemSettingGroups {
     public static final String GENERAL = "GENERAL";
     public static final String OAUTH = "OAUTH";
     public static final String AI = "AI";
+    public static final String STORAGE = "STORAGE";
 
     private SystemSettingGroups() {
         // utility class

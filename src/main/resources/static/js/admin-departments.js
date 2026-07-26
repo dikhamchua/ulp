@@ -6,11 +6,8 @@
 (function () {
   'use strict';
 
-  var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
-    if (flashData.dataset.flashSuccess) window.UlpToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError) window.UlpToast.error(flashData.dataset.flashError);
-  }
+  // Flash toasts are drained once by notifications.js (app-header).
+  // Do not drain here — a second pass causes duplicate toasts.
 
   document.addEventListener('click', function (ev) {
     var btn = ev.target.closest('button[data-action="toggle"]');

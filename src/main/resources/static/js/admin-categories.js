@@ -7,12 +7,8 @@
 (function () {
   'use strict';
 
-  // ── Flash drain → toast ──────────────────────────────────────────
-  var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
-    if (flashData.dataset.flashSuccess) window.UlpToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError)   window.UlpToast.error(flashData.dataset.flashError);
-  }
+  // Flash toasts are drained once by notifications.js (app-header).
+  // Do not drain here — a second pass causes duplicate toasts.
 
   // ── Delete confirmation modal ────────────────────────────────────
   var confirmModal = document.getElementById('confirmModal');

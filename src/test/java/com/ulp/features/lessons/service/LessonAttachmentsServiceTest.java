@@ -19,7 +19,7 @@ import com.ulp.features.lessons.service.LessonAttachmentsService.DownloadHandle;
 import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
 import com.ulp.features.library.repository.LibraryAssetRepository;
 import com.ulp.features.library.service.LibraryService;
-import com.ulp.features.upload.LibraryStorageService;
+import com.ulp.features.storage.ObjectStorage;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
@@ -32,8 +32,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +56,7 @@ class LessonAttachmentsServiceTest {
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private LibraryService libraryService;
     @Autowired private LibraryAssetRepository libraryAssetRepository;
-    @Autowired private LibraryStorageService libraryStorage;
+    @Autowired private ObjectStorage objectStorage;
     @Autowired private EntityManager entityManager;
 
     private User lecturer;
@@ -131,14 +129,14 @@ class LessonAttachmentsServiceTest {
                 lecturer.getId(), Role.LECTURER);
 
         LessonAttachment saved = attachmentRepository.findById(row.id()).orElseThrow();
-        var absolute = java.nio.file.Paths.get(System.getProperty("user.dir"), "uploads", saved.getStoredPath());
-        assertThat(Files.exists(absolute)).isTrue();
+        String key = saved.getStoredPath();
+        assertThat(objectStorage.exists(key)).isTrue();
 
         attachmentsService.delete(clazz.getId(), section.getId(), lessonId, row.id(),
                 lecturer.getId(), Role.LECTURER);
 
         assertThat(attachmentRepository.findById(row.id())).isEmpty();
-        assertThat(Files.exists(absolute)).isFalse();
+        assertThat(objectStorage.exists(key)).isFalse();
     }
 
     @Test
@@ -175,7 +173,8 @@ class LessonAttachmentsServiceTest {
         DownloadHandle handle = attachmentsService.download(
                 lessonId, row.id(), lecturer.getId(), Role.LECTURER);
         assertThat(handle.originalFilename()).isEqualTo("handout.pdf");
-        assertThat(Files.exists(handle.absolutePath())).isTrue();
+        assertThat(handle.storageKey()).isNotBlank();
+        assertThat(objectStorage.exists(handle.storageKey())).isTrue();
     }
 
     @Test
@@ -249,8 +248,8 @@ class LessonAttachmentsServiceTest {
                 "DOCUMENT");
         LibraryAsset stored = libraryAssetRepository
                 .findByIdAndOwnerId(asset.id(), lecturer.getId()).orElseThrow();
-        Path absolute = libraryStorage.resolveAbsolutePath(stored.getStoredPath());
-        assertThat(Files.exists(absolute)).isTrue();
+        String key = stored.getStoredPath();
+        assertThat(objectStorage.exists(key)).isTrue();
 
         LessonAttachmentRow row = attachmentsService.bindAttachmentFromLibrary(
                 clazz.getId(), section.getId(), lessonId, asset.id(),
@@ -260,7 +259,7 @@ class LessonAttachmentsServiceTest {
                 lecturer.getId(), Role.LECTURER);
 
         assertThat(attachmentRepository.findById(row.id())).isEmpty();
-        assertThat(Files.exists(absolute)).isTrue();
+        assertThat(objectStorage.exists(key)).isTrue();
         assertThat(libraryAssetRepository.findByIdAndOwnerId(asset.id(), lecturer.getId()))
                 .isPresent();
     }

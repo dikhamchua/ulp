@@ -1,10 +1,11 @@
 package com.ulp.features.profile.controller;
 
 import com.ulp.entities.User;
-import com.ulp.security.UlpUserDetails;
 import com.ulp.features.profile.dto.ProfileDtos;
 import com.ulp.features.profile.service.ProfileService;
+import com.ulp.features.storage.StorageNotConfiguredException;
 import com.ulp.features.upload.AvatarStorageService;
+import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -19,7 +20,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 
-import static com.ulp.common.IConstant.*;
+import static com.ulp.common.IConstant.ATTR_USER;
+import static com.ulp.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
+import static com.ulp.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
 
 /**
  * Controller for viewing and updating the current user's personal profile,
@@ -40,9 +43,6 @@ public class ProfileController {
     private static final String ATTR_PROFILE_UPDATED = "profileUpdated";
     private static final String ATTR_AVATAR_UPDATED  = "avatarUpdated";
     private static final String ATTR_AVATAR_ERROR    = "avatarError";
-
-    // ── Flash messages ────────────────────────────────────────────
-    private static final String MSG_AVATAR_SAVE_FAILED = "Could not save file, please try again";
 
     private final ProfileService profileService;
     private final AvatarStorageService avatarService;
@@ -116,8 +116,11 @@ public class ProfileController {
             ra.addFlashAttribute(ATTR_AVATAR_UPDATED, true);
         } catch (IllegalArgumentException e) {
             ra.addFlashAttribute(ATTR_AVATAR_ERROR, e.getMessage());
+        } catch (StorageNotConfiguredException e) {
+            // R2 selected but incomplete — fail closed with a clear admin hint.
+            ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_STORAGE_R2_NOT_CONFIGURED);
         } catch (IOException e) {
-            ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_AVATAR_SAVE_FAILED);
+            ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_STORAGE_UPLOAD_FAILED);
         }
         return REDIRECT_PROFILE;
     }
