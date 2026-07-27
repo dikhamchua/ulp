@@ -185,21 +185,30 @@ class Sprint8AiSettingsIntegrationTest {
     @Test
     @WithUserDetails("admin@ulp.edu.vn")
     void admin_can_open_ai_settings() throws Exception {
-        // The list screen is table-only; the form moved to its own page.
+        // The list screen carries a blank form for the create modal, kept closed.
         mockMvc.perform(get(URL_SETTINGS_AI))
                 .andExpect(status().isOk())
                 .andExpect(view().name(VIEW_SETTINGS_AI))
-                .andExpect(model().attributeExists(ATTR_AI_PROVIDERS))
-                .andExpect(model().attributeDoesNotExist(ATTR_FORM));
+                .andExpect(model().attributeExists(ATTR_AI_PROVIDERS, ATTR_FORM))
+                .andExpect(model().attribute(ATTR_SHOW_FORM, false));
     }
 
     @Test
     @WithUserDetails("admin@ulp.edu.vn")
     void admin_can_open_the_blank_provider_form() throws Exception {
+        // /new redirects onto the list with ?new=1 so the create modal opens.
         mockMvc.perform(get(URL_SETTINGS_AI + "/new"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(URL_SETTINGS_AI + "?new=1"));
+    }
+
+    @Test
+    @WithUserDetails("admin@ulp.edu.vn")
+    void list_with_new_query_opens_the_create_modal() throws Exception {
+        mockMvc.perform(get(URL_SETTINGS_AI).param("new", "1"))
                 .andExpect(status().isOk())
-                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
-                .andExpect(model().attribute(ATTR_MODE, MODE_CREATE))
+                .andExpect(view().name(VIEW_SETTINGS_AI))
+                .andExpect(model().attribute(ATTR_SHOW_FORM, true))
                 .andExpect(model().attributeExists(ATTR_FORM));
     }
 
@@ -290,8 +299,9 @@ class Sprint8AiSettingsIntegrationTest {
                         .param("apiKey", "")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
-                .andExpect(model().attribute(ATTR_MODE, MODE_CREATE))
+                // Create validation errors re-open the modal on the list page.
+                .andExpect(view().name(VIEW_SETTINGS_AI))
+                .andExpect(model().attribute(ATTR_SHOW_FORM, true))
                 .andExpect(model().attributeHasFieldErrors(ATTR_FORM, "apiKey"));
 
         assertThat(repository.findByName("No key")).isEmpty();
@@ -309,7 +319,8 @@ class Sprint8AiSettingsIntegrationTest {
                         .param("apiKey", "sk-another")
                         .param("enabled", "true"))
                 .andExpect(status().isOk())
-                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
+                .andExpect(view().name(VIEW_SETTINGS_AI))
+                .andExpect(model().attribute(ATTR_SHOW_FORM, true))
                 .andExpect(model().attributeHasFieldErrors(ATTR_FORM, "name"))
                 // A field problem must not surface as a toast.
                 .andExpect(flash().attributeCount(0));

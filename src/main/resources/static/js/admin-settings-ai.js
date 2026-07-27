@@ -170,6 +170,59 @@
       });
     });
 
+    // ── Create provider modal ──────────────────────────────────────────
+    var createModal = document.getElementById('aiProviderCreateModal');
+    var createCancel = document.getElementById('aiProviderCreateCancel');
+    var createAddBtn = document.getElementById('aiProviderAddBtn');
+    var createLastFocused = null;
+
+    function openCreateModal(trigger) {
+      if (!createModal) return;
+      createLastFocused = trigger || document.activeElement;
+      createModal.hidden = false;
+      var firstInput = createModal.querySelector('input:not([type="hidden"]):not([type="checkbox"])');
+      if (firstInput) firstInput.focus();
+      announce('Mở form thêm AI provider');
+    }
+
+    function closeCreateModal() {
+      if (!createModal) return;
+      createModal.hidden = true;
+      // Drop ?new=1 from the URL without reloading so a refresh does not
+      // reopen an empty modal the admin already dismissed.
+      try {
+        var url = new URL(window.location.href);
+        if (url.searchParams.has('new')) {
+          url.searchParams.delete('new');
+          window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+        }
+      } catch (e) { /* ignore */ }
+      if (createLastFocused && typeof createLastFocused.focus === 'function') {
+        createLastFocused.focus();
+      }
+    }
+
+    if (createModal) {
+      if (createAddBtn) {
+        createAddBtn.addEventListener('click', function () {
+          openCreateModal(createAddBtn);
+        });
+      }
+      document.querySelectorAll('.js-ai-provider-add').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          openCreateModal(btn);
+        });
+      });
+      if (createCancel) createCancel.addEventListener('click', closeCreateModal);
+      createModal.addEventListener('click', function (e) {
+        if (e.target === createModal) closeCreateModal();
+      });
+      // Server already opened it (validation error or ?new=1) — just focus.
+      if (!createModal.hidden) {
+        openCreateModal(createAddBtn);
+      }
+    }
+
     // ── Delete confirmation ─────────────────────────────────────────────
     var modal = document.getElementById('aiDeleteModal');
     var deleteForm = document.getElementById('aiDeleteForm');
@@ -200,28 +253,35 @@
       modal.addEventListener('click', function (e) {
         if (e.target === modal) closeModal();
       });
-
-      document.addEventListener('keydown', function (e) {
-        if (modal.hidden) return;
-        if (e.key === 'Escape') {
-          closeModal();
-          return;
-        }
-        if (e.key !== 'Tab') return;
-
-        // Trap focus inside the dialog while it is open.
-        var focusable = modal.querySelectorAll('button, [href], input, select, textarea');
-        if (!focusable.length) return;
-        var first = focusable[0];
-        var last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      });
     }
+
+    // Shared Escape / focus-trap for whichever modal is open.
+    document.addEventListener('keydown', function (e) {
+      var openModal = null;
+      if (createModal && !createModal.hidden) openModal = createModal;
+      else if (modal && !modal.hidden) openModal = modal;
+      if (!openModal) return;
+
+      if (e.key === 'Escape') {
+        if (openModal === createModal) closeCreateModal();
+        else closeModal();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      var focusable = openModal.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
+      );
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
   });
 })();

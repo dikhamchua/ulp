@@ -34,8 +34,8 @@ import static com.ulp.common.IConstant.*;
  *
  * <p>Exposed URLs:
  * <ul>
- *   <li>{@code GET  /admin/settings/ai}             — list providers</li>
- *   <li>{@code GET  /admin/settings/ai/new}         — blank provider form (own page)</li>
+ *   <li>{@code GET  /admin/settings/ai}             — list providers (+ create modal)</li>
+ *   <li>{@code GET  /admin/settings/ai/new}         — redirect to list with create modal open</li>
  *   <li>{@code GET  /admin/settings/ai/{id}/edit}   — detail/edit page (tabs: info, history)</li>
  *   <li>{@code POST /admin/settings/ai}             — create or update (full page reload)</li>
  *   <li>{@code POST /admin/settings/ai/{id}/toggle} — enable / disable</li>
@@ -75,28 +75,41 @@ public class AiSettingsController {
     }
 
     /**
-     * Renders the provider table. The add/edit form lives on its own page.
+     * Renders the provider table. Create happens in a modal on this page;
+     * edit still uses the standalone detail page.
+     *
+     * <p>A {@code form} already in the model (flashed back from a rejected create)
+     * is kept so inline field errors survive. {@code showForm=true} opens the modal.
      *
      * @param model the Spring MVC model
      * @return the logical view name {@code admin/settings-ai}
      */
     @GetMapping
-    public String list(Model model) {
+    public String list(@RequestParam(name = "new", required = false) String openNew,
+                       Model model) {
+        boolean hasForm = model.containsAttribute(ATTR_FORM);
+        if (!hasForm) {
+            model.addAttribute(ATTR_FORM, AiProviderForm.empty());
+        }
+        // Open the create modal when: a rejected POST put the form back, the
+        // query string asks for it (?new=1), or a prior flash already set showForm.
+        if (!model.containsAttribute(ATTR_SHOW_FORM)) {
+            boolean openFromQuery = openNew != null && !"false".equalsIgnoreCase(openNew) && !"0".equals(openNew);
+            model.addAttribute(ATTR_SHOW_FORM, hasForm || openFromQuery);
+        }
         populate(model);
         return VIEW_SETTINGS_AI;
     }
 
     /**
-     * Renders the blank provider form on its own page.
+     * Opens the list page with the create-provider modal visible.
+     * Kept so bookmarks / empty-state links to {@code /new} still work.
      *
-     * @param model the Spring MVC model
-     * @return the logical view name {@code admin/settings-ai-form}
+     * @return redirect to the list with {@code ?new=1}
      */
     @GetMapping("/new")
-    public String create(Model model) {
-        model.addAttribute(ATTR_FORM, AiProviderForm.empty());
-        populateForm(model, MODE_CREATE);
-        return VIEW_SETTINGS_AI_FORM;
+    public String create() {
+        return REDIRECT_BASE + "?new=1";
     }
 
     /**
@@ -167,15 +180,18 @@ public class AiSettingsController {
             result.rejectValue("apiKey", "required", MSG_AI_KEY_REQUIRED);
         }
         if (result.hasErrors()) {
-            String mode = form.id() == null ? MODE_CREATE : MODE_EDIT;
-            populateForm(model, mode);
-            // Re-render the edit chrome (title / tabs) after a rejected update.
-            if (form.id() != null) {
-                service.findById(form.id()).ifPresent(p -> {
-                    model.addAttribute(ATTR_AI_PROVIDER, p);
-                    model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO);
-                });
+            // Create errors re-open the modal on the list page; edit errors stay
+            // on the detail form so the admin does not lose the history tab chrome.
+            if (form.id() == null) {
+                model.addAttribute(ATTR_SHOW_FORM, true);
+                populate(model);
+                return VIEW_SETTINGS_AI;
             }
+            populateForm(model, MODE_EDIT);
+            service.findById(form.id()).ifPresent(p -> {
+                model.addAttribute(ATTR_AI_PROVIDER, p);
+                model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO);
+            });
             return VIEW_SETTINGS_AI_FORM;
         }
 

@@ -461,6 +461,52 @@
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
+/* Wider modal for multi-field create forms (AI provider, …). */
+.modal-box.modal-box-lg {
+  max-width: 560px;
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
+}
+
+.ai-provider-create-form .form-row {
+  margin-bottom: 14px;
+}
+
+.ai-provider-create-form .form-row label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.ai-provider-create-form .form-row input[type="text"],
+.ai-provider-create-form .form-row input[type="password"] {
+  margin-bottom: 0;
+}
+
+.ai-provider-create-form .field-error {
+  display: block;
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.ai-provider-create-form .field-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.ai-provider-create-form .ai-check-wrap {
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.ai-provider-create-form .modal-actions {
+  margin-top: 8px;
+}
+
 .modal-box h3 {
   margin: 0 0 8px;
   font-size: 18px;
