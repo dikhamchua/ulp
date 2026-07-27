@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -85,6 +86,19 @@ class LecturerExamManagementIntegrationTest {
                 .andExpect(content().string(containsString("Đề GV JUnit")));
         mockMvc.perform(get("/lecturer/tests/" + examId + "/edit"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithUserDetails(LECTURER)
+    void create_form_renders_without_class_sidebar() throws Exception {
+        // Regression: the create screen puts no "clazz" in the model. The class
+        // sidebar fragment must stay gated behind an outer th:block — putting
+        // th:if on the same tag as th:replace resolves the fragment anyway and
+        // blows up on ${clazz.name}, turning this page into a 500.
+        mockMvc.perform(get("/lecturer/tests/new"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("lf-no-sidebar")))
+                .andExpect(content().string(not(containsString("Chia sẻ lớp học"))));
     }
 
     @Test

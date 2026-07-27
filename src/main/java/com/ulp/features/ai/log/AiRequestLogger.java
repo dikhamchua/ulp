@@ -29,6 +29,9 @@ public class AiRequestLogger {
     /** Marks a call made by the ordinary chat path through the fallback chain. */
     public static final String SOURCE_CHAT = "CHAT";
 
+    /** Marks a call made by the lecturer AI question generator (ULP-12.2). */
+    public static final String SOURCE_QUESTION_GEN = "QUESTION_GEN";
+
     private final AiRequestLogWriter writer;
 
     AiRequestLogger(AiRequestLogWriter writer) {
