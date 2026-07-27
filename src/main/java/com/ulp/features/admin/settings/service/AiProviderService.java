@@ -91,6 +91,17 @@ public class AiProviderService {
     }
 
     /**
+     * Loads the live provider entity for the detail header (name, status, timestamps).
+     *
+     * @param id provider identifier
+     * @return the entity, or empty when no such provider exists
+     */
+    @Transactional(readOnly = true)
+    public Optional<AiProvider> findById(Long id) {
+        return repository.findById(id);
+    }
+
+    /**
      * Returns the plain API key of one provider. This is the only method that exposes the
      * stored secret, and it exists solely to back the eye and copy buttons.
      *

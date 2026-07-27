@@ -723,6 +723,10 @@ public interface IConstant {
 
     String ATTR_AI_PROVIDERS    = "providers";
     String ATTR_AI_ALL_DISABLED = "allDisabled";
+    /** Live provider entity on the edit/detail screen (timestamps, status). */
+    String ATTR_AI_PROVIDER     = "provider";
+    /** Whether the prompt catalog should render the add/edit panel. */
+    String ATTR_SHOW_FORM       = "showForm";
 
     // ───────── AI provider settings (Vietnamese UI text) ─────────────
     String MSG_AI_PROVIDER_CREATED   = "Đã thêm AI provider";

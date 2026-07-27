@@ -19,6 +19,9 @@ future user-provided spec.
 - `product/`: current product truth, empty until a spec is derived.
 - `stories/`: feature packets and backlog.
 - `decisions/`: durable decisions and tradeoffs.
+- `design-system/`: UI pattern guides for SSR screens (detail pages, tabs, …).
+  Start with [`design-system/detail-page-pattern.md`](design-system/detail-page-pattern.md)
+  when building or changing an admin/lecturer detail screen with tabs.
 - `demo/`: concrete walkthroughs that show how the harness transforms input
   into agent-ready work.
 - `templates/`: reusable spec-intake, story, plan, decision, and validation

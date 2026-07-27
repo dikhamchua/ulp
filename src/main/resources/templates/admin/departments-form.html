@@ -64,6 +64,9 @@
       </nav>
     </th:block>
 
+    <!-- Tab body — swapped in place by detail-tabs.js on tab switch. -->
+    <div id="tabPanel">
+
     <div th:if="${mode == 'create' or activeDetailTab == 'info'}">
       <form id="departmentForm"
             th:action="${mode == 'create'} ? @{/admin/departments} : @{'/admin/departments/' + ${targetId} + '/edit'}"
@@ -184,10 +187,13 @@
         </nav>
       </div>
     </section>
+
+    </div><!-- /#tabPanel -->
   </main>
 </div>
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/admin-departments.js}"></script>
+<script th:src="@{/js/detail-tabs.js}"></script>
 </body>
 </html>

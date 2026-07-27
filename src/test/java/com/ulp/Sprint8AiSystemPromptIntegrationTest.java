@@ -85,7 +85,18 @@ class Sprint8AiSystemPromptIntegrationTest {
         mockMvc.perform(get(URL_SETTINGS_AI_PROMPTS))
                 .andExpect(status().isOk())
                 .andExpect(view().name(VIEW_SETTINGS_AI_PROMPTS))
-                .andExpect(model().attributeExists(ATTR_AI_PROMPTS, ATTR_FORM));
+                .andExpect(model().attributeExists(ATTR_AI_PROMPTS, ATTR_FORM))
+                // The add panel stays closed until the admin presses "Thêm mới".
+                .andExpect(model().attribute(ATTR_SHOW_FORM, false));
+    }
+
+    @Test
+    @WithUserDetails("admin@ulp.edu.vn")
+    void new_opens_the_add_panel() throws Exception {
+        mockMvc.perform(get(URL_SETTINGS_AI_PROMPTS + "/new"))
+                .andExpect(status().isOk())
+                .andExpect(view().name(VIEW_SETTINGS_AI_PROMPTS))
+                .andExpect(model().attribute(ATTR_SHOW_FORM, true));
     }
 
     @Test

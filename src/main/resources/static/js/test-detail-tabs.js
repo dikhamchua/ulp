@@ -33,12 +33,21 @@
         }
     }
 
+    var LOADING_HTML =
+        '<div class="detail-tab-loading" role="status" aria-live="polite">' +
+          '<span class="detail-tab-spinner" aria-hidden="true"></span>' +
+          '<span class="detail-tab-loading-text">Đang tải…</span>' +
+        '</div>';
+
     ready(function () {
         var panel = document.getElementById('tabPanel');
         var tabsNav = document.querySelector('.detail-tabs');
         // Create mode (no tabs) or an unexpected DOM: let the per-module
         // DOMContentLoaded mounts handle everything, no orchestration needed.
         if (!panel || !tabsNav) return;
+
+        // Mark owned so the shared detail-tabs.js (if also loaded) no-ops.
+        tabsNav.setAttribute('data-ajax-tabs', 'owned');
 
         var saveBtn = document.getElementById('lfSave');
         var monitorTeardown = function () {};
@@ -62,6 +71,21 @@
             if (saveBtn) saveBtn.disabled = tab !== 'info';
         }
 
+        function showLoading() {
+            panel.classList.add('is-loading');
+            panel.setAttribute('aria-busy', 'true');
+            if (!panel.style.minHeight) {
+                panel.style.minHeight = Math.max(panel.offsetHeight, 120) + 'px';
+            }
+            panel.innerHTML = LOADING_HTML;
+        }
+
+        function clearLoadingState() {
+            panel.classList.remove('is-loading');
+            panel.removeAttribute('aria-busy');
+            panel.style.minHeight = '';
+        }
+
         var navigating = false;
 
         /**
@@ -72,6 +96,8 @@
         function navigate(url, push) {
             if (navigating) return;
             navigating = true;
+            if (typeof monitorTeardown === 'function') monitorTeardown();
+            showLoading();
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (r) {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -82,7 +108,7 @@
                     var fresh = doc.getElementById('tabPanel');
                     if (!fresh) throw new Error('no #tabPanel in response');
 
-                    if (typeof monitorTeardown === 'function') monitorTeardown();
+                    clearLoadingState();
                     panel.innerHTML = fresh.innerHTML;
 
                     var tab = tabOf(url);

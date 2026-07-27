@@ -65,4 +65,20 @@ public interface AiRequestLogRepository extends JpaRepository<AiRequestLog, Long
      */
     @Query("SELECT DISTINCT l.providerName FROM AiRequestLog l ORDER BY l.providerName ASC")
     List<String> findDistinctProviderNames();
+
+    /**
+     * Returns one page of attempts for a single provider, newest first.
+     *
+     * <p>Used by the provider detail "Lịch sử hoạt động" tab. Filters on
+     * {@code provider_id} (not the name snapshot) so renaming a provider does not
+     * orphan its history while the row still exists.
+     *
+     * @param providerId the live provider identifier
+     * @param pageable   page number and size; sorting is fixed by the query
+     * @return matching log rows for that provider
+     */
+    @Query("SELECT l FROM AiRequestLog l "
+            + "WHERE l.providerId = :providerId "
+            + "ORDER BY l.createdAt DESC, l.id DESC")
+    Page<AiRequestLog> findByProviderId(@Param("providerId") Long providerId, Pageable pageable);
 }

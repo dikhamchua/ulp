@@ -247,6 +247,55 @@
   color: var(--color-text);
 }
 
+/* ── AJAX tab panel + loading spinner ───────────────────────────────── */
+#tabPanel {
+  position: relative;
+  min-height: 80px;
+}
+
+#tabPanel.is-loading {
+  pointer-events: none;
+}
+
+.detail-tab-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-muted);
+  min-height: 160px;
+}
+
+.detail-tab-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--color-border-medium);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: detail-tab-spin 0.7s linear infinite;
+}
+
+.detail-tab-loading-text {
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-medium);
+}
+
+@keyframes detail-tab-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Soft fade-in after a successful AJAX swap */
+#tabPanel:not(.is-loading) {
+  animation: detail-tab-fade-in 0.18s ease-out;
+}
+
+@keyframes detail-tab-fade-in {
+  from { opacity: 0.55; }
+  to   { opacity: 1; }
+}
+
 /* ── Section card ────────────────────────────────────────────────────── */
 .detail-card {
   background: var(--color-bg);

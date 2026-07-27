@@ -25,7 +25,8 @@ import static com.ulp.common.IConstant.*;
  *
  * <p>Exposed URLs:
  * <ul>
- *   <li>{@code GET  /admin/settings/ai/prompts}             — list prompts + add/edit panel</li>
+ *   <li>{@code GET  /admin/settings/ai/prompts}             — list prompts (form hidden by default)</li>
+ *   <li>{@code GET  /admin/settings/ai/prompts/new}         — open the blank add panel</li>
  *   <li>{@code GET  /admin/settings/ai/prompts/{id}/edit}   — load one prompt into the panel</li>
  *   <li>{@code POST /admin/settings/ai/prompts}             — create or update (full page reload)</li>
  *   <li>{@code POST /admin/settings/ai/prompts/{id}/toggle} — enable / disable</li>
@@ -55,7 +56,8 @@ public class AiSystemPromptController {
     }
 
     /**
-     * Renders the prompt catalog plus the add/edit panel.
+     * Renders the prompt catalog. The add panel stays hidden until the admin presses
+     * "Thêm mới" (or until a rejected POST / edit load forces it open).
      *
      * <p>A {@code form} already in the model (flashed back from a rejected POST) is kept
      * so inline field errors and the user's input survive the redirect.
@@ -65,15 +67,34 @@ public class AiSystemPromptController {
      */
     @GetMapping
     public String list(Model model) {
-        if (!model.containsAttribute(ATTR_FORM)) {
+        boolean hasForm = model.containsAttribute(ATTR_FORM);
+        if (!hasForm) {
             model.addAttribute(ATTR_FORM, AiSystemPromptForm.empty());
+        }
+        // Open the panel only when a rejected POST already put a form in the model,
+        // or when the query string explicitly asks for it (?new=1).
+        if (!model.containsAttribute(ATTR_SHOW_FORM)) {
+            model.addAttribute(ATTR_SHOW_FORM, hasForm);
         }
         populate(model);
         return VIEW_SETTINGS_AI_PROMPTS;
     }
 
     /**
-     * Loads one prompt into the edit panel. Falls back to the empty add panel with an
+     * Opens the blank add panel on the catalog page.
+     *
+     * @return the catalog view with the form visible
+     */
+    @GetMapping("/new")
+    public String create(Model model) {
+        model.addAttribute(ATTR_FORM, AiSystemPromptForm.empty());
+        model.addAttribute(ATTR_SHOW_FORM, true);
+        populate(model);
+        return VIEW_SETTINGS_AI_PROMPTS;
+    }
+
+    /**
+     * Loads one prompt into the edit panel. Falls back to the empty catalog with an
      * error flash when the id no longer exists.
      *
      * @param id prompt identifier
@@ -87,6 +108,7 @@ public class AiSystemPromptController {
             return REDIRECT_BASE;
         }
         model.addAttribute(ATTR_FORM, form.get());
+        model.addAttribute(ATTR_SHOW_FORM, true);
         populate(model);
         return VIEW_SETTINGS_AI_PROMPTS;
     }
@@ -115,6 +137,7 @@ public class AiSystemPromptController {
             result.rejectValue("name", "duplicate", MSG_AI_PROMPT_NAME_DUPLICATE);
         }
         if (result.hasErrors()) {
+            model.addAttribute(ATTR_SHOW_FORM, true);
             populate(model);
             return VIEW_SETTINGS_AI_PROMPTS;
         }

@@ -39,6 +39,15 @@
         </svg>
         Quay lại AI Providers
       </a>
+      <a th:href="@{/admin/settings/ai/prompts/new}" class="btn btn-primary"
+         th:if="${showForm != true}">
+        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Thêm mới
+      </a>
     </p>
 
     <!-- ===== Prompt catalog ===== -->
@@ -126,12 +135,13 @@
 
       <div th:if="${#lists.isEmpty(prompts)}" class="admin-list-empty">
         <p>Chưa có system prompt nào.</p>
-        <a href="#aiPromptForm" class="btn btn-primary">Thêm prompt đầu tiên</a>
+        <a th:href="@{/admin/settings/ai/prompts/new}" class="btn btn-primary">Thêm prompt đầu tiên</a>
       </div>
     </section>
 
-    <!-- ===== Add / edit panel ===== -->
-    <section class="settings-form-panel" id="aiPromptForm">
+    <!-- ===== Add / edit panel — only when Thêm mới / Sửa / validation error ===== -->
+    <section class="settings-form-panel" id="aiPromptForm"
+             th:if="${showForm == true}">
       <h2 class="panel-title"
           th:text="${form.id} != null ? 'Sửa system prompt' : 'Thêm system prompt'">Thêm system prompt</h2>
       <p class="panel-sub">Đặt tên dễ nhận biết — đây là tên hiển thị khi các

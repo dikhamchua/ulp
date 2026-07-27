@@ -212,7 +212,22 @@ class Sprint8AiSettingsIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
                 .andExpect(model().attribute(ATTR_MODE, MODE_EDIT))
-                .andExpect(model().attributeExists(ATTR_FORM));
+                .andExpect(model().attributeExists(ATTR_FORM))
+                .andExpect(model().attributeExists(ATTR_AI_PROVIDER))
+                .andExpect(model().attribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO));
+    }
+
+    @Test
+    @WithUserDetails("admin@ulp.edu.vn")
+    void edit_history_tab_loads_activity_page() throws Exception {
+        AiProvider provider = persist("With history tab", true);
+
+        mockMvc.perform(get(URL_SETTINGS_AI + "/" + provider.getId() + "/edit")
+                        .param("tab", TAB_HISTORY))
+                .andExpect(status().isOk())
+                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
+                .andExpect(model().attribute(ATTR_ACTIVE_DETAIL_TAB, TAB_HISTORY))
+                .andExpect(model().attributeExists(ATTR_ACTIVITIES_PAGE));
     }
 
     @Test
@@ -315,6 +330,7 @@ class Sprint8AiSettingsIntegrationTest {
                         .param("apiKey", "")
                         .param("enabled", "true"))
                 .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(URL_SETTINGS_AI + "/" + provider.getId() + "/edit?tab=" + TAB_INFO))
                 .andExpect(flash().attribute(ATTR_FLASH_SUCCESS, MSG_AI_PROVIDER_UPDATED));
 
         AiProvider reloaded = repository.findById(provider.getId()).orElseThrow();

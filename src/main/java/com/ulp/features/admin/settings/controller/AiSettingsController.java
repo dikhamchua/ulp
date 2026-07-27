@@ -1,11 +1,14 @@
 package com.ulp.features.admin.settings.controller;
 
+import com.ulp.entities.AiProvider;
 import com.ulp.features.admin.settings.dto.AiSettingsDtos.AiProviderForm;
 import com.ulp.features.admin.settings.dto.AiSettingsDtos.RevealKeyResult;
 import com.ulp.features.admin.settings.dto.AiSettingsDtos.TestResult;
+import com.ulp.features.admin.settings.service.AiLogQueryService;
 import com.ulp.features.admin.settings.service.AiProviderService;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,10 +20,12 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.ulp.common.IConstant.*;
 
@@ -31,7 +36,7 @@ import static com.ulp.common.IConstant.*;
  * <ul>
  *   <li>{@code GET  /admin/settings/ai}             — list providers</li>
  *   <li>{@code GET  /admin/settings/ai/new}         — blank provider form (own page)</li>
- *   <li>{@code GET  /admin/settings/ai/{id}/edit}   — load one provider into the form page</li>
+ *   <li>{@code GET  /admin/settings/ai/{id}/edit}   — detail/edit page (tabs: info, history)</li>
  *   <li>{@code POST /admin/settings/ai}             — create or update (full page reload)</li>
  *   <li>{@code POST /admin/settings/ai/{id}/toggle} — enable / disable</li>
  *   <li>{@code POST /admin/settings/ai/{id}/delete} — hard delete</li>
@@ -55,10 +60,18 @@ public class AiSettingsController {
 
     private static final String REDIRECT_BASE = "redirect:" + URL_SETTINGS_AI;
 
-    private final AiProviderService service;
+    /** Page size for the provider detail "Lịch sử hoạt động" tab. */
+    private static final int HISTORY_PAGE_SIZE = 20;
 
-    public AiSettingsController(AiProviderService service) {
+    /** Whitelist of valid {@code tab} values on the edit screen; anything else falls back to info. */
+    private static final Set<String> VALID_DETAIL_TABS = Set.of(TAB_INFO, TAB_HISTORY);
+
+    private final AiProviderService service;
+    private final AiLogQueryService logQueryService;
+
+    public AiSettingsController(AiProviderService service, AiLogQueryService logQueryService) {
         this.service = service;
+        this.logQueryService = logQueryService;
     }
 
     /**
@@ -87,21 +100,41 @@ public class AiSettingsController {
     }
 
     /**
-     * Loads one provider into the form page. Falls back to the list with an error flash
-     * when the id no longer exists.
+     * Loads one provider into the detail/edit page with info and history tabs.
+     * Falls back to the list with an error flash when the id no longer exists.
      *
-     * @param id provider identifier
+     * @param id   provider identifier
+     * @param tab  {@code info} or {@code history}; invalid values fall back to info
+     * @param page zero-based page index for the history tab
      * @return the form view, or a redirect when the provider is gone
      */
     @GetMapping("/{id}/edit")
-    public String edit(@PathVariable Long id, Model model, RedirectAttributes ra) {
-        Optional<AiProviderForm> form = service.loadForm(id);
-        if (form.isEmpty()) {
+    public String edit(@PathVariable Long id,
+                       @RequestParam(name = "tab", required = false, defaultValue = TAB_INFO) String tab,
+                       @RequestParam(name = "page", required = false, defaultValue = "0") int page,
+                       Model model,
+                       RedirectAttributes ra) {
+        Optional<AiProvider> provider = service.findById(id);
+        if (provider.isEmpty()) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_AI_PROVIDER_NOT_FOUND);
             return REDIRECT_BASE;
         }
-        model.addAttribute(ATTR_FORM, form.get());
+        if (!model.containsAttribute(ATTR_FORM)) {
+            model.addAttribute(ATTR_FORM, service.loadForm(id).orElseGet(
+                    () -> new AiProviderForm(id, "", "", "", "", true)));
+        }
         populateForm(model, MODE_EDIT);
+        model.addAttribute(ATTR_AI_PROVIDER, provider.get());
+
+        String activeTab = VALID_DETAIL_TABS.contains(tab) ? tab : TAB_INFO;
+        model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);
+
+        // Only hit the log table when the history tab is visible.
+        if (TAB_HISTORY.equals(activeTab)) {
+            int safePage = Math.max(0, page);
+            model.addAttribute(ATTR_ACTIVITIES_PAGE,
+                    logQueryService.listByProvider(id, PageRequest.of(safePage, HISTORY_PAGE_SIZE)));
+        }
         return VIEW_SETTINGS_AI_FORM;
     }
 
@@ -134,18 +167,28 @@ public class AiSettingsController {
             result.rejectValue("apiKey", "required", MSG_AI_KEY_REQUIRED);
         }
         if (result.hasErrors()) {
-            populateForm(model, form.id() == null ? MODE_CREATE : MODE_EDIT);
+            String mode = form.id() == null ? MODE_CREATE : MODE_EDIT;
+            populateForm(model, mode);
+            // Re-render the edit chrome (title / tabs) after a rejected update.
+            if (form.id() != null) {
+                service.findById(form.id()).ifPresent(p -> {
+                    model.addAttribute(ATTR_AI_PROVIDER, p);
+                    model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO);
+                });
+            }
             return VIEW_SETTINGS_AI_FORM;
         }
 
         if (form.id() == null) {
             service.create(form, principal.getId());
             ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_AI_PROVIDER_CREATED);
-        } else if (service.update(form, principal.getId())) {
-            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_AI_PROVIDER_UPDATED);
-        } else {
-            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_AI_PROVIDER_NOT_FOUND);
+            return REDIRECT_BASE;
         }
+        if (service.update(form, principal.getId())) {
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_AI_PROVIDER_UPDATED);
+            return "redirect:" + URL_SETTINGS_AI + "/" + form.id() + "/edit?tab=" + TAB_INFO;
+        }
+        ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_AI_PROVIDER_NOT_FOUND);
         return REDIRECT_BASE;
     }
 
