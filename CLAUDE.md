@@ -402,6 +402,9 @@ Lane phổ biến cho ULP:
 - ❌ Hardcode secret vào `application.properties` hoặc Java code
 - ❌ Thêm bundler / SPA framework — project là SSR thuần
 - ❌ Đặt SMTP credentials vào `application-local.properties` — đã chuyển sang `system_settings` table, edit qua `/admin/settings/email`
+- ❌ Gửi SMTP trong vòng lặp trên request thread (fan-out publish/invite) —
+  dùng `MailJobQueue` + `MailJobEnqueueHelper` (xem
+  `.claude/rules/mail-job-queue.md`). `LESSON_PUBLISHED` chỉ in-app, không email.
 - ❌ Bỏ `@ConditionalOnProperty` cho integration optional — chỉ MailService
   được đặc cách (xem decision 0008) và Google OAuth được đặc cách (xem
   decision 0009, do credentials đã chuyển sang DB-backed registration)
