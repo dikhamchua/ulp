@@ -483,26 +483,45 @@
             }
         }
 
+        /**
+         * Re-fires the form outside the current submit dispatch. Calling
+         * requestSubmit() synchronously from inside a submit listener is a
+         * re-entrant submit and the browser drops it, so the first click did
+         * nothing while the second one sailed through the already-flipped
+         * guard. Deferring to a macrotask lets the dispatch unwind first.
+         */
+        function submitForReal(submitter) {
+            proceeding = true;
+            window.setTimeout(function () {
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit(submitter || undefined);
+                } else {
+                    form.submit();
+                }
+            }, 0);
+        }
+
+        /** Releases the guard so a cancelled/failed gate can be retried. */
+        function abortSubmit() {
+            proceeding = false;
+        }
+
         form.addEventListener('submit', function (e) {
             // Once all gates clear we flip proceeding and let the native submit
             // (and the Quill content-copy listener) run untouched.
             if (proceeding) return;
             e.preventDefault();
+            var submitter = e.submitter || null;
             confirmTypeSwitch(function (okType) {
-                if (!okType) return;
+                if (!okType) { abortSubmit(); return; }
                 // Gate 2 + 3: upload whichever media is pending. Each helper
                 // no-ops unless its own content type is selected, so only one
                 // actually uploads for a given lesson.
                 uploadPendingVideo(function (okVideo) {
-                    if (!okVideo) return;
+                    if (!okVideo) { abortSubmit(); return; }
                     uploadPendingPdf(function (okPdf) {
-                        if (!okPdf) return;
-                        proceeding = true;
-                        if (typeof form.requestSubmit === 'function') {
-                            form.requestSubmit();
-                        } else {
-                            form.submit();
-                        }
+                        if (!okPdf) { abortSubmit(); return; }
+                        submitForReal(submitter);
                     });
                 });
             });
