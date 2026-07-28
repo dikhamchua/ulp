@@ -242,6 +242,21 @@
               </svg>
             </button>
             <div class="lesson-menu-dropdown" data-menu-dropdown hidden>
+              <!-- Student-facing view — only for PUBLISHED lessons (drafts are
+                   invisible on /my/classes/…/lessons). Opens in a new tab so the
+                   lecturer keeps the manage screen. -->
+              <a th:if="${l.status() == 'PUBLISHED'}"
+                 th:href="@{'/my/classes/' + ${clazz.id} + '/lessons'(section=${selectedSectionId}, lesson=${l.id()})}"
+                 target="_blank" rel="noopener"
+                 title="Xem như học sinh">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"
+                     fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span>Xem</span>
+              </a>
               <a th:href="@{'/lecturer/classes/' + ${clazz.id}
                           + '/sections/' + ${selectedSectionId}
                           + '/lessons/' + ${l.id()} + '/edit'}">
