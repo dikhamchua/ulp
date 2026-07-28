@@ -166,10 +166,19 @@ class AdminUsersDetailPageIntegrationTest {
     @Test
     @WithUserDetails("admin@ulp.edu.vn")
     void editPage_createMode_rendersWithoutTabs() throws Exception {
+        // Assert on the rendered markup of the tab strip, NOT on bare
+        // substrings like "detail-tabs" or a tab's label text. The page always
+        // ships <script src="/js/detail-tabs.js">, and the template's section
+        // banner comments (which name the tabs, e.g. "Lịch sử cập nhật") sit
+        // outside the th:if blocks, so they render in create mode too. Those
+        // bare substrings therefore match even though the <nav> itself is
+        // correctly suppressed. Match the class attributes of the nav and of a
+        // tab link instead: those exist only when the strip actually renders.
         mockMvc.perform(get("/admin/users/new"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/users-form"))
-                .andExpect(content().string(not(containsString("detail-tabs"))))
+                .andExpect(content().string(not(containsString("class=\"detail-tabs\""))))
+                .andExpect(content().string(not(containsString("class=\"detail-tab\""))))
                 .andExpect(content().string(containsString("id=\"emailInput\"")));
     }
 
