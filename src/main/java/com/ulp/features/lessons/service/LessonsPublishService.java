@@ -118,9 +118,14 @@ public class LessonsPublishService {
     }
 
     /**
-     * Creates a LESSON_PUBLISHED notification for every ACTIVE-enrolled student
-     * in the class. Best-effort: failures per student are swallowed so a bad
-     * email address cannot abort the rest of the fan-out.
+     * Creates an in-app LESSON_PUBLISHED notification for every ACTIVE-enrolled
+     * student. No email: {@code LESSON_PUBLISHED} is intentionally outside
+     * {@link NotificationType#EMAIL_TYPES} so publish stays fast. Re-enable
+     * email later by adding the type to that set — {@code NotificationService}
+     * will enqueue through {@code MailJobQueue} automatically.
+     *
+     * <p>Best-effort: failures per student are swallowed so one bad row cannot
+     * abort the rest of the fan-out or roll back the publish transaction.
      */
     private void fanOutLessonPublished(Long classId, Lesson lesson) {
         try {

@@ -2,13 +2,15 @@ package com.ulp.features.notifications.service;
 
 import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
-import com.ulp.features.mail.MailService;
+import com.ulp.features.mail.job.MailJob;
+import com.ulp.features.mail.job.MailJobEnqueueHelper;
 import com.ulp.features.notifications.dto.NotificationDtos.NotificationRow;
 import com.ulp.features.notifications.entity.Notification;
 import com.ulp.features.notifications.entity.NotificationType;
 import com.ulp.features.notifications.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -19,19 +21,18 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link NotificationService}.
  *
- * <p>Covers creation (persist-first + best-effort email), owner-scoped
- * mark-read (foreign id is silent no-op), unread count, and list paging.
+ * <p>Covers creation (persist-first + background mail enqueue for whitelisted
+ * types), owner-scoped mark-read (foreign id is silent no-op), unread count,
+ * and list paging. SMTP is never touched here — the mail worker is out of scope.
  */
 class NotificationServiceTest {
 
@@ -40,15 +41,15 @@ class NotificationServiceTest {
 
     private NotificationRepository notificationRepository;
     private UserRepository userRepository;
-    private MailService mailService;
+    private MailJobEnqueueHelper mailJobEnqueueHelper;
     private NotificationService service;
 
     @BeforeEach
     void setUp() {
         notificationRepository = mock(NotificationRepository.class);
         userRepository = mock(UserRepository.class);
-        mailService = mock(MailService.class);
-        service = new NotificationService(notificationRepository, userRepository, mailService);
+        mailJobEnqueueHelper = mock(MailJobEnqueueHelper.class);
+        service = new NotificationService(notificationRepository, userRepository, mailJobEnqueueHelper);
     }
 
     // ── create ─────────────────────────────────────────────────────────
@@ -65,57 +66,55 @@ class NotificationServiceTest {
     }
 
     @Test
-    void create_does_not_send_email_for_non_whitelisted_type() {
+    void create_does_not_enqueue_email_for_non_whitelisted_type() {
         stubSave(NotificationType.CLASS_ENROLLED, NotificationType.REF_CLASS, 1L);
 
         service.create(USER_ID, "T", "B", NotificationType.CLASS_ENROLLED,
                 NotificationType.REF_CLASS, 1L);
 
-        // CLASS_ENROLLED is NOT in EMAIL_TYPES — no email should be sent.
-        verify(mailService, never()).send(anyString(), anyString(), anyString());
+        verify(mailJobEnqueueHelper, never()).enqueueAfterCommit(any());
     }
 
     @Test
-    void create_sends_email_for_lesson_published_type() {
-        Notification saved = stubSave(NotificationType.LESSON_PUBLISHED,
-                NotificationType.REF_LESSON, 5L);
-        User user = user("student@ulp.edu.vn");
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(mailService.send(eq("student@ulp.edu.vn"), anyString(), anyString()))
-                .thenReturn(true);
+    void create_does_not_enqueue_email_for_lesson_published() {
+        // LESSON_PUBLISHED is intentionally in-app only so publish stays fast.
+        stubSave(NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
 
         service.create(USER_ID, "Bài mới", "Nội dung",
                 NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
 
-        verify(mailService).send(eq("student@ulp.edu.vn"), anyString(), anyString());
-        // saved twice: once for persist, once to flip is_email_sent=true.
-        verify(notificationRepository, times(2)).save(any(Notification.class));
+        verify(mailJobEnqueueHelper, never()).enqueueAfterCommit(any());
     }
 
     @Test
-    void create_does_not_flip_email_sent_when_mail_fails() {
-        stubSave(NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
-        User user = user("fail@ulp.edu.vn");
+    void create_enqueues_email_for_assignment_published_type() {
+        stubSave(NotificationType.ASSIGNMENT_PUBLISHED,
+                NotificationType.REF_ASSIGNMENT, 5L);
+        User user = user("student@ulp.edu.vn");
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        // Mail send returns false → SMTP not configured or rejected.
-        when(mailService.send(anyString(), anyString(), anyString())).thenReturn(false);
 
-        service.create(USER_ID, "T", "B",
-                NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
+        service.create(USER_ID, "Bài tập mới", "Nội dung",
+                NotificationType.ASSIGNMENT_PUBLISHED, NotificationType.REF_ASSIGNMENT, 5L);
 
-        // Only the initial persist save; no second save for is_email_sent.
-        verify(notificationRepository, times(1)).save(any(Notification.class));
+        ArgumentCaptor<MailJob> captor = ArgumentCaptor.forClass(MailJob.class);
+        verify(mailJobEnqueueHelper).enqueueAfterCommit(captor.capture());
+        MailJob job = captor.getValue();
+        assertThat(job.to()).isEqualTo("student@ulp.edu.vn");
+        assertThat(job.subject()).isEqualTo("[ULP] Bài tập mới");
+        assertThat(job.body()).isEqualTo("Nội dung");
+        assertThat(job.notificationId()).isEqualTo(NOTIF_ID);
+        assertThat(job.source()).isEqualTo(NotificationType.ASSIGNMENT_PUBLISHED);
     }
 
     @Test
-    void create_does_not_send_email_when_user_not_found() {
-        stubSave(NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
+    void create_does_not_enqueue_email_when_user_not_found() {
+        stubSave(NotificationType.ASSIGNMENT_PUBLISHED, NotificationType.REF_ASSIGNMENT, 5L);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
         service.create(USER_ID, "T", "B",
-                NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
+                NotificationType.ASSIGNMENT_PUBLISHED, NotificationType.REF_ASSIGNMENT, 5L);
 
-        verify(mailService, never()).send(anyString(), anyString(), anyString());
+        verify(mailJobEnqueueHelper, never()).enqueueAfterCommit(any());
     }
 
     // ── markRead ──────────────────────────────────────────────────────
@@ -143,13 +142,11 @@ class NotificationServiceTest {
 
         service.markRead(USER_ID, NOTIF_ID);
 
-        // Already read — no save needed.
         verify(notificationRepository, never()).save(any());
     }
 
     @Test
     void markRead_is_silent_no_op_for_foreign_or_absent_notification() {
-        // findByIdAndUserId returns empty when the id is foreign or absent.
         when(notificationRepository.findByIdAndUserId(NOTIF_ID, USER_ID))
                 .thenReturn(Optional.empty());
 
@@ -213,7 +210,6 @@ class NotificationServiceTest {
         when(notificationRepository.findByUserIdOrderByCreatedAtDesc(eq(USER_ID), any(Pageable.class)))
                 .thenReturn(page);
 
-        // Should not throw; negative page is coerced to 0 inside the service.
         assertThat(service.listForUser(USER_ID, -5)).isNotNull();
     }
 
@@ -231,13 +227,12 @@ class NotificationServiceTest {
 
     private Notification unreadNotificationOf(String type, String refType, Long refId) {
         Notification n = new Notification(USER_ID, "Title", "Body", type, refType, refId);
-        // Simulate a persisted id.
         try {
             var f = Notification.class.getDeclaredField("id");
             f.setAccessible(true);
             f.set(n, NOTIF_ID);
         } catch (Exception ignored) {
-            // Reflection best-effort; id may be null in some assertions but entity equality still works.
+            // Reflection best-effort.
         }
         return n;
     }

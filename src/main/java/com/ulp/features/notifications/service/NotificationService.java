@@ -1,7 +1,8 @@
 package com.ulp.features.notifications.service;
 
 import com.ulp.features.auth.repository.UserRepository;
-import com.ulp.features.mail.MailService;
+import com.ulp.features.mail.job.MailJob;
+import com.ulp.features.mail.job.MailJobEnqueueHelper;
 import com.ulp.features.notifications.dto.NotificationDtos.NotificationRow;
 import com.ulp.features.notifications.entity.Notification;
 import com.ulp.features.notifications.entity.NotificationType;
@@ -17,12 +18,18 @@ import java.time.LocalDateTime;
 /**
  * Application service for in-app notifications (Sprint 5, #63/#64).
  *
- * <p>Owns creation (with best-effort email for whitelisted types), listing,
- * unread-count, and owner-scoped mark-read. Entities never leak past this layer.
+ * <p>Owns creation (with optional background email for whitelisted types),
+ * listing, unread-count, and owner-scoped mark-read. Entities never leak
+ * past this layer.
  *
- * <p>Email delivery is best-effort and synchronous: the row is persisted first;
- * a mail failure never prevents the in-app notification from appearing.
- * {@code is_email_sent} is set only when delivery actually succeeds.
+ * <p><b>Email policy.</b> Types in {@link NotificationType#EMAIL_TYPES} do
+ * <em>not</em> call SMTP on the request thread. After the notification row is
+ * saved, a {@link MailJob} is enqueued via {@link MailJobEnqueueHelper}
+ * (after-commit). The dedicated mail worker delivers it and flips
+ * {@code is_email_sent} on success. See {@code .claude/rules/mail-job-queue.md}.
+ *
+ * <p>Critical transactional mail that is not a notification (password reset,
+ * admin test-send) still uses {@code MailService} directly and stays sync.
  */
 @Service
 public class NotificationService {
@@ -32,24 +39,23 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
-    private final MailService mailService;
+    private final MailJobEnqueueHelper mailJobEnqueueHelper;
 
     public NotificationService(NotificationRepository notificationRepository,
                                UserRepository userRepository,
-                               MailService mailService) {
+                               MailJobEnqueueHelper mailJobEnqueueHelper) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
-        this.mailService = mailService;
+        this.mailJobEnqueueHelper = mailJobEnqueueHelper;
     }
 
     // ── Creation ────────────────────────────────────────────────────────
 
     /**
      * Persists a new notification and, when the type is email-whitelisted
-     * ({@link NotificationType#EMAIL_TYPES}), sends a best-effort email to the
-     * recipient. {@code is_email_sent} is set only on successful delivery.
+     * ({@link NotificationType#EMAIL_TYPES}), enqueues a background email.
      *
-     * <p>Email failure or unconfigured SMTP does NOT prevent persistence.
+     * <p>Queue full / missing recipient email does NOT prevent persistence.
      *
      * @param userId        the recipient's user id
      * @param title         short notification title (Vietnamese UI text)
@@ -66,19 +72,32 @@ public class NotificationService {
                 type, referenceType, referenceId);
         Notification saved = notificationRepository.save(notification);
 
-        // Best-effort email for whitelisted types only.
         if (NotificationType.EMAIL_TYPES.contains(type)) {
-            userRepository.findById(userId).ifPresent(user -> {
-                String subject = "[ULP] " + title;
-                boolean sent = mailService.send(user.getEmail(), subject, content);
-                if (sent) {
-                    saved.setEmailSent(true);
-                    notificationRepository.save(saved);
-                }
-            });
+            enqueueEmail(userId, title, content, saved.getId(), type);
         }
 
         return saved;
+    }
+
+    /**
+     * Looks up the recipient email and schedules a {@link MailJob} after commit.
+     * Missing user / blank email is a silent no-op (in-app row already exists).
+     */
+    private void enqueueEmail(Long userId, String title, String content,
+                              Long notificationId, String type) {
+        userRepository.findById(userId).ifPresent(user -> {
+            String email = user.getEmail();
+            if (email == null || email.isBlank()) {
+                return;
+            }
+            mailJobEnqueueHelper.enqueueAfterCommit(
+                    MailJob.forNotification(
+                            email,
+                            "[ULP] " + title,
+                            content,
+                            notificationId,
+                            type));
+        });
     }
 
     // ── Listing ──────────────────────────────────────────────────────────
