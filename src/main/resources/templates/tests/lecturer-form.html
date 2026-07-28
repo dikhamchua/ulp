@@ -1,5 +1,6 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head(${mode == 'create' ? 'Soạn bài test' : test.title()}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
@@ -232,7 +233,9 @@
           <p class="lf-media-hint">Giảng viên trong cùng bộ môn cộng tác câu hỏi vào ngân hàng chung của bộ môn, HEAD duyệt. Phần này chèn snapshot từ các câu đã được duyệt của bộ môn vào bài test.</p>
         </div>
         <div class="lf-panel-actions">
-          <a th:if="${mode == 'edit'}" class="tst-btn" th:href="@{/lecturer/question-bank}">Mở ngân hàng câu hỏi</a>
+          <!-- Hidden for ADMIN: the bank is department-scoped and admin has no department. -->
+          <a th:if="${mode == 'edit'}" sec:authorize="hasAnyRole('LECTURER','HEAD')"
+             class="tst-btn" th:href="@{/lecturer/question-bank}">Mở ngân hàng câu hỏi</a>
           <button type="button" class="tst-btn" id="lfOpenBankPicker" th:if="${mode == 'edit'}">+ Chọn câu đã duyệt</button>
           <button type="button" class="tst-btn" id="lfOpenAiGen" th:if="${mode == 'edit'}">Sinh câu hỏi bằng AI</button>
           <button type="button" class="tst-btn" id="lfAddQuestion">+ Thêm câu hỏi</button>

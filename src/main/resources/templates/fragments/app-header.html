@@ -31,8 +31,11 @@
        th:href="@{/lecturer/classes}" th:classappend="${active == 'classes'} ? 'active'">Lớp học</a>
     <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
        th:href="@{/lecturer/library}" th:classappend="${active == 'library'} ? 'active'">Kho học liệu</a>
-    <!-- Lecturer contribution entry to the department-scoped shared question bank. -->
-    <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
+    <!-- Lecturer contribution entry to the department-scoped shared question bank.
+         ADMIN is excluded on purpose: the bank is scoped to a department and the
+         admin account belongs to none, so the link would only ever lead to an
+         empty state. -->
+    <a sec:authorize="hasAnyRole('LECTURER','HEAD')"
        th:href="@{/lecturer/question-bank}" th:classappend="${active == 'question-bank'} ? 'active'">Ngân hàng câu hỏi</a>
     <a sec:authorize="hasRole('HEAD')"
        th:href="@{/head}" th:classappend="${active == 'head'} ? 'active'">Bộ môn</a>
