@@ -147,19 +147,35 @@ Migrations hiện có:
 | `HEAD` | Trưởng bộ môn | mọi quyền của LECTURER + duyệt content version |
 | `ADMIN` | Quản trị hệ thống | toàn bộ — `/admin/**` |
 
-Hằng số role dùng `com.ulp.auth.Roles.*`. SpEL constants có sẵn:
+Hằng số role dùng `com.ulp.security.Roles.*`. SpEL constants có sẵn:
 - `Roles.LECTURER_OR_ABOVE` → `'LECTURER','HEAD','ADMIN'`
 - `Roles.PREAUTH_LECTURER_OR_ABOVE` → `hasAnyRole('LECTURER','HEAD','ADMIN')`
 
 ### URL protection (xem `SecurityConfig.java`)
 
 ```
-permitAll  : /css/**, /js/**, /images/**, /fonts/**, /uploads/**,
-             /login, /forgot-password, /reset-password
+permitAll  : /css/**, /js/**, /images/**, /fonts/**, /uploads/**, /webjars/**,
+             /login, /forgot-password, /reset-password, /public/view/**
 LECTURER+  : /lecturer/**
+HEAD       : /head/**
 ADMIN      : /admin/**
 authenticated : everything else
 ```
+
+### Phân quyền hai tầng — LUÔN kiểm tra cả hai
+
+URL protection + `@PreAuthorize` chỉ là **tầng 1** (ai vào được endpoint).
+Dữ liệu có chủ sở hữu (bộ môn / lớp / owner) cần **tầng 2** — các
+`*AccessPolicy` / `*Resolver` / `*Guard` ở tầng service quyết định người đó
+được đụng vào *dòng dữ liệu nào*.
+
+Tầng 1 pass **không** đồng nghĩa an toàn: `PREAUTH_LECTURER_OR_ABOVE` cho cả
+ADMIN vào, nhưng ADMIN không có `department_id` nên bị tầng 2 chặn. Ẩn link
+bằng `sec:authorize` là UX, **không phải** phân quyền — URL vẫn gõ tay được.
+
+Checklist đầy đủ + cách kiểm chứng bằng test:
+`.claude/rules/authorization-check.md`. **Bắt buộc chạy checklist đó mỗi khi
+thêm/sửa endpoint, `@PreAuthorize`, `sec:authorize`, hoặc query có scope.**
 
 ### Auth flow
 
@@ -409,6 +425,15 @@ Lane phổ biến cho ULP:
   được đặc cách (xem decision 0008) và Google OAuth được đặc cách (xem
   decision 0009, do credentials đã chuyển sang DB-backed registration)
 - ❌ Bypass Spring Security bằng cách permit URL không cần thiết
+- ❌ Coi `@PreAuthorize` là đủ cho dữ liệu có chủ sở hữu (bộ môn/lớp/owner) —
+  luôn cần thêm tầng 2 qua `*AccessPolicy` / `*Resolver` / `*Guard`
+  (xem `.claude/rules/authorization-check.md`)
+- ❌ Ẩn link bằng `sec:authorize` rồi coi như đã phân quyền xong — URL vẫn gõ
+  tay được, phải chặn ở tầng 1/2
+- ❌ Để role qua được tầng 1 nhưng thiếu scope rơi vào catch-all 500 — phải ra
+  empty state / 403 / 404
+- ❌ Kết luận "luồng ghi đã bị chặn" chỉ dựa vào status code — POST vẫn có thể
+  trả 200 khi render lại form kèm lỗi; phải assert bằng số dòng DB
 - ❌ Auto-create file markdown summary/notes nếu user không yêu cầu
 - ❌ Dùng `@Data` trên JPA entity (gây vòng lặp equals/hashCode)
 - ❌ Trả entity trực tiếp từ controller — phải qua DTO
