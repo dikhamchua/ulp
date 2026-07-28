@@ -588,6 +588,82 @@ class Sprint8AiSettingsIntegrationTest {
         mockServer.verify();
     }
 
+    /**
+     * A 429 reported inside an HTTP 200 body must fall through like a real 429 status.
+     *
+     * <p>Some OpenAI-compatible gateways absorb the upstream rejection and answer
+     * {@code 200 OK} with {@code finish_reason: "error"} and an {@code error} object on the
+     * choice instead of setting an error status. Without the embedded-error check the client
+     * would read a missing {@code message} field, or an empty reply, and report success —
+     * the caller would get nothing back and the healthy provider below would never be tried.
+     *
+     * <p>The failing stub carries a well-formed {@code message.content} alongside the error
+     * object, which is what makes this test load-bearing. Had it omitted {@code message},
+     * a client that ignored the embedded error would still fall through — on the unrelated
+     * "missing message field" path — and the assertion would pass for the wrong reason.
+     * With usable content present, only the embedded-error check can advance the chain.
+     */
+    @Test
+    void embedded_429_in_a_200_body_continues_the_chain_to_the_next_provider() {
+        persist("FlakyProvider", true, FIRST_URL);
+        persist("HealthyProvider", true, SECOND_URL);
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
+        AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
+
+        mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
+                .andRespond(withSuccess("{\"choices\":[{\"finish_reason\":\"error\","
+                                + "\"error\":{\"code\":429,\"message\":\"rate limited\"},"
+                                + "\"message\":{\"content\":\"partial junk\"}}]}",
+                        MediaType.APPLICATION_JSON));
+        mockServer.expect(ExpectedCount.once(), requestTo(SECOND_URL + "/chat/completions"))
+                .andRespond(withSuccess("{\"choices\":[{\"message\":{\"content\":\"pong\"}}]}",
+                        MediaType.APPLICATION_JSON));
+
+        // The reply comes from the second provider, proving the chain advanced rather than
+        // returning the first provider's empty answer.
+        assertThat(client.chat("hello", 5)).isEqualTo("pong");
+
+        mockServer.verify();
+    }
+
+    /**
+     * A 400 reported inside an HTTP 200 body must halt the chain like a real 400 status.
+     *
+     * <p>Mirrors {@link #permanent_401_halts_the_chain_and_never_contacts_the_next_provider}
+     * for the embedded case: a malformed request is not fixed by a different endpoint, so
+     * replaying it down the chain would only multiply the same rejection. The canary must
+     * never be contacted.
+     */
+    @Test
+    void embedded_400_in_a_200_body_halts_the_chain_and_never_contacts_the_next_provider() {
+        persist("BadKeyProvider", true, FIRST_URL);
+        persist(CANARY, true, SECOND_URL);
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
+        AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
+
+        // Only one request is programmed; a call to the canary would have no expectation
+        // left and verify() below re-checks the recorded count.
+        mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
+                .andRespond(withSuccess("{\"choices\":[{\"finish_reason\":\"error\","
+                                + "\"error\":{\"code\":400,\"message\":\"bad request\"},"
+                                + "\"message\":{\"content\":\"partial junk\"}}]}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.chat("hello", 5))
+                .isInstanceOf(AiClientException.class)
+                .hasMessageContaining("BadKeyProvider")
+                // The embedded detail is surfaced, not swallowed into a generic message.
+                .hasMessageContaining("400")
+                // The decisive assertion: the chain stopped before the second provider.
+                .hasMessageNotContaining(CANARY);
+
+        mockServer.verify();
+    }
+
     // ───────── Request logging ───────────────────────────────────────
     // Full row-level logging assertions live in Sprint8AiRequestLoggingIntegrationTest,
     // which must run without an enclosing transaction. See that class for why.
