@@ -39,4 +39,17 @@ public interface AiSystemPromptRepository extends JpaRepository<AiSystemPrompt, 
      * @return the matching prompt, or empty when the name is free
      */
     Optional<AiSystemPrompt> findByName(String name);
+
+    /**
+     * Looks up an enabled prompt by name, for the feature screens that steer a model with
+     * a stored instruction block.
+     *
+     * <p>Disabled rows are excluded here rather than filtered by the caller: an admin who
+     * turns a prompt off expects the feature to stop using it, and the caller should treat
+     * "disabled" exactly like "absent" — falling back to its own built-in instruction.
+     *
+     * @param name the prompt name to look for
+     * @return the matching enabled prompt, or empty when it is missing or switched off
+     */
+    Optional<AiSystemPrompt> findByNameAndEnabledTrue(String name);
 }

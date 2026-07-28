@@ -103,6 +103,14 @@
 			<version>5.2.5</version>
 		</dependency>
 
+		<!-- PDFBox: plain-text extraction from uploaded PDF lecture notes (ULP-12.2).
+		     Version pinned because the Spring Boot BOM does not manage PDFBox. -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>3.0.3</version>
+		</dependency>
+
 		<!-- Jsoup: HTML sanitiser for Lesson rich-text body (ULP-4.0b) -->
 		<dependency>
 			<groupId>org.jsoup</groupId>

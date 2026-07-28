@@ -22,8 +22,14 @@
        box + class nav. No class nav item maps to the tests screen, so no
        entry is highlighted (empty activeTab). Create mode has no class yet,
        so the layout collapses to a single full-width column. -->
-  <aside th:if="${mode == 'edit' and clazz != null}"
-         th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, '')}"></aside>
+  <!-- th:if must live on an OUTER element, not the same tag as th:replace:
+       th:replace has higher precedence (order 1) than th:if (order 3), so the
+       fragment would resolve even when the condition is false, calling
+       classSidebar(null) on the create screen (no clazz in model) and crashing
+       on ${clazz.name}. The th:block gate prevents that. -->
+  <th:block th:if="${mode == 'edit' and clazz != null}">
+    <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, '')}"></aside>
+  </th:block>
 
   <main class="col detail-page lf-page">
 
@@ -84,6 +90,8 @@
                    data-image-url=@{/lecturer/tests/images},
                    data-bank-search-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/search'} : '',
                    data-bank-insert-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/insert'} : '',
+                   data-ai-generate-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/ai-questions/generate'} : '',
+                   data-ai-confirm-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/ai-questions/confirm'} : '',
                    data-edit-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/edit'} : ''"
           data-lf-mounted="0">
     <!-- Exam payload for the builder to hydrate from. Lives inside #tabPanel so
@@ -226,6 +234,7 @@
         <div class="lf-panel-actions">
           <a th:if="${mode == 'edit'}" class="tst-btn" th:href="@{/lecturer/question-bank}">Mở ngân hàng câu hỏi</a>
           <button type="button" class="tst-btn" id="lfOpenBankPicker" th:if="${mode == 'edit'}">+ Chọn câu đã duyệt</button>
+          <button type="button" class="tst-btn" id="lfOpenAiGen" th:if="${mode == 'edit'}">Sinh câu hỏi bằng AI</button>
           <button type="button" class="tst-btn" id="lfAddQuestion">+ Thêm câu hỏi</button>
         </div>
       </div>
@@ -245,6 +254,43 @@
         </div>
         <div class="lf-bank-state" id="lfBankState">Nhập từ khoá hoặc chọn danh mục để tải các câu đã được duyệt của ngân hàng bộ môn.</div>
         <div class="lf-bank-results" id="lfBankResults"></div>
+      </section>
+
+      <!-- AI question generator (ULP-12.2). Preview only: nothing is written to
+           the exam until the lecturer ticks questions and confirms. -->
+      <section class="lf-bank-picker lf-ai-panel" id="lfAiGenPanel" th:if="${mode == 'edit'}" hidden>
+        <p class="lf-media-hint">Tải lên tài liệu PDF/DOCX hoặc dán nội dung bài giảng, AI sẽ đề xuất câu hỏi. Chọn những câu muốn giữ rồi nhấn "Chèn câu đã chọn".</p>
+        <div class="lf-ai-inputs">
+          <label class="lf-label" for="lfAiText">Nội dung tài liệu</label>
+          <textarea class="lf-input lf-ai-text" id="lfAiText" rows="6"
+                    placeholder="Dán nội dung bài giảng vào đây (bỏ qua nếu đã tải file)"></textarea>
+          <label class="lf-label" for="lfAiFile">Hoặc tải file (PDF, DOCX — tối đa 10 MB)</label>
+          <input class="lf-input" id="lfAiFile" type="file" accept=".pdf,.docx">
+        </div>
+        <div class="lf-bank-toolbar">
+          <select class="lf-input" id="lfAiCount" aria-label="Số câu hỏi">
+            <option value="3">3 câu</option>
+            <option value="5" selected>5 câu</option>
+            <option value="10">10 câu</option>
+          </select>
+          <select class="lf-input" id="lfAiType" aria-label="Loại câu hỏi">
+            <option value="MCQ" selected>Một đáp án đúng</option>
+            <option value="MR">Nhiều đáp án đúng</option>
+          </select>
+          <select class="lf-input" id="lfAiDifficulty" aria-label="Độ khó">
+            <option value="easy">Dễ</option>
+            <option value="medium" selected>Trung bình</option>
+            <option value="hard">Khó</option>
+          </select>
+          <button type="button" class="tst-btn tst-btn-primary" id="lfAiGenerate">Sinh câu hỏi</button>
+          <button type="button" class="tst-btn" id="lfAiClose">Đóng</button>
+        </div>
+        <div class="lf-bank-state" id="lfAiState">Nhập tài liệu rồi nhấn "Sinh câu hỏi".</div>
+        <div class="lf-bank-results" id="lfAiResults"></div>
+        <div class="lf-ai-confirm" id="lfAiConfirmBar" hidden>
+          <button type="button" class="tst-btn" id="lfAiSelectAll">Chọn tất cả</button>
+          <button type="button" class="tst-btn tst-btn-primary" id="lfAiConfirm">Chèn câu đã chọn</button>
+        </div>
       </section>
 
       <div id="lfQuestions" class="lf-questions"></div>
@@ -423,6 +469,7 @@
 <script th:src="@{/js/test-lecturer-form-builder.js}"></script>
 <script th:src="@{/js/test-lecturer-form-mode.js}"></script>
 <script th:src="@{/js/test-lecturer-form.js}"></script>
+<script th:src="@{/js/test-lecturer-ai-questions.js}"></script>
 <script th:src="@{/js/test-monitor.js}"></script>
 <script th:src="@{/js/test-detail-tabs.js}"></script>
 </body>

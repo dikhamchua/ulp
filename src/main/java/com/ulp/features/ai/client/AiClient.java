@@ -47,7 +47,13 @@ public class AiClient {
     private static final Logger log = LoggerFactory.getLogger(AiClient.class);
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+    /**
+     * Reasoning models need far longer to answer than the connect handshake does.
+     * A trivial one-turn prompt against grok-4.5 measured 20-22s, and the budget scales
+     * with {@code max_tokens} (roughly 400 per generated question), so a 30s ceiling
+     * aborted calls that were still progressing normally.
+     */
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(60);
 
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
 
@@ -138,6 +144,30 @@ public class AiClient {
      * @return the assistant reply from the first provider that answered successfully
      */
     public String chat(String userMessage, int maxTokens, Long userId) {
+        return chat(null, userMessage, maxTokens, userId, AiRequestLogger.SOURCE_CHAT);
+    }
+
+    /**
+     * Sends a system+user pair through the fallback chain, tagging the logged attempts
+     * with what triggered them.
+     *
+     * <p>Feature entry point for callers that steer the model with a stored system prompt
+     * (see {@code ai_system_prompts}). A blank or {@code null} system prompt degrades to a
+     * single {@code user} turn, so this method behaves identically to
+     * {@link #chat(String, int, Long)} when no instruction block is supplied.
+     *
+     * @param systemPrompt the instruction block sent as the {@code system} turn, or
+     *                     {@code null}/blank to omit it entirely
+     * @param userMessage  the message sent as the {@code user} turn
+     * @param maxTokens    upper bound on the generated response length
+     * @param userId       the acting user recorded on each log row, or {@code null}
+     * @param source       what triggered the call, e.g. {@code QUESTION_GEN}
+     * @return the assistant reply from the first provider that answered successfully
+     * @throws AiClientException when no provider is enabled, a provider rejects the
+     *                           request permanently, or every provider failed
+     */
+    public String chat(String systemPrompt, String userMessage, int maxTokens, Long userId,
+                       String source) {
         List<AiProvider> providers = repository.findEnabledOrdered();
         if (providers.isEmpty()) {
             throw new AiClientException(MSG_NOT_CONFIGURED);
@@ -146,8 +176,8 @@ public class AiClient {
         List<String> failures = new ArrayList<>();
         for (AiProvider provider : providers) {
             try {
-                return callProvider(provider, userMessage, maxTokens,
-                        AiRequestLogger.SOURCE_CHAT, userId).content();
+                return callProvider(provider, buildMessages(systemPrompt, userMessage),
+                        maxTokens, source, userId).content();
             } catch (PermanentProviderException e) {
                 // A rejected credential or a malformed request is not fixed by another
                 // endpoint — stop the chain instead of burning quota on the rest.
@@ -189,28 +219,55 @@ public class AiClient {
      */
     public String callOne(AiProvider provider, String userMessage, int maxTokens,
                           String source, Long userId) {
-        return callProvider(provider, userMessage, maxTokens, source, userId).content();
+        return callProvider(provider, buildMessages(null, userMessage), maxTokens,
+                source, userId).content();
     }
 
     // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Builds the OpenAI-compatible {@code messages} array for one turn.
+     *
+     * <p>The {@code system} entry is emitted only when an instruction block was supplied.
+     * Sending an empty system turn is not equivalent to sending none — some providers
+     * reject a blank content field, and others count it as a real instruction that
+     * silently dilutes the user message.
+     *
+     * @param systemPrompt the instruction block, or {@code null}/blank to omit
+     * @param userMessage  the user turn content
+     * @return one or two message maps, system first
+     */
+    private static List<Map<String, Object>> buildMessages(String systemPrompt, String userMessage) {
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            return List.of(Map.of("role", "user", "content", userMessage));
+        }
+        return List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userMessage));
+    }
 
     /**
      * Performs one chat completion call against a single provider and records the
      * attempt in {@code ai_request_logs}, whether it succeeded or failed.
      *
      * <p>Exactly one log row is written per invocation. Failures are logged and then
-     * rethrown unchanged, so the fallback policy in {@link #chat(String, int, Long)} is
-     * unaffected by the logging.
+     * rethrown unchanged, so the fallback policy in
+     * {@link #chat(String, String, int, Long, String)} is unaffected by the logging.
      *
      * @throws PermanentProviderException when the provider rejects the request in a way
      *                                    that another provider could not resolve
      */
-    private AiResult callProvider(AiProvider provider, String userMessage, int maxTokens,
-                                  String source, Long userId) {
+    private AiResult callProvider(AiProvider provider, List<Map<String, Object>> messages,
+                                  int maxTokens, String source, Long userId) {
+        // "stream" defaults to false per the OpenAI spec, but some self-hosted gateways only
+        // honour it when sent explicitly and otherwise label a plain JSON body as
+        // text/event-stream — which leaves RestClient without a matching message converter.
+        // Sending the flag and an explicit Accept header pins the response to JSON.
         Map<String, Object> payload = Map.of(
                 "model", provider.getModel(),
                 "max_tokens", maxTokens,
-                "messages", List.of(Map.of("role", "user", "content", userMessage))
+                "stream", false,
+                "messages", messages
         );
 
         long startedAt = System.nanoTime();
@@ -218,6 +275,7 @@ public class AiClient {
             Map<?, ?> body = restClient.post()
                     .uri(normalizeBaseUrl(provider.getBaseUrl()) + CHAT_COMPLETIONS_PATH)
                     .header("Authorization", "Bearer " + provider.getApiKey())
+                    .accept(MediaType.APPLICATION_JSON)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(payload)
                     .exchange((request, response) -> {
@@ -265,7 +323,6 @@ public class AiClient {
     }
 
     /** Pulls {@code choices[0].message.content} out of an OpenAI-compatible response. */
-    @SuppressWarnings("unchecked")
     private static String extractContent(Map<?, ?> body) {
         if (body == null) {
             throw new TransientProviderException("Phản hồi rỗng");
@@ -278,12 +335,50 @@ public class AiClient {
         if (!(first instanceof Map<?, ?> choice)) {
             throw new TransientProviderException("Phản hồi có định dạng không mong đợi");
         }
+        failOnEmbeddedError(choice);
         Object message = choice.get("message");
         if (!(message instanceof Map<?, ?> msg)) {
             throw new TransientProviderException("Phản hồi thiếu trường 'message'");
         }
         Object content = msg.get("content");
         return content == null ? "" : content.toString();
+    }
+
+    /**
+     * Rejects a choice that carries a provider failure inside an HTTP 200 response.
+     *
+     * <p>OpenAI-compatible gateways report an upstream failure two ways. A transport-level
+     * rejection arrives as an error status and is handled by {@link #classify}, but a
+     * failure the gateway itself absorbed comes back as {@code 200 OK} with
+     * {@code finish_reason: "error"} and an {@code error} object on the choice. Without this
+     * check the caller would receive an empty reply, the attempt would be logged as a
+     * success, and the fallback chain would never advance to the next provider.
+     *
+     * <p>The nested {@code error.code} drives the same transient/permanent split as a real
+     * status line, so a 429 or 5xx reported this way still lets the chain fall through.
+     *
+     * @param choice the first element of the {@code choices} array
+     * @throws TransientProviderException when the embedded code is 429 or 5xx
+     * @throws PermanentProviderException for any other embedded error
+     */
+    private static void failOnEmbeddedError(Map<?, ?> choice) {
+        Object error = choice.get("error");
+        boolean finishedWithError = "error".equals(choice.get("finish_reason"));
+        if (!finishedWithError && !(error instanceof Map<?, ?>)) {
+            return;
+        }
+
+        Map<?, ?> details = (error instanceof Map<?, ?> map) ? map : Map.of();
+        Integer code = toInteger(details.get("code"));
+        Object message = details.get("message");
+        String detail = "Provider báo lỗi"
+                + (code == null ? "" : " (code " + code + ")")
+                + (message == null ? "" : ": " + message);
+
+        if (code != null && (code == HTTP_TOO_MANY_REQUESTS || (code >= 500 && code <= 599))) {
+            throw new TransientProviderException(detail);
+        }
+        throw new PermanentProviderException(detail);
     }
 
     /**
