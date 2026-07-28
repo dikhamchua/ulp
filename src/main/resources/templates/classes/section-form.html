@@ -17,8 +17,7 @@
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
-<!-- Flash drain: surfaces server-flashed messages (success/error) as toasts
-     via class-detail.js. -->
+<!-- Flash payload — drained into UlpToast by notifications.js (app-header). -->
 <span id="flash-data"
       th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
       style="display:none;"></span>

@@ -9,15 +9,10 @@
 (function () {
   'use strict';
 
-  // Drain flash payload (e.g. progress-toggle result) into a toast.
-  document.addEventListener('DOMContentLoaded', function () {
-    var flash = document.getElementById('flash-data');
-    if (!flash || !window.UlpToast) return;
-    var ok = flash.getAttribute('data-flash-success');
-    var err = flash.getAttribute('data-flash-error');
-    if (ok) window.UlpToast.success(ok);
-    if (err) window.UlpToast.error(err);
-  });
+  // NOTE: Do NOT drain the flash payload here. notifications.js (loaded by
+  // fragments/app-header.html) is the single owner of the flash→toast drain.
+  // A second drain in a page script fires a duplicate toast — see
+  // .claude/rules/flash-toast-drain.md
 
   document.addEventListener('click', function (e) {
     var trigger = e.target.closest('[data-action="leave-class"]');

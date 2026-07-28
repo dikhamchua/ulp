@@ -1,12 +1,12 @@
-/* HEAD department screens — flash → toast drain.
-   The data-flash-drained guard is shared with question-bank.js so pages that
-   load both scripts drain the flash only once. */
+/* HEAD department screens — page behaviour.
+ *
+ * NOTE: Do NOT drain the flash payload here. notifications.js (loaded by
+ * fragments/app-header.html) is the single owner of the flash→toast drain.
+ * A second drain in a page script fires a duplicate toast — see
+ * .claude/rules/flash-toast-drain.md
+ *
+ * This file intentionally has no behaviour left; it is kept so the templates'
+ * script tags stay valid and future HEAD-only behaviour has a home. */
 (function () {
   'use strict';
-  var flashData = document.getElementById('flash-data');
-  if (flashData && !flashData.dataset.flashDrained && window.UlpToast) {
-    flashData.dataset.flashDrained = '1';
-    if (flashData.dataset.flashSuccess) window.UlpToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError) window.UlpToast.error(flashData.dataset.flashError);
-  }
 })();

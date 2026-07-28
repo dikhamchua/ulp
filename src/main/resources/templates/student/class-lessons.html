@@ -13,7 +13,7 @@
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <main class="student-lessons-shell">
-  <!-- Flash payload drained into UlpToast by student-lesson-nav.js. -->
+  <!-- Flash payload — drained into UlpToast by notifications.js (app-header). -->
   <div id="flash-data"
        th:if="${flashSuccess != null or flashError != null}"
        th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"

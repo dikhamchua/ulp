@@ -1,17 +1,11 @@
-/* Question bank screens — auto-submit toggle switches + flash → toast drain. */
+/* Question bank screens — auto-submit toggle switches + category modal. */
 (function () {
   'use strict';
 
-  // Flash → toast drain. Lecturer pages (list/detail/form) do not load
-  // head-department.js, so the drain must live here too. The one-shot
-  // data-flash-drained guard keeps HEAD pages (which load both scripts) from
-  // firing the toast twice.
-  var flashData = document.getElementById('flash-data');
-  if (flashData && !flashData.dataset.flashDrained && window.UlpToast) {
-    flashData.dataset.flashDrained = '1';
-    if (flashData.dataset.flashSuccess) window.UlpToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError) window.UlpToast.error(flashData.dataset.flashError);
-  }
+  // NOTE: Do NOT drain the flash payload here. notifications.js (loaded by
+  // fragments/app-header.html) is the single owner of the flash→toast drain.
+  // A second drain in a page script fires a duplicate toast — see
+  // .claude/rules/flash-toast-drain.md
 
   // Submit the parent form when an auto-submit switch changes (no inline handler).
   document.addEventListener('change', function (event) {

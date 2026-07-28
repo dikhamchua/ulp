@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ULP — Student classes behavior
-   - Flash → toast on page load (success / error / info)
    - Leave-class menu action gated by confirm modal
    - Auto-uppercase the join-code input as the user types
    - Copy class code to clipboard
@@ -10,16 +9,10 @@
 (function () {
   'use strict';
 
-  // ── Flash → toast on page load ─────────────────────────────────────
-  var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
-    var ok = flashData.dataset.flashSuccess;
-    var err = flashData.dataset.flashError;
-    var info = flashData.dataset.flashInfo;
-    if (ok) window.UlpToast.success(ok);
-    if (err) window.UlpToast.error(err);
-    if (info) window.UlpToast.info(info);
-  }
+  // NOTE: Do NOT drain the flash payload here. notifications.js (loaded by
+  // fragments/app-header.html) is the single owner of the flash→toast drain.
+  // A second drain in a page script fires a duplicate toast — see
+  // .claude/rules/flash-toast-drain.md
 
   // ── Auto-uppercase the join code input ────────────────────────────
   var codeInput = document.getElementById('code');

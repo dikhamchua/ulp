@@ -6,12 +6,11 @@
 (function () {
   'use strict';
 
-  // Flash → toast on page load (shared pattern with admin.js / classes.js).
-  var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
-    var ok = flashData.dataset.flashSuccess;
-    var err = flashData.dataset.flashError;
-    if (ok) window.UlpToast.success(ok);
-    if (err) window.UlpToast.error(err);
-  }
+  // NOTE: Do NOT drain the flash payload here. notifications.js (loaded by
+  // fragments/app-header.html) is the single owner of the flash→toast drain.
+  // A second drain in a page script fires a duplicate toast — see
+  // .claude/rules/flash-toast-drain.md
+  //
+  // This file intentionally has no behaviour left; it is kept so the template's
+  // script tag stays valid and future dashboard-only behaviour has a home.
 })();

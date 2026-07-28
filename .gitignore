@@ -49,8 +49,11 @@ scripts/bin/harness-cli
 scripts/bin/harness-cli.exe
 .gitnexus
 
-# Agent skill files (per-developer)
-.claude/
+# Agent skill files (per-developer). Shared project rules under .claude/rules/
+# are committed so coding agents pick up the same conventions.
+.claude/*
+!.claude/rules/
+!.claude/rules/**
 .playwright-mcp/
 
 # OpenSpec (local change proposals / design artifacts)

@@ -1,19 +1,15 @@
 /* Flashcards — shared helpers (ULP-5.x).
  *
  * Provides window.FcCommon: CSRF header lookup, a UlpToast wrapper, and a JSON
- * fetch helper. Also drains #flash-data into toasts on page load so redirect
- * flash messages surface via UlpToast (per project notification rule).
+ * fetch helper.
+ *
+ * NOTE: Do NOT drain the flash payload here. notifications.js (loaded by
+ * fragments/app-header.html) is the single owner of the flash→toast drain.
+ * A second drain in a page script fires a duplicate toast — see
+ * .claude/rules/flash-toast-drain.md
  */
 (function () {
     'use strict';
-
-    function ready(fn) {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', fn);
-        } else {
-            fn();
-        }
-    }
 
     function toast(kind, message) {
         if (!message) return;
@@ -66,19 +62,6 @@
             });
     }
 
-    function drainFlash() {
-        var el = document.getElementById('flash-data');
-        if (!el) return;
-        var map = { 'data-flash-success': 'success', 'data-flash-error': 'error',
-            'data-flash-info': 'info', 'data-flash-warning': 'warning' };
-        Object.keys(map).forEach(function (attr) {
-            var val = el.getAttribute(attr);
-            if (val && val !== 'null') toast(map[attr], val);
-        });
-    }
-
     window.FcCommon = { toast: toast, csrfHeader: csrfHeader,
         postJson: postJson, postForm: postForm };
-
-    ready(drainFlash);
 })();

@@ -2,7 +2,11 @@
  * notifications.js — bell badge polling + Facebook-style dropdown panel.
  *
  * Responsibilities:
- *  1. Drain #flash-data into UlpToast when present.
+ *  1. Drain #flash-data into UlpToast when present. This file is the SINGLE
+ *     OWNER of that drain for every page that includes fragments/app-header.html.
+ *     Page scripts must never read the data-flash-* attributes themselves — a
+ *     second drain fires a duplicate toast for the same payload. Enforced by
+ *     FlashDrainSingleOwnerTest; see .claude/rules/flash-toast-drain.md.
  *  2. Poll /my/notifications/unread-count every 60s for the header badge.
  *  3. Load recent items into the bell dropdown on open.
  *  4. Open a notification via AJAX mark-read, then navigate to its target.
@@ -24,8 +28,9 @@
     var ok = el.getAttribute('data-flash-success');
     var err = el.getAttribute('data-flash-error');
     var info = el.getAttribute('data-flash-info');
-    // Mark drained first so page scripts (library.js, classes.js, …) that also
-    // read #flash-data cannot fire a second toast for the same flash payload.
+    // Mark drained first, then strip the payload attributes, so that any
+    // script running later cannot fire a second toast for the same flash.
+    // Page scripts must not drain at all — this guard is defence in depth.
     el.setAttribute('data-flash-drained', '1');
     el.removeAttribute('data-flash-success');
     el.removeAttribute('data-flash-error');

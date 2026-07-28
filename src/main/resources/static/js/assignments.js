@@ -2,30 +2,15 @@
  * Assignments feature — client-side behaviours.
  *
  * Responsibilities:
- *   1. Drain #flash-data and fire UlpToast notifications.
- *   2. Confirm dialogs for destructive/irreversible actions (publish, close).
+ *   1. Confirm dialogs for destructive/irreversible actions (publish, close).
  */
 (function () {
   'use strict';
 
-  // ── Flash → UlpToast ──────────────────────────────────────────────────
-
-  /**
-   * Reads data-flash-* attributes from #flash-data and fires UlpToast.
-   * Pattern matches admin.js and class-detail.js to stay consistent.
-   */
-  function drainFlash() {
-    var el = document.getElementById('flash-data');
-    if (!el) return;
-    var success = el.getAttribute('data-flash-success');
-    var error   = el.getAttribute('data-flash-error');
-    if (success && success.trim()) {
-      window.UlpToast && window.UlpToast.success(success.trim());
-    }
-    if (error && error.trim()) {
-      window.UlpToast && window.UlpToast.error(error.trim());
-    }
-  }
+  // NOTE: Do NOT drain the flash payload here. notifications.js (loaded by
+  // fragments/app-header.html) is the single owner of the flash→toast drain.
+  // A second drain in a page script fires a duplicate toast — see
+  // .claude/rules/flash-toast-drain.md
 
   // ── Confirm dialogs ───────────────────────────────────────────────────
 
@@ -47,7 +32,6 @@
   // ── Init ──────────────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
-    drainFlash();
     bindConfirmForms();
   });
 }());

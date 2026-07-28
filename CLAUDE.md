@@ -338,8 +338,16 @@ Xem migration để lấy email + password mẫu.
 - Pattern flash → toast: controller gọi
   `redirectAttributes.addFlashAttribute("flashSuccess"|"flashError", ...)`,
   template render `<div id="flash-data" data-flash-success=... data-flash-error=...>`,
-  page-script drain `#flash-data` và gọi `UlpToast.success(...)` /
-  `UlpToast.error(...)` (xem `admin.js`, `class-detail.js`, `login.html`).
+  và **dừng ở đó** — không viết thêm JS nào.
+- **`static/js/notifications.js` là drainer DUY NHẤT của `#flash-data`.** Nó
+  được nạp bởi `fragments/app-header.html` nên có mặt trên mọi trang dùng
+  fragment đó. Page-script TUYỆT ĐỐI không được đọc `#flash-data` để bắn
+  toast — drain thứ hai làm toast hiện 2 lần. Guard cơ học:
+  `FlashDrainSingleOwnerTest`. Chi tiết: `.claude/rules/flash-toast-drain.md`.
+- Toast từ client (kết quả AJAX) gọi thẳng `window.UlpToast.success(...)` /
+  `.error(...)`, không đi vòng qua `#flash-data`.
+- Ngoại lệ: `auth/login.html` và `auth/forgot-password.html` không nạp
+  app-header nên tự drain bằng inline script trong template.
 - Lỗi validation form (BindingResult): hiển thị inline cạnh field — KHÔNG
   đẩy ra toast (toast cho thông báo top-level, không phải lỗi field).
 - iziToast script + CSS đã load trong `fragments/head.html`. Trang nào
@@ -404,6 +412,10 @@ Lane phổ biến cho ULP:
 - ❌ Dùng inline `<div class="alert">` hoặc `alert()` native để báo thành
   công / thất bại cho user — luôn luôn dùng `UlpToast` (xem mục 9 ›
   Notifications & feedback). Field-level validation error vẫn render inline.
+- ❌ Drain `#flash-data` trong page-script (đọc `data-flash-success` /
+  `dataset.flashError` …) — `notifications.js` là drainer duy nhất, drain
+  thêm lần nữa làm toast hiện 2 lần (xem
+  `.claude/rules/flash-toast-drain.md`)
 
 ---
 
