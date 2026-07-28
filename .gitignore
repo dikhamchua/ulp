@@ -50,8 +50,10 @@ scripts/bin/harness-cli.exe
 .gitnexus
 
 # Agent skill files (per-developer). Shared project rules under .claude/rules/
-# are committed so coding agents pick up the same conventions.
+# and their index .claude/CLAUDE.md are committed so coding agents pick up the
+# same conventions.
 .claude/*
+!.claude/CLAUDE.md
 !.claude/rules/
 !.claude/rules/**
 .playwright-mcp/
