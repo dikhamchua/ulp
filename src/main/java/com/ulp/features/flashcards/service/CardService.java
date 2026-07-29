@@ -2,6 +2,7 @@ package com.ulp.features.flashcards.service;
 
 import com.ulp.features.flashcards.dto.FlashcardDtos.CardItem;
 import com.ulp.features.flashcards.dto.FlashcardDtos.CardView;
+import com.ulp.features.flashcards.dto.FlashcardDtos.ClassOption;
 import com.ulp.features.flashcards.dto.FlashcardDtos.DeckEditorView;
 import com.ulp.features.flashcards.entity.Flashcard;
 import com.ulp.features.flashcards.entity.FlashcardDeck;
@@ -32,11 +33,14 @@ public class CardService {
 
     private final FlashcardRepository cardRepository;
     private final DeckAccessResolver accessResolver;
+    private final DeckService deckService;
 
     public CardService(FlashcardRepository cardRepository,
-                       DeckAccessResolver accessResolver) {
+                       DeckAccessResolver accessResolver,
+                       DeckService deckService) {
         this.cardRepository = cardRepository;
         this.accessResolver = accessResolver;
+        this.deckService = deckService;
     }
 
     /** Editor view-model (owner-only): deck metadata + current cards. */
@@ -47,8 +51,9 @@ public class CardService {
         for (Flashcard c : cardRepository.findByDeckIdOrderBySortOrderAsc(deckId)) {
             cards.add(toView(c));
         }
+        List<ClassOption> targets = deckService.targetClasses(deckId);
         return new DeckEditorView(deck.getId(), deck.getTitle(), deck.getDescription(),
-                cards, deck.isShared(), deck.getClassId(), List.of());
+                cards, !targets.isEmpty(), targets, List.of());
     }
 
     /**

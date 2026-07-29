@@ -38,7 +38,7 @@
     <div class="fc-detail-meta">
       <span class="fc-badge" th:text="${deck.cardCount()} + ' thẻ'">0 thẻ</span>
       <span class="fc-badge fc-badge-shared" th:if="${deck.shared()}"
-            th:text="${deck.className() != null} ? 'Chia sẻ với ' + ${deck.className()} : 'Đã chia sẻ'">Đã chia sẻ</span>
+            th:text="'Chia sẻ với ' + ${#strings.listJoin(deck.targetClasses().![name()], ', ')}">Đã chia sẻ</span>
       <span class="fc-badge fc-badge-due" th:if="${dueCount > 0}"
             th:text="'Còn ' + ${dueCount} + ' thẻ đến hạn'">Đến hạn</span>
     </div>
@@ -57,18 +57,23 @@
         <h3 class="fc-section-title">Chia sẻ</h3>
         <form class="fc-share-form" th:action="@{|/my/flashcards/${deck.id()}/share|}" method="post"
               th:unless="${#lists.isEmpty(shareClasses)}">
-          <label for="shareClass">Chia sẻ bộ thẻ tới lớp:</label>
-          <select id="shareClass" name="classId">
-            <option th:each="c : ${shareClasses}" th:value="${c.id()}" th:text="${c.name()}"
-                    th:selected="${deck.classId() != null and deck.classId() == c.id()}">Lớp</option>
-          </select>
-          <button type="submit" class="fc-btn fc-btn-secondary">Chia sẻ</button>
+          <p class="fc-share-hint">Chọn các lớp được xem bộ thẻ này:</p>
+          <ul class="fc-class-checks">
+            <li th:each="c : ${shareClasses}">
+              <label class="fc-class-check">
+                <input type="checkbox" name="classIds" th:value="${c.id()}"
+                       th:checked="${deck.targetClasses().![id()].contains(c.id())}">
+                <span th:text="${c.name()}">Lớp</span>
+              </label>
+            </li>
+          </ul>
+          <button type="submit" class="fc-btn fc-btn-secondary">Lưu chia sẻ</button>
         </form>
         <p class="fc-empty" th:if="${#lists.isEmpty(shareClasses)}">
           Bạn chưa tham gia lớp nào để chia sẻ.
         </p>
         <form th:action="@{|/my/flashcards/${deck.id()}/unshare|}" method="post" th:if="${deck.shared()}">
-          <button type="submit" class="fc-btn fc-btn-ghost">Ngừng chia sẻ (chuyển về riêng tư)</button>
+          <button type="submit" class="fc-btn fc-btn-ghost">Ngừng chia sẻ với mọi lớp</button>
         </form>
       </div>
     </div>

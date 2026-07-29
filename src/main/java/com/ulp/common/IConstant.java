@@ -326,8 +326,8 @@ public interface IConstant {
     String MSG_DECK_CREATED    = "Đã tạo bộ thẻ";
     String MSG_DECK_UPDATED    = "Đã lưu bộ thẻ";
     String MSG_DECK_DELETED    = "Đã xoá bộ thẻ";
-    String MSG_DECK_SHARED     = "Đã chia sẻ bộ thẻ cho lớp";
-    String MSG_DECK_UNSHARED   = "Đã chuyển bộ thẻ về riêng tư";
+    String MSG_DECK_SHARED     = "Đã cập nhật danh sách lớp được chia sẻ";
+    String MSG_DECK_UNSHARED   = "Đã ngừng chia sẻ bộ thẻ với mọi lớp";
     String MSG_DECK_TITLE_BLANK = "Tiêu đề không được để trống";
     String MSG_CARD_SIDE_BLANK = "Mỗi thẻ phải có cả mặt trước và mặt sau";
     String MSG_CARD_NOT_FOUND  = "Không tìm thấy thẻ";
@@ -457,6 +457,11 @@ public interface IConstant {
     String MSG_NOTIF_ASSIGNMENT_GRADED_TITLE = "Bài tập đã được chấm điểm";
     String MSG_NOTIF_ASSIGNMENT_GRADED_BODY_PREFIX = "Bài tập \"";
     String MSG_NOTIF_ASSIGNMENT_GRADED_BODY_MID = "\" của bạn đã được chấm. Điểm: ";
+
+    // Notification title/body for deck sharing (in-app only, never emailed).
+    String MSG_NOTIF_DECK_SHARED_TITLE = "Bộ thẻ mới được chia sẻ";
+    String MSG_NOTIF_DECK_SHARED_BODY_PREFIX = "Bộ thẻ \"";
+    String MSG_NOTIF_DECK_SHARED_BODY_SUFFIX = "\" vừa được chia sẻ với lớp của bạn.";
 
     // ───────── Notifications (Sprint 5, #63/#64) ─────────────────────
     // Route prefix / canonical URL.

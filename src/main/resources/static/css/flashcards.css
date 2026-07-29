@@ -125,10 +125,17 @@
 
 .fc-owner-controls { border-top: 1px solid #f0f0f0; padding-top: 18px; }
 .fc-share { background: #f9fafb; border-radius: 10px; padding: 16px; }
-.fc-share-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-.fc-share-form select {
-    padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; min-width: 200px;
-}
+.fc-share-form { display: block; margin-bottom: 12px; }
 .fc-share-form label { font-size: 14px; color: #374151; }
+.fc-share-hint { font-size: 14px; color: #374151; margin: 0 0 8px; }
+
+/* Multi-class share targets: a plain checkbox list, no JS behaviour. */
+.fc-class-checks { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.fc-class-check {
+    display: flex; align-items: center; gap: 8px; font-size: 14px; color: #374151;
+    padding: 6px 8px; border-radius: 8px; cursor: pointer;
+}
+.fc-class-check:hover { background: #f3f4f6; }
+.fc-class-check input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
 
 .is-hidden { display: none !important; }

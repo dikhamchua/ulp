@@ -48,6 +48,13 @@ public final class NotificationType {
     public static final String JOIN_REJECTED = "JOIN_REJECTED";
 
     /**
+     * A flashcard deck started being shared to a class the student is enrolled in.
+     * In-app only — deliberately not emailed, matching {@link #LESSON_PUBLISHED}:
+     * study material appearing is ambient information, not inbox-worthy.
+     */
+    public static final String DECK_SHARED = "DECK_SHARED";
+
+    /**
      * Department HEAD notified that a lecturer created a class needing review.
      * In-app only — class creation must never touch the SMTP path.
      */
@@ -61,7 +68,7 @@ public final class NotificationType {
 
     /**
      * Notification types that enqueue a background email via {@code MailJobQueue}.
-     * Join-approval lifecycle, CLASS_ENROLLED, ASSIGNMENT_GRADED,
+     * Join-approval lifecycle, CLASS_ENROLLED, ASSIGNMENT_GRADED, DECK_SHARED,
      * LESSON_PUBLISHED, and the class-review lifecycle
      * (CLASS_PENDING_APPROVAL / CLASS_APPROVED / CLASS_REJECTED) are
      * intentionally excluded (in-app only).
@@ -76,6 +83,9 @@ public final class NotificationType {
 
     /** Reference type constant for an assignment domain object. */
     public static final String REF_ASSIGNMENT = "ASSIGNMENT";
+
+    /** Reference type constant for a flashcard deck domain object. */
+    public static final String REF_DECK = "DECK";
 
     private NotificationType() {
         // Constants-only class — no instances.

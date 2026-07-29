@@ -164,6 +164,8 @@ public class NotificationController {
             case "CLASS" -> resolveClassRedirect(n);
             // Student lesson detail page.
             case "LESSON" -> "/my/lessons/" + n.referenceId();
+            // Deck launcher page; shared members reach it via DeckAccessResolver.
+            case "DECK" -> "/my/flashcards/" + n.referenceId();
             default -> null;
         };
     }

@@ -18,17 +18,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.ulp.common.IConstant.DEFAULT_DECK_PAGE_SIZE;
-import static com.ulp.common.IConstant.MSG_SHARE_CLASS_INVALID;
 
-/** Deck CRUD, listing and sharing (ULP-5.x). */
+/**
+ * Deck lifecycle (create / update / soft-delete) plus list and detail view
+ * assembly. Sharing lives in {@link DeckShareService}.
+ */
 @Service
 public class DeckService {
 
@@ -38,22 +40,25 @@ public class DeckService {
     private final DeckSummaryAssembler assembler;
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
+    private final DeckShareService shareService;
 
     public DeckService(FlashcardDeckRepository deckRepository,
                        FlashcardRepository cardRepository,
                        DeckAccessResolver accessResolver,
                        DeckSummaryAssembler assembler,
                        EnrollmentRepository enrollmentRepository,
-                       ClassRepository classRepository) {
+                       ClassRepository classRepository,
+                       DeckShareService shareService) {
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
         this.accessResolver = accessResolver;
         this.assembler = assembler;
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
+        this.shareService = shareService;
     }
 
-    /** Creates a new PRIVATE deck owned by the caller; returns its id. */
+    /** Creates a new deck owned by the caller, targeting no classes; returns its id. */
     @Transactional
     public Long createDeck(Long ownerId, DeckForm form) {
         FlashcardDeck deck = new FlashcardDeck(ownerId, form.title().trim(),
@@ -86,13 +91,23 @@ public class DeckService {
         }
         FlashcardDeck deck = resolved.deck();
         long count = cardRepository.countByDeckId(deckId);
-        String className = deck.getClassId() == null ? null
-                : classRepository.findById(deck.getClassId())
-                        .map(ClassEntity::getName).orElse(null);
-        List<ClassOption> shareClasses = resolved.isOwner() ? shareableClasses(userId) : List.of();
+        List<ClassOption> targets = targetClasses(deckId);
+        List<ClassOption> shareClasses = resolved.isOwner()
+                ? shareService.shareableClasses(userId) : List.of();
         return new DeckDetailView(deck.getId(), deck.getTitle(), deck.getDescription(),
-                count, resolved.isOwner(), deck.isShared(), deck.getClassId(),
-                className, shareClasses);
+                count, resolved.isOwner(), !targets.isEmpty(), targets, shareClasses);
+    }
+
+    /** The classes a deck currently targets, as id + name options. */
+    @Transactional(readOnly = true)
+    public List<ClassOption> targetClasses(Long deckId) {
+        Set<Long> ids = shareService.currentTargets(deckId);
+        if (ids.isEmpty()) return List.of();
+        List<ClassOption> options = new ArrayList<>();
+        for (ClassEntity c : classRepository.findAllById(ids)) {
+            options.add(new ClassOption(c.getId(), c.getName()));
+        }
+        return options;
     }
 
     /**
@@ -108,8 +123,7 @@ public class DeckService {
         Page<DeckSummary> ownPage = ownDecksPage(userId, page);
         List<Long> classIds = activeClassIds(userId);
         List<FlashcardDeck> shared = classIds.isEmpty() ? List.of()
-                : deckRepository.findByVisibilityAndClassIdInAndOwnerIdNotOrderByUpdatedAtDesc(
-                        FlashcardDeck.VISIBILITY_SHARED, classIds, userId);
+                : deckRepository.findSharedToClassesExcludingOwner(classIds, userId);
         return new StudentDeckList(ownPage, assembler.toSummaries(shared, userId));
     }
 
@@ -130,57 +144,13 @@ public class DeckService {
         return new PageImpl<>(summaries, pageable, deckPage.getTotalElements());
     }
 
-    /** SHARED decks targeting a class (surfaced on the class page). */
+    /** Decks targeting a class (surfaced on the class page). */
     @Transactional(readOnly = true)
     public List<DeckSummary> listSharedForClass(Long classId, Long userId) {
-        List<FlashcardDeck> shared = deckRepository
-                .findByVisibilityAndClassIdOrderByUpdatedAtDesc(
-                        FlashcardDeck.VISIBILITY_SHARED, classId);
-        return assembler.toSummaries(shared, userId);
-    }
-
-    /** Shares a deck to one of the owner's classes; owner-only. */
-    @Transactional
-    public void share(Long deckId, Long ownerId, Long classId) {
-        FlashcardDeck deck = accessResolver.requireOwner(deckId, ownerId);
-        if (classId == null || !isOwnersClass(ownerId, classId)) {
-            throw new AccessDeniedException(MSG_SHARE_CLASS_INVALID);
-        }
-        deck.shareTo(classId);
-        deckRepository.save(deck);
-    }
-
-    /** Reverts a deck to PRIVATE; owner-only. */
-    @Transactional
-    public void unshare(Long deckId, Long ownerId) {
-        FlashcardDeck deck = accessResolver.requireOwner(deckId, ownerId);
-        deck.unshare();
-        deckRepository.save(deck);
-    }
-
-    /** Classes the owner may share to (ACTIVE-enrolled or owns as lecturer). */
-    @Transactional(readOnly = true)
-    public List<ClassOption> shareableClasses(Long userId) {
-        List<Long> classIds = activeClassIds(userId);
-        classRepository.findAllByLecturerId(userId).forEach(c -> {
-            if (!classIds.contains(c.getId())) classIds.add(c.getId());
-        });
-        List<ClassOption> options = new ArrayList<>();
-        for (ClassEntity c : classRepository.findAllById(classIds)) {
-            options.add(new ClassOption(c.getId(), c.getName()));
-        }
-        return options;
+        return assembler.toSummaries(deckRepository.findSharedToClass(classId), userId);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────
-
-    private boolean isOwnersClass(Long ownerId, Long classId) {
-        boolean enrolled = enrollmentRepository.findByUserIdAndClassId(ownerId, classId)
-                .map(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus())).orElse(false);
-        if (enrolled) return true;
-        return classRepository.findById(classId)
-                .map(c -> ownerId.equals(c.getLecturerId())).orElse(false);
-    }
 
     private List<Long> activeClassIds(Long userId) {
         List<Long> ids = new ArrayList<>();

@@ -29,17 +29,17 @@ public final class FlashcardDtos {
     /**
      * A deck row on the list / class page.
      *
-     * @param id         deck id
-     * @param title      deck title
-     * @param cardCount  number of cards in the deck
-     * @param shared     whether the deck is SHARED
-     * @param owner      whether the caller owns the deck
-     * @param ownerName  owner's full name (shown on shared decks)
-     * @param className  target class name (shown on shared decks); null otherwise
+     * @param id          deck id
+     * @param title       deck title
+     * @param cardCount   number of cards in the deck
+     * @param shared      whether the deck targets at least one class
+     * @param owner       whether the caller owns the deck
+     * @param ownerName   owner's full name (shown on shared decks)
+     * @param classNames  names of every class the deck targets; empty when private
      */
     public record DeckSummary(
             Long id, String title, String description, long cardCount,
-            boolean shared, boolean owner, String ownerName, String className
+            boolean shared, boolean owner, String ownerName, List<String> classNames
     ) {
     }
 
@@ -79,7 +79,8 @@ public final class FlashcardDtos {
 
     /** Editor view-model: the deck plus its current cards + share targets. */
     public record DeckEditorView(Long deckId, String title, String description,
-                                 List<CardView> cards, boolean shared, Long classId,
+                                 List<CardView> cards, boolean shared,
+                                 List<ClassOption> targetClasses,
                                  List<ClassOption> shareClasses) {
     }
 
@@ -87,10 +88,16 @@ public final class FlashcardDtos {
     public record ReviewResult(int dueRemaining, int intervalDays) {
     }
 
-    /** Detail view-model for a single deck (launcher page). */
+    /**
+     * Detail view-model for a single deck (launcher page).
+     *
+     * @param shared        whether the deck targets at least one class
+     * @param targetClasses every class the deck currently targets (id + name)
+     * @param shareClasses  classes the owner may pick from; empty for non-owners
+     */
     public record DeckDetailView(Long id, String title, String description,
                                  long cardCount, boolean owner, boolean shared,
-                                 Long classId, String className,
+                                 List<ClassOption> targetClasses,
                                  List<ClassOption> shareClasses) {
     }
 
