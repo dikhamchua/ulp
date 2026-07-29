@@ -10,6 +10,7 @@ import com.ulp.features.flashcards.dto.FlashcardDtos.CardItem;
 import com.ulp.features.flashcards.dto.FlashcardDtos.DeckForm;
 import com.ulp.features.flashcards.service.CardService;
 import com.ulp.features.flashcards.service.DeckService;
+import com.ulp.features.flashcards.service.DeckShareService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +59,7 @@ class FlashcardControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private DeckService deckService;
+    @Autowired private DeckShareService deckShareService;
     @Autowired private CardService cardService;
     @Autowired private ClassRepository classRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
@@ -78,7 +80,7 @@ class FlashcardControllerTest {
         deckId = deckService.createDeck(owner.getId(), new DeckForm("Bộ thẻ ctrl", null));
         cardService.replaceCards(deckId, owner.getId(), List.of(
                 new CardItem(null, "front", "back")));
-        deckService.share(deckId, owner.getId(), clazz.getId());
+        deckShareService.share(deckId, owner.getId(), List.of(clazz.getId()));
         cardId = cardService.getEditorView(deckId, owner.getId()).cards().get(0).id();
     }
 

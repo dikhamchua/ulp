@@ -22,6 +22,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static com.ulp.common.IConstant.DEFAULT_DECK_PAGE_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DeckServiceTest {
 
     @Autowired private DeckService deckService;
+    @Autowired private DeckShareService deckShareService;
     @Autowired private ClassRepository classRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
@@ -97,7 +100,7 @@ class DeckServiceTest {
     @Test
     void share_makes_deck_visible_to_enrolled_member_not_outsider() {
         Long id = deckService.createDeck(owner.getId(), new DeckForm("Chia sẻ", null));
-        deckService.share(id, owner.getId(), clazz.getId());
+        deckShareService.share(id, owner.getId(), List.of(clazz.getId()));
 
         // Enrolled member can view (shared member).
         DeckDetailView asMember = deckService.getDetail(id, member.getId());
@@ -114,16 +117,19 @@ class DeckServiceTest {
     @Test
     void shared_member_cannot_change_sharing() {
         Long id = deckService.createDeck(owner.getId(), new DeckForm("Chia sẻ", null));
-        deckService.share(id, owner.getId(), clazz.getId());
-        assertThatThrownBy(() -> deckService.unshare(id, member.getId()))
+        deckShareService.share(id, owner.getId(), List.of(clazz.getId()));
+        assertThatThrownBy(() -> deckShareService.unshareAll(id, member.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+        // A member may not add targets either.
+        assertThatThrownBy(() -> deckShareService.share(id, member.getId(), List.of(clazz.getId())))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
     void unshare_reverts_to_private_and_hides_from_member() {
         Long id = deckService.createDeck(owner.getId(), new DeckForm("Chia sẻ", null));
-        deckService.share(id, owner.getId(), clazz.getId());
-        deckService.unshare(id, owner.getId());
+        deckShareService.share(id, owner.getId(), List.of(clazz.getId()));
+        deckShareService.unshareAll(id, owner.getId());
 
         assertThat(deckService.getDetail(id, owner.getId()).shared()).isFalse();
         assertThatThrownBy(() -> deckService.getDetail(id, member.getId()))
@@ -134,7 +140,8 @@ class DeckServiceTest {
     void share_to_class_owner_not_in_denied() {
         Long id = deckService.createDeck(owner.getId(), new DeckForm("Chia sẻ", null));
         ClassEntity other = saveClass("Other class", "OTHCL");
-        assertThatThrownBy(() -> deckService.share(id, owner.getId(), other.getId()))
+        assertThatThrownBy(() ->
+                deckShareService.share(id, owner.getId(), List.of(other.getId())))
                 .isInstanceOf(AccessDeniedException.class);
     }
 

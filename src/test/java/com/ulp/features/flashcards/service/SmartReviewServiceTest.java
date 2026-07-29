@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SmartReviewServiceTest {
 
     @Autowired private DeckService deckService;
+    @Autowired private DeckShareService deckShareService;
     @Autowired private CardService cardService;
     @Autowired private SmartReviewService smartReviewService;
     @Autowired private FlashcardReviewRepository reviewRepository;
@@ -56,7 +57,7 @@ class SmartReviewServiceTest {
         cardService.replaceCards(deckId, owner.getId(), List.of(
                 new CardItem(null, "c1", "b1"),
                 new CardItem(null, "c2", "b2")));
-        deckService.share(deckId, owner.getId(), clazz.getId());
+        deckShareService.share(deckId, owner.getId(), List.of(clazz.getId()));
         List<CardView> cards = cardService.getEditorView(deckId, owner.getId()).cards();
         card1 = cards.get(0).id();
         card2 = cards.get(1).id();

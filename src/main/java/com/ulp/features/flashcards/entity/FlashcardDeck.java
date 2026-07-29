@@ -16,10 +16,9 @@ import java.time.LocalDateTime;
  * JPA entity mapping the {@code flashcard_decks} table (ULP-5.x).
  *
  * <p>A deck is a personal collection of two-sided cards owned by a student.
- * A fresh deck is {@link #VISIBILITY_PRIVATE}; the owner may switch it to
- * {@link #VISIBILITY_SHARED} targeting one of their classes so enrolled
- * classmates can view/study it. {@code OFFICIAL} decks are out of scope this
- * change but the value is kept for schema fidelity.
+ * The deck row itself carries no sharing state: which classes a deck targets
+ * lives entirely in {@link FlashcardDeckClass}, and a deck is shared exactly
+ * when it has at least one row there.
  *
  * <p>{@link SQLRestriction} filters soft-deleted rows out of every default
  * query, mirroring {@link com.ulp.entities.ClassEntity}. No {@code @Data} —
@@ -29,10 +28,6 @@ import java.time.LocalDateTime;
 @Table(name = "flashcard_decks")
 @SQLRestriction("is_deleted = 0")
 public class FlashcardDeck {
-
-    public static final String VISIBILITY_PRIVATE = "PRIVATE";
-    public static final String VISIBILITY_SHARED = "SHARED";
-    public static final String VISIBILITY_OFFICIAL = "OFFICIAL";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,15 +39,8 @@ public class FlashcardDeck {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    /** Null when PRIVATE; the target class id when SHARED. */
-    @Column(name = "class_id")
-    private Long classId;
-
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
-
-    @Column(nullable = false, length = 20)
-    private String visibility;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -68,7 +56,8 @@ public class FlashcardDeck {
     }
 
     /**
-     * Creates a new PRIVATE deck ready to persist.
+     * Creates a new deck ready to persist. A fresh deck targets no classes, so
+     * it is private until the owner adds sharing targets.
      *
      * @param ownerId     creator/owner id
      * @param title       trimmed, non-blank title
@@ -78,8 +67,6 @@ public class FlashcardDeck {
         this.ownerId = ownerId;
         this.title = title;
         this.description = description;
-        this.visibility = VISIBILITY_PRIVATE;
-        this.classId = null;
         this.deleted = false;
     }
 
@@ -105,25 +92,9 @@ public class FlashcardDeck {
         this.description = description;
     }
 
-    /** Moves the deck to SHARED targeting the given class. */
-    public void shareTo(Long classId) {
-        this.visibility = VISIBILITY_SHARED;
-        this.classId = classId;
-    }
-
-    /** Reverts the deck to PRIVATE and clears its target class. */
-    public void unshare() {
-        this.visibility = VISIBILITY_PRIVATE;
-        this.classId = null;
-    }
-
     /** Marks the deck soft-deleted; excluded from all default queries. */
     public void markDeleted() {
         this.deleted = true;
-    }
-
-    public boolean isShared() {
-        return VISIBILITY_SHARED.equals(visibility);
     }
 
     // ── Getters ────────────────────────────────────────────────────────
@@ -140,16 +111,8 @@ public class FlashcardDeck {
         return description;
     }
 
-    public Long getClassId() {
-        return classId;
-    }
-
     public Long getOwnerId() {
         return ownerId;
-    }
-
-    public String getVisibility() {
-        return visibility;
     }
 
     public LocalDateTime getCreatedAt() {

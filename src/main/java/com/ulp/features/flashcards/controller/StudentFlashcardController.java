@@ -6,6 +6,7 @@ import com.ulp.features.flashcards.dto.FlashcardDtos.DeckForm;
 import com.ulp.features.flashcards.dto.FlashcardDtos.StudentDeckList;
 import com.ulp.features.flashcards.service.CardService;
 import com.ulp.features.flashcards.service.DeckService;
+import com.ulp.features.flashcards.service.DeckShareService;
 import com.ulp.features.flashcards.service.SmartReviewService;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
@@ -21,6 +22,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.List;
 
 import static com.ulp.common.IConstant.*;
 
@@ -38,13 +41,16 @@ import static com.ulp.common.IConstant.*;
 public class StudentFlashcardController {
 
     private final DeckService deckService;
+    private final DeckShareService deckShareService;
     private final CardService cardService;
     private final SmartReviewService smartReviewService;
 
     public StudentFlashcardController(DeckService deckService,
+                                      DeckShareService deckShareService,
                                       CardService cardService,
                                       SmartReviewService smartReviewService) {
         this.deckService = deckService;
+        this.deckShareService = deckShareService;
         this.cardService = cardService;
         this.smartReviewService = smartReviewService;
     }
@@ -144,23 +150,27 @@ public class StudentFlashcardController {
         return "redirect:" + BASE_FLASHCARDS;
     }
 
-    /** Shares a deck to one of the owner's classes; owner-only. */
+    /**
+     * Replaces the deck's target classes with the submitted checkbox set;
+     * owner-only. Unchecking every box submits no {@code classIds} param at all,
+     * which binds to an empty list and therefore clears all targets.
+     */
     @PostMapping("/{id}/share")
     public String share(@PathVariable Long id,
-                        @RequestParam("classId") Long classId,
+                        @RequestParam(name = "classIds", required = false) List<Long> classIds,
                         @AuthenticationPrincipal UlpUserDetails user,
                         RedirectAttributes ra) {
-        deckService.share(id, user.getId(), classId);
+        deckShareService.share(id, user.getId(), classIds == null ? List.of() : classIds);
         ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_DECK_SHARED);
         return "redirect:" + deckUrl(id);
     }
 
-    /** Reverts a deck to PRIVATE; owner-only. */
+    /** Stops sharing the deck with every class; owner-only. */
     @PostMapping("/{id}/unshare")
     public String unshare(@PathVariable Long id,
                           @AuthenticationPrincipal UlpUserDetails user,
                           RedirectAttributes ra) {
-        deckService.unshare(id, user.getId());
+        deckShareService.unshareAll(id, user.getId());
         ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_DECK_UNSHARED);
         return "redirect:" + deckUrl(id);
     }

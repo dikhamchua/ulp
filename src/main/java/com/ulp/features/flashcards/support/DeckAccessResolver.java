@@ -3,6 +3,8 @@ package com.ulp.features.flashcards.support;
 import com.ulp.entities.Enrollment;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.flashcards.entity.FlashcardDeck;
+import com.ulp.features.flashcards.entity.FlashcardDeckClass;
+import com.ulp.features.flashcards.repository.FlashcardDeckClassRepository;
 import com.ulp.features.flashcards.repository.FlashcardDeckRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,8 +16,8 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li><b>OWNER</b> — full CRUD.</li>
- *   <li><b>SHARED_MEMBER</b> — an ACTIVE-enrolled member of a SHARED deck's
- *       class may view/study but not edit.</li>
+ *   <li><b>SHARED_MEMBER</b> — an ACTIVE-enrolled member of any class the deck
+ *       targets may view/study but not edit.</li>
  *   <li><b>NONE</b> — anyone else.</li>
  * </ul>
  *
@@ -40,11 +42,14 @@ public class DeckAccessResolver {
     }
 
     private final FlashcardDeckRepository deckRepository;
+    private final FlashcardDeckClassRepository deckClassRepository;
     private final EnrollmentRepository enrollmentRepository;
 
     public DeckAccessResolver(FlashcardDeckRepository deckRepository,
+                              FlashcardDeckClassRepository deckClassRepository,
                               EnrollmentRepository enrollmentRepository) {
         this.deckRepository = deckRepository;
+        this.deckClassRepository = deckClassRepository;
         this.enrollmentRepository = enrollmentRepository;
     }
 
@@ -97,13 +102,18 @@ public class DeckAccessResolver {
         return resolved.deck();
     }
 
-    /** SHARED deck whose class the caller is ACTIVE-enrolled in. */
+    /**
+     * True when the deck targets at least one class in which the caller is
+     * ACTIVE-enrolled. Any other enrollment status grants no access.
+     */
     private boolean isSharedMember(FlashcardDeck deck, Long userId) {
-        if (!deck.isShared() || deck.getClassId() == null) {
-            return false;
+        for (FlashcardDeckClass target : deckClassRepository.findByDeckId(deck.getId())) {
+            boolean active = enrollmentRepository
+                    .findByUserIdAndClassId(userId, target.getClassId())
+                    .map(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
+                    .orElse(false);
+            if (active) return true;
         }
-        return enrollmentRepository.findByUserIdAndClassId(userId, deck.getClassId())
-                .map(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
-                .orElse(false);
+        return false;
     }
 }

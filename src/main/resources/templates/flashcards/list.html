@@ -59,8 +59,8 @@
           <span class="fc-badge" th:text="${deck.cardCount()} + ' thẻ'">0 thẻ</span>
           <span class="fc-card-owner" th:if="${deck.ownerName() != null}"
                 th:text="'bởi ' + ${deck.ownerName()}">bởi ai đó</span>
-          <span class="fc-card-owner" th:if="${deck.className() != null}"
-                th:text="${deck.className()}">Lớp</span>
+          <span class="fc-card-owner" th:each="name : ${deck.classNames()}"
+                th:text="${name}">Lớp</span>
         </div>
       </a>
     </div>
