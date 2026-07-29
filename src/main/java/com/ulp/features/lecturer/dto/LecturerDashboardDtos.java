@@ -1,5 +1,6 @@
 package com.ulp.features.lecturer.dto;
 
+import com.ulp.entities.ClassEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -46,13 +47,7 @@ public final class LecturerDashboardDtos {
             if (status == null) {
                 return "—";
             }
-            return switch (status) {
-                case "UPCOMING" -> "Sắp khai giảng";
-                case "ACTIVE" -> "Đang hoạt động";
-                case "COMPLETED" -> "Đã kết thúc";
-                case "CANCELLED" -> "Đã huỷ";
-                default -> status;
-            };
+            return ClassEntity.statusLabel(status);
         }
     }
 

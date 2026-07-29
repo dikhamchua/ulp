@@ -2,7 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <!--
   Fragment: headSidebar(activeTab)
-    activeTab : 'dashboard' | 'assign' | 'report' | 'question-bank'
+    activeTab : 'dashboard' | 'approvals' | 'report' | 'question-bank'
 -->
 <aside th:fragment="headSidebar(activeTab)" class="col">
   <div class="side">
@@ -24,9 +24,9 @@
         </a>
       </li>
       <li>
-        <a th:href="@{/head/assign}"
-           th:classappend="${activeTab == 'assign'} ? 'active' : ''">
-          Phân công GV
+        <a th:href="@{/head/approvals}"
+           th:classappend="${activeTab == 'approvals'} ? 'active' : ''">
+          Duyệt lớp
         </a>
       </li>
       <li>

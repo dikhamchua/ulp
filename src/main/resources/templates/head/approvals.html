@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Trưởng bộ môn | Duyệt lớp', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/head-department.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('head')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/head-sidebar :: headSidebar('approvals')}"></aside>
+
+  <main class="col">
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},
+                   data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <h1 class="detail-title">Duyệt lớp</h1>
+    <p class="detail-sub">
+      Lớp mới do giảng viên tạo ở trạng thái chờ duyệt. Sinh viên chỉ tham gia
+      được sau khi bạn duyệt. Từ chối là quyết định cuối cùng.
+    </p>
+
+    <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
+      Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
+    </div>
+
+    <section class="admin-list-panel" th:if="${!emptyDepartment}">
+      <div th:if="${pendingClasses == null or pendingClasses.isEmpty()}"
+           class="admin-list-empty" role="status">
+        Không có lớp nào đang chờ duyệt.
+      </div>
+
+      <table class="admin-list-table"
+             th:if="${pendingClasses != null and !pendingClasses.isEmpty()}">
+        <thead>
+          <tr>
+            <th>Mã</th>
+            <th>Tên lớp</th>
+            <th>Giảng viên</th>
+            <th>Ngày tạo</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="row : ${pendingClasses}">
+            <td><code th:text="${row.classCode()}">CODE</code></td>
+            <td th:text="${row.className()}">Tên</td>
+            <td th:text="${row.lecturerName()}">GV</td>
+            <td>
+              <span th:if="${row.createdAt() != null}"
+                    th:text="${#temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm')}">—</span>
+              <span th:if="${row.createdAt() == null}" class="muted">—</span>
+            </td>
+            <td>
+              <form th:action="@{'/head/approvals/' + ${row.classId()} + '/approve'}"
+                    method="post" class="head-approve-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="btn-primary btn-sm">Duyệt</button>
+              </form>
+              <form th:action="@{'/head/approvals/' + ${row.classId()} + '/reject'}"
+                    method="post" class="head-reject-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="text" name="note" maxlength="500"
+                       placeholder="Lý do từ chối (không bắt buộc)">
+                <button type="submit" class="btn-danger btn-sm">Từ chối</button>
+              </form>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/head-department.js}"></script>
+</body>
+</html>

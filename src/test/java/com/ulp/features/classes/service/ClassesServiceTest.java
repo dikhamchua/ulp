@@ -8,6 +8,7 @@ import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
 import com.ulp.features.classes.repository.ClassInviteCodeRepository;
 import com.ulp.features.classes.repository.ClassRepository;
+import com.ulp.features.classes.service.approval.ClassReviewNotifier;
 import com.ulp.features.classes.service.codes.ClassCodeGenerationException;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -60,6 +62,7 @@ class ClassesServiceTest {
     private ClassCodeGenerator codeGenerator;
     private InviteCodeService inviteCodeService;
     private UserRepository userRepository;
+    private ClassReviewNotifier reviewNotifier;
     private ClassesService service;
 
     @BeforeEach
@@ -70,9 +73,10 @@ class ClassesServiceTest {
         codeGenerator = mock(ClassCodeGenerator.class);
         inviteCodeService = mock(InviteCodeService.class);
         userRepository = mock(UserRepository.class);
+        reviewNotifier = mock(ClassReviewNotifier.class);
         when(userRepository.findById(any())).thenReturn(Optional.empty());
         service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository);
+                codeGenerator, inviteCodeService, userRepository, reviewNotifier);
         when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
                 .thenReturn(Optional.empty());
     }
@@ -149,7 +153,8 @@ class ClassesServiceTest {
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
         assertThat(saved.getLecturerId()).isEqualTo(LECTURER_ID);
-        assertThat(saved.getStatus()).isEqualTo("UPCOMING");
+        // New classes await HEAD review before becoming operational.
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
         verify(activityWriter).write(eq(100L), eq(ClassActivity.TYPE_CREATED),
                 eq("Tạo lớp Java"), eq(LECTURER_ID));
@@ -221,6 +226,58 @@ class ClassesServiceTest {
         verify(activityWriter, never()).write(any(), any(), any(), any());
         verify(activityWriter, never()).write(any(), any(), any(), any(), any());
         verify(inviteCodeService, never()).provisionDefaults(any(), any());
+    }
+
+    /**
+     * Spec: notification failure must not roll back class creation. The notifier
+     * swallows its own errors, but the service must not depend on that — even a
+     * notifier that throws leaves the class persisted and the activity written.
+     */
+    @Test
+    void create_succeeds_when_review_notifier_throws() {
+        when(codeGenerator.generate()).thenReturn("NILXM");
+        when(classRepository.saveAndFlush(any(ClassEntity.class)))
+                .thenAnswer(inv -> {
+                    ClassEntity e = inv.getArgument(0);
+                    ReflectionTestUtils.setField(e, "id", 102L);
+                    return e;
+                });
+        doThrow(new IllegalStateException("notification backend down"))
+                .when(reviewNotifier).notifyHeadPendingApproval(any(ClassEntity.class));
+
+        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassEntity saved = service.create(form, LECTURER_ID);
+
+        assertThat(saved.getId()).isEqualTo(102L);
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        verify(activityWriter).write(eq(102L), eq(ClassActivity.TYPE_CREATED),
+                any(), eq(LECTURER_ID));
+        verify(inviteCodeService).provisionDefaults(102L, LECTURER_ID);
+    }
+
+    /**
+     * Spec: a department with no HEAD assigned has nobody to notify, but the
+     * class must still be created in DRAFT rather than failing or skipping
+     * review. Modelled here by a notifier that no-ops (its real behaviour when
+     * {@code department.headUserId} is null).
+     */
+    @Test
+    void create_stays_draft_when_department_has_no_head() {
+        when(codeGenerator.generate()).thenReturn("NILXM");
+        when(classRepository.saveAndFlush(any(ClassEntity.class)))
+                .thenAnswer(inv -> {
+                    ClassEntity e = inv.getArgument(0);
+                    ReflectionTestUtils.setField(e, "id", 103L);
+                    return e;
+                });
+        // Default mock behaviour: notifyHeadPendingApproval does nothing.
+
+        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassEntity saved = service.create(form, LECTURER_ID);
+
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        verify(reviewNotifier).notifyHeadPendingApproval(any(ClassEntity.class));
+        verify(inviteCodeService).provisionDefaults(103L, LECTURER_ID);
     }
 
     // ───────────────── Authz: owner check ─────────────────

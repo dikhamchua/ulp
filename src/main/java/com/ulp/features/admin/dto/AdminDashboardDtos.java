@@ -1,5 +1,7 @@
 package com.ulp.features.admin.dto;
 
+import com.ulp.entities.ClassEntity;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -76,13 +78,7 @@ public class AdminDashboardDtos {
          * @return a human-readable status string
          */
         public String displayStatus() {
-            return switch (status) {
-                case "UPCOMING" -> "Sắp khai giảng";
-                case "ACTIVE" -> "Đang hoạt động";
-                case "COMPLETED" -> "Đã kết thúc";
-                case "CANCELLED" -> "Đã huỷ";
-                default -> status;
-            };
+            return ClassEntity.statusLabel(status);
         }
     }
 }

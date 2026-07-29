@@ -8,6 +8,7 @@ import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.features.classes.repository.ClassInviteCodeRepository;
 import com.ulp.features.classes.repository.ClassRepository;
+import com.ulp.features.classes.service.approval.ClassReviewNotifier;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
 import com.ulp.security.Role;
@@ -63,12 +64,13 @@ public class ClassesService {
                           ClassActivityWriter activityWriter,
                           ClassCodeGenerator codeGenerator,
                           InviteCodeService inviteCodeService,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          ClassReviewNotifier reviewNotifier) {
         this.classRepository = classRepository;
         this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
         this.creator = new ClassCreator(classRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository);
+                codeGenerator, inviteCodeService, userRepository, reviewNotifier);
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────

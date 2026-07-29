@@ -11,6 +11,7 @@ import com.ulp.features.classes.service.invites.InviteTokenGenerator;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Validation gateway for the student-side join flow. Resolves an invite
@@ -27,6 +28,16 @@ import java.util.Optional;
  * carrying the precise {@link InviteRejectionReason}.
  */
 final class JoinTokenValidator {
+
+    /**
+     * Class statuses a student may join. Anything outside this set — including
+     * the review states {@code DRAFT} and {@code REJECTED} — falls through to
+     * {@link InviteRejectionReason#CLASS_NOT_JOINABLE}. This whitelist is the
+     * only place the join flow consults class status, which is what keeps an
+     * unapproved class non-joinable without any edit to the join path.
+     */
+    private static final Set<String> JOINABLE_STATUSES =
+            Set.of(ClassEntity.STATUS_UPCOMING, ClassEntity.STATUS_ACTIVE);
 
     private final ClassInviteCodeRepository inviteRepository;
     private final ClassRepository classRepository;
@@ -89,7 +100,7 @@ final class JoinTokenValidator {
         if (clazz == null) {
             throw new InviteCodeValidationException(InviteRejectionReason.CLASS_NOT_JOINABLE);
         }
-        if (!"UPCOMING".equals(clazz.getStatus()) && !"ACTIVE".equals(clazz.getStatus())) {
+        if (!JOINABLE_STATUSES.contains(clazz.getStatus())) {
             throw new InviteCodeValidationException(InviteRejectionReason.CLASS_NOT_JOINABLE);
         }
         return clazz;
