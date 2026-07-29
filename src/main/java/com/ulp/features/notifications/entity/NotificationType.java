@@ -48,9 +48,23 @@ public final class NotificationType {
     public static final String JOIN_REJECTED = "JOIN_REJECTED";
 
     /**
+     * Department HEAD notified that a lecturer created a class needing review.
+     * In-app only — class creation must never touch the SMTP path.
+     */
+    public static final String CLASS_PENDING_APPROVAL = "CLASS_PENDING_APPROVAL";
+
+    /** Owning lecturer notified when the HEAD approves their class. In-app only. */
+    public static final String CLASS_APPROVED = "CLASS_APPROVED";
+
+    /** Owning lecturer notified when the HEAD rejects their class. In-app only. */
+    public static final String CLASS_REJECTED = "CLASS_REJECTED";
+
+    /**
      * Notification types that enqueue a background email via {@code MailJobQueue}.
-     * Join-approval lifecycle, CLASS_ENROLLED, ASSIGNMENT_GRADED, and
-     * LESSON_PUBLISHED are intentionally excluded (in-app only).
+     * Join-approval lifecycle, CLASS_ENROLLED, ASSIGNMENT_GRADED,
+     * LESSON_PUBLISHED, and the class-review lifecycle
+     * (CLASS_PENDING_APPROVAL / CLASS_APPROVED / CLASS_REJECTED) are
+     * intentionally excluded (in-app only).
      */
     public static final Set<String> EMAIL_TYPES = Set.of(ASSIGNMENT_PUBLISHED);
 

@@ -23,15 +23,19 @@
   margin-top: 0.25rem;
 }
 
-.head-assign-form {
-  display: flex;
+/* Approval-queue row actions: the approve button and the reject
+   note-plus-button pair sit side by side and wrap on narrow viewports. */
+.head-approve-form,
+.head-reject-form {
+  display: inline-flex;
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
+  margin-right: 0.5rem;
 }
 
-.head-assign-form select {
-  min-width: 160px;
+.head-reject-form input[name="note"] {
+  min-width: 180px;
 }
 
 .btn-sm {

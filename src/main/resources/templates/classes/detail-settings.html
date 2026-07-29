@@ -58,9 +58,11 @@
     <h1 class="detail-page-title" th:text="${clazz.name}">Tên lớp</h1>
     <div class="detail-page-meta">
       <div class="meta-badges">
+        <!-- Vietnamese label rather than the raw enum; the CSS modifier still
+             derives from the enum so the pill colour stays in sync. -->
         <span class="status-pill"
               th:classappend="${'status-' + #strings.toLowerCase(clazz.status)}"
-              th:text="${clazz.status}">STATUS</span>
+              th:text="${clazz.statusLabel}">Trạng thái</span>
         <span class="code-badge" th:text="'Mã lớp: ' + ${clazz.code}">Mã lớp: CODE</span>
       </div>
       <span>Tạo lúc:

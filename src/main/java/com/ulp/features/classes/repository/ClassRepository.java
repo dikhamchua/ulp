@@ -104,6 +104,15 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     /** Non-deleted classes owned by a department, newest first. */
     List<ClassEntity> findAllByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
 
+    /**
+     * Classes of a department in the given status, newest first. Backs the HEAD
+     * approval queue, which passes {@code ClassEntity.STATUS_DRAFT} so only
+     * classes awaiting review are listed. Soft-deleted rows are excluded by the
+     * entity's {@code @SQLRestriction}.
+     */
+    List<ClassEntity> findAllByDepartmentIdAndStatusOrderByCreatedAtDesc(
+            Long departmentId, String status);
+
     /** Paginated department-scoped class list. */
     Page<ClassEntity> findAllByDepartmentId(Long departmentId, Pageable pageable);
 

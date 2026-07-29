@@ -43,7 +43,8 @@ final class ClassRowMapper {
                 code,
                 ClassGradient.forIndex(index).css(),
                 studentCount, lectureCount, assignmentCount, materialCount,
-                createdAtIso
+                createdAtIso,
+                e.getStatus()
         );
     }
 

@@ -341,6 +341,20 @@
 .status-pill.status-upcoming::before  { content: "◐ "; }
 .status-pill.status-completed::before { content: "✓ "; }
 .status-pill.status-cancelled::before { content: "✗ "; }
+.status-pill.status-draft::before     { content: "⏳ "; }
+.status-pill.status-rejected::before  { content: "⛔ "; }
+
+/* Review states introduced by the HEAD class-approval gate: DRAFT is awaiting
+   review (warning tone, the wait is expected), REJECTED is terminal (danger). */
+.status-pill.status-draft {
+  background: var(--color-warning-soft, #fffbeb);
+  color: var(--color-warning, #b45309);
+}
+
+.status-pill.status-rejected {
+  background: var(--color-danger-soft, #fef2f2);
+  color: var(--color-danger, #dc2626);
+}
 
 .status-pill.status-upcoming {
   background: var(--color-info-soft, #eef2ff);

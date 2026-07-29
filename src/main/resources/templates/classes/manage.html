@@ -104,7 +104,16 @@
                th:style="'background:' + ${cls.gradientCss}"
                th:text="${cls.thumbLabel()}">SE</div>
           <div class="class-info">
-            <h4 th:text="${cls.name}">SE1865</h4>
+            <h4>
+              <span th:text="${cls.name}">SE1865</span>
+              <!-- Review badge: only rendered while the class is awaiting or has
+                   failed the department HEAD's review, so a lecturer can tell a
+                   pending class from an operational one. -->
+              <span class="review-badge"
+                    th:if="${cls.reviewStateLabel() != null}"
+                    th:classappend="${cls.reviewStateCss()}"
+                    th:text="${cls.reviewStateLabel()}">Chờ duyệt</span>
+            </h4>
             <div class="class-code">
               Mã mời &bull; <b th:text="${cls.code}">AB23CD</b>
               <button class="copy-code" type="button" aria-label="Sao chép mã mời"

@@ -661,9 +661,16 @@ class ClassInviteJoinIntegrationTest {
 
     // ───────────────── helpers ───────────────────
 
+    /**
+     * Creates a class and lifts it out of DRAFT, since a newly created class
+     * awaits HEAD approval and is not joinable. These scenarios exercise the
+     * invite and enrollment flow, not the approval gate.
+     */
     private ClassEntity createClassViaController(Long lecturerId, String name) {
         ClassForm form = new ClassForm(name, null, null, null, 100);
         ClassEntity saved = classesService.create(form, lecturerId);
+        saved.approve(lecturerId, java.time.LocalDateTime.now());
+        classRepository.saveAndFlush(saved);
         em.flush();
         em.clear();
         return classRepository.findById(saved.getId()).orElseThrow();

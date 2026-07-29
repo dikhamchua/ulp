@@ -32,6 +32,27 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ClassEntity {
 
+    /**
+     * Newly created class awaiting department HEAD review. Not operational:
+     * outside the joinable whitelist, so students cannot enrol.
+     */
+    public static final String STATUS_DRAFT = "DRAFT";
+
+    /** Approved by the department HEAD; operational and joinable. */
+    public static final String STATUS_UPCOMING = "UPCOMING";
+
+    /** Running class; operational and joinable. */
+    public static final String STATUS_ACTIVE = "ACTIVE";
+
+    /** Finished class; no longer joinable. */
+    public static final String STATUS_COMPLETED = "COMPLETED";
+
+    /** Called off by its owner; no longer joinable. */
+    public static final String STATUS_CANCELLED = "CANCELLED";
+
+    /** Turned down by the department HEAD. Terminal and never joinable. */
+    public static final String STATUS_REJECTED = "REJECTED";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -78,9 +99,22 @@ public class ClassEntity {
     @Column(name = "is_deleted")
     private boolean deleted = false;
 
+    /** Reviewing HEAD's user id; null until the class has been reviewed. */
+    @Column(name = "approved_by")
+    private Long approvedBy;
+
+    /** Review timestamp for either outcome; null until reviewed. */
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    /** Optional reviewer note recorded on rejection. */
+    @Column(name = "rejection_note", length = 500)
+    private String rejectionNote;
+
     /**
      * Creates a new class for the create flow.
-     * The status is set to {@code UPCOMING} by default.
+     * The status is set to {@link #STATUS_DRAFT}: the class stays non-operational
+     * until the department HEAD approves it through the approval queue.
      * If {@code maxStudents} is {@code null}, it defaults to {@code 100}.
      *
      * @param name        display name of the class
@@ -101,7 +135,7 @@ public class ClassEntity {
         this.startDate = startDate;
         this.endDate = endDate;
         this.maxStudents = maxStudents != null ? maxStudents : 100;
-        this.status = "UPCOMING";
+        this.status = STATUS_DRAFT;
     }
 
     // ── Business helpers ───────────────────────────────────────────
@@ -139,10 +173,76 @@ public class ClassEntity {
     }
 
     /**
-     * Reassigns the teaching lecturer without changing department ownership.
-     * Used by HEAD lecturer-assignment flows.
+     * Vietnamese display label for a raw status value — the single source of
+     * truth shared by the class-detail status pill and
+     * {@code ClassesDtos.ClassRow.reviewStateLabel()}, so the two can never
+     * drift apart.
+     *
+     * @param status a raw status value; may be null
+     * @return the Vietnamese label, or the input unchanged when unrecognised
      */
-    public void reassignLecturer(Long lecturerId) {
-        this.lecturerId = lecturerId;
+    public static String statusLabel(String status) {
+        if (status == null) {
+            return "";
+        }
+        return switch (status) {
+            case STATUS_DRAFT -> "Chờ duyệt";
+            case STATUS_REJECTED -> "Bị từ chối";
+            case STATUS_UPCOMING -> "Sắp khai giảng";
+            case STATUS_ACTIVE -> "Đang hoạt động";
+            case STATUS_COMPLETED -> "Đã kết thúc";
+            case STATUS_CANCELLED -> "Đã huỷ";
+            default -> status;
+        };
+    }
+
+    /** Instance shortcut for {@link #statusLabel(String)}, for Thymeleaf. */
+    public String getStatusLabel() {
+        return statusLabel(this.status);
+    }
+
+    /**
+     * Approves a class awaiting review, moving it to {@link #STATUS_UPCOMING}
+     * so it becomes operational and joinable, and recording the reviewer.
+     *
+     * <p>Concurrent double-approval resolves to a single winner: the loser
+     * re-reads a non-DRAFT status and fails here.
+     *
+     * @param reviewerId the reviewing HEAD's user id
+     * @param at         the review timestamp
+     * @throws IllegalStateException when the class is not {@link #STATUS_DRAFT}
+     */
+    public void approve(Long reviewerId, LocalDateTime at) {
+        requireDraft();
+        this.status = STATUS_UPCOMING;
+        this.approvedBy = reviewerId;
+        this.approvedAt = at;
+        this.rejectionNote = null;
+    }
+
+    /**
+     * Rejects a class awaiting review, moving it to the terminal
+     * {@link #STATUS_REJECTED} state and recording the reviewer plus an
+     * optional note. A blank note is normalised to {@code null}.
+     *
+     * @param reviewerId the reviewing HEAD's user id
+     * @param note       optional reviewer explanation; may be null or blank
+     * @param at         the review timestamp
+     * @throws IllegalStateException when the class is not {@link #STATUS_DRAFT}
+     */
+    public void reject(Long reviewerId, String note, LocalDateTime at) {
+        requireDraft();
+        this.status = STATUS_REJECTED;
+        this.approvedBy = reviewerId;
+        this.approvedAt = at;
+        this.rejectionNote = (note == null || note.isBlank()) ? null : note.trim();
+    }
+
+    /** Guards both review transitions: only a DRAFT class is reviewable. */
+    private void requireDraft() {
+        if (!STATUS_DRAFT.equals(this.status)) {
+            throw new IllegalStateException(
+                    "Lớp không còn ở trạng thái chờ duyệt");
+        }
     }
 }
