@@ -28,6 +28,23 @@
         return script ? (script.getAttribute('data-original-type') || 'RICHTEXT') : 'RICHTEXT';
     }
 
+    /** True only for a saved lesson; a brand-new one has no stored content
+     *  to destroy, so the switch-type confirmation must not fire. */
+    function isLessonPersisted() {
+        var script = document.querySelector('script[data-lesson-persisted]');
+        return script
+                ? script.getAttribute('data-lesson-persisted') === 'true'
+                : false;
+    }
+
+    /** True when the lesson already has a main PDF stored server-side, so
+     *  saving as PDF needs no freshly picked file. */
+    function hasStoredPdf() {
+        var section = document.querySelector('[data-content-type-section="PDF"]');
+        return !!section
+                && section.getAttribute('data-has-pdf') === 'true';
+    }
+
     function getCsrfHeader() {
         var meta = document.querySelector('meta[name="_csrf"]');
         var headerMeta = document.querySelector('meta[name="_csrf_header"]');
@@ -127,6 +144,13 @@
         }
     }
 
+    /** Marks the PDF section as satisfied once a file/asset is queued, so the
+     *  pre-save guard stops blocking after a successful upload clears it. */
+    function markPdfSatisfied() {
+        var section = document.querySelector('[data-content-type-section="PDF"]');
+        if (section) section.setAttribute('data-has-pdf', 'true');
+    }
+
     function bindPdfUpload() {
         var input = document.getElementById('lessonPdfInput');
         var drop = document.getElementById('lessonPdfDrop');
@@ -137,6 +161,7 @@
             if (!file) return;
             pendingPdfFile = file;
             pendingLibraryPdfAssetId = null;
+            markPdfSatisfied();
             setPdfSelectedLabel('Đã chọn: ' + file.name
                     + ' — bấm "Lưu thay đổi" để tải lên');
         }
@@ -159,6 +184,7 @@
                         }
                         pendingLibraryPdfAssetId = item.id;
                         pendingPdfFile = null;
+                        markPdfSatisfied();
                         setPdfSelectedLabel('Đã chọn từ kho: '
                                 + (item.title || item.originalFilename)
                                 + ' — bấm "Lưu thay đổi" để gắn');
@@ -211,6 +237,13 @@
             return;
         }
         if (!pendingPdfFile) {
+            // Saving as PDF without a stored file fails server-side; stop here
+            // so the lecturer keeps the form instead of a generic retry error.
+            if (!hasStoredPdf()) {
+                toast('error', 'Hãy chọn tệp PDF trước khi lưu bài giảng dạng PDF');
+                next(false);
+                return;
+            }
             next(true);
             return;
         }
@@ -465,6 +498,9 @@
 
         function confirmTypeSwitch(next) {
             if (!modal) { next(true); return; }
+            // Creating a lesson: nothing persisted yet, so switching the type
+            // destroys nothing and must not prompt.
+            if (!isLessonPersisted()) { next(true); return; }
             if (getSelectedContentType() === getOriginalType()) { next(true); return; }
             var settled = false;
             function settle(ok) {

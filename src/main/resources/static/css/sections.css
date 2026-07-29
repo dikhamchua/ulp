@@ -435,6 +435,27 @@
   fill: none; stroke: currentColor;
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
+/* Secondary action next to the create CTA — opens the student-facing view. */
+.content-preview-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-primary, #2563eb);
+  font-size: 13px; font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--color-border-medium, #e5e7eb);
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.content-preview-btn:hover {
+  background: var(--color-bg-subtle, #f3f4f6);
+  border-color: var(--color-primary, #2563eb);
+}
+.content-preview-btn .ico {
+  fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
 
 /* Lesson list */
 .lesson-list {
