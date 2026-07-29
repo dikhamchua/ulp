@@ -20,6 +20,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 
+import static com.ulp.common.IConstant.ATTR_FLASH_ERROR;
+import static com.ulp.common.IConstant.ATTR_FLASH_SUCCESS;
 import static com.ulp.common.IConstant.ATTR_USER;
 import static com.ulp.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
 import static com.ulp.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
@@ -39,10 +41,11 @@ public class ProfileController {
     private static final String PARAM_AVATAR = "avatar";
 
     // ── Local model attribute keys ────────────────────────────────
-    private static final String ATTR_PROFILE_FORM    = "profileForm";
-    private static final String ATTR_PROFILE_UPDATED = "profileUpdated";
-    private static final String ATTR_AVATAR_UPDATED  = "avatarUpdated";
-    private static final String ATTR_AVATAR_ERROR    = "avatarError";
+    private static final String ATTR_PROFILE_FORM = "profileForm";
+
+    // ── User-facing messages ──────────────────────────────────────
+    private static final String MSG_PROFILE_UPDATED = "Cập nhật hồ sơ thành công.";
+    private static final String MSG_AVATAR_UPDATED  = "Cập nhật ảnh đại diện thành công.";
 
     private final ProfileService profileService;
     private final AvatarStorageService avatarService;
@@ -79,7 +82,7 @@ public class ProfileController {
      * <p>Validates the submitted {@code profileForm}. If validation fails, the
      * profile view is re-rendered with error messages. On success, the user's
      * full name, bio, and phone are persisted and the client is redirected back
-     * to the profile page with a {@code profileUpdated} flash attribute.
+     * to the profile page with a success flash message.
      */
     @PostMapping("/profile")
     public String update(@Valid @ModelAttribute("profileForm") ProfileDtos.ProfileUpdateRequest form,
@@ -93,7 +96,7 @@ public class ProfileController {
             return VIEW_PROFILE;
         }
         profileService.updateProfile(user, form.fullName(), form.bio(), form.phone());
-        ra.addFlashAttribute(ATTR_PROFILE_UPDATED, true);
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_PROFILE_UPDATED);
         return REDIRECT_PROFILE;
     }
 
@@ -101,9 +104,9 @@ public class ProfileController {
      * Handles avatar upload for the currently authenticated user.
      *
      * <p>Delegates storage to {@link AvatarStorageService} and persists the
-     * returned URL via {@link com.ulp.features.profile.service.ProfileService}. On
-     * success, an {@code avatarUpdated} flash attribute is set. On failure, an
-     * {@code avatarError} flash attribute is set with a human-readable message.
+     * returned URL via {@link com.ulp.features.profile.service.ProfileService}.
+     * Both the success and failure paths report through the standard flash
+     * message attributes, which the page drains into a toast.
      */
     @PostMapping("/profile/avatar")
     public String uploadAvatar(@RequestParam(PARAM_AVATAR) MultipartFile file,
@@ -113,14 +116,14 @@ public class ProfileController {
         try {
             String url = avatarService.store(file);
             profileService.updateAvatar(user, url);
-            ra.addFlashAttribute(ATTR_AVATAR_UPDATED, true);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_AVATAR_UPDATED);
         } catch (IllegalArgumentException e) {
-            ra.addFlashAttribute(ATTR_AVATAR_ERROR, e.getMessage());
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, e.getMessage());
         } catch (StorageNotConfiguredException e) {
             // R2 selected but incomplete — fail closed with a clear admin hint.
-            ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_STORAGE_R2_NOT_CONFIGURED);
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_STORAGE_R2_NOT_CONFIGURED);
         } catch (IOException e) {
-            ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_STORAGE_UPLOAD_FAILED);
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_STORAGE_UPLOAD_FAILED);
         }
         return REDIRECT_PROFILE;
     }

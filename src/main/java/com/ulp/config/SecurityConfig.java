@@ -17,10 +17,13 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.AuthenticatedPrincipalOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -112,6 +115,37 @@ public class SecurityConfig {
     }
 
     /**
+     * Tracks every authenticated HTTP session so a password change can revoke
+     * the user's other sessions.
+     *
+     * <p>Without a registry Spring Security keeps no handle on live sessions,
+     * which means a stolen session stays valid after the victim changes their
+     * password. {@code ChangePasswordController} expires the other entries via
+     * this bean; see {@link #httpSessionEventPublisher()} for the destruction
+     * half of the contract.</p>
+     *
+     * @return an in-memory session registry
+     */
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    /**
+     * Bridges servlet container session events onto the Spring application
+     * context so {@link SessionRegistryImpl} learns when a session is destroyed.
+     *
+     * <p>Without this publisher the registry would accumulate entries for
+     * sessions that have already timed out or been logged out.</p>
+     *
+     * @return the session event publisher
+     */
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+
+    /**
      * Configures the main {@link SecurityFilterChain} for the application.
      *
      * <p>Authorization rules:</p>
@@ -185,6 +219,14 @@ public class SecurityConfig {
                         // Google" would land on "/" instead of completing the
                         // class join.
                         .defaultSuccessUrl("/", false)
+                )
+                // Register each authenticated session so a password change can
+                // expire the user's other sessions. No maximumSessions cap —
+                // concurrent logins stay allowed; we only need the handles.
+                .sessionManagement(session -> session
+                        .sessionConcurrency(concurrency -> concurrency
+                                .sessionRegistry(sessionRegistry())
+                        )
                 )
                 // Eagerly materialize CSRF token before the view starts rendering.
                 // Without this, the deferred CSRF lookup happens deep inside Thymeleaf's
