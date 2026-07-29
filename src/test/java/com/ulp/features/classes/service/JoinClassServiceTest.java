@@ -153,6 +153,66 @@ class JoinClassServiceTest {
     }
 
     @Test
+    void draft_class_awaiting_approval_throws_not_joinable_without_enrollment() {
+        ClassInviteCode token = activeToken("AB23CD");
+        when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
+
+        ClassEntity clazz = buildClass();
+        ReflectionTestUtils.setField(clazz, "status", ClassEntity.STATUS_DRAFT);
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+
+        assertThatThrownBy(() -> service.join("AB23CD", USER_ID))
+                .isInstanceOf(InviteCodeValidationException.class)
+                .extracting(ex -> ((InviteCodeValidationException) ex).getReason())
+                .isEqualTo(InviteRejectionReason.CLASS_NOT_JOINABLE);
+
+        verify(enrollmentRepository, never()).save(any());
+        assertThat(token.getUseCount()).isZero();
+    }
+
+    @Test
+    void rejected_class_throws_not_joinable_without_enrollment() {
+        ClassInviteCode token = activeToken("AB23CD");
+        when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
+
+        ClassEntity clazz = buildClass();
+        ReflectionTestUtils.setField(clazz, "status", ClassEntity.STATUS_REJECTED);
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+
+        assertThatThrownBy(() -> service.join("AB23CD", USER_ID))
+                .isInstanceOf(InviteCodeValidationException.class)
+                .extracting(ex -> ((InviteCodeValidationException) ex).getReason())
+                .isEqualTo(InviteRejectionReason.CLASS_NOT_JOINABLE);
+
+        verify(enrollmentRepository, never()).save(any());
+        assertThat(token.getUseCount()).isZero();
+    }
+
+    @Test
+    void join_succeeds_once_the_draft_class_has_been_approved() {
+        ClassInviteCode token = activeToken("AB23CD");
+        ReflectionTestUtils.setField(token, "id", 5L);
+        when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
+
+        // Same class, now moved out of DRAFT by the HEAD approval action.
+        ClassEntity clazz = buildClass();
+        ReflectionTestUtils.setField(clazz, "status", ClassEntity.STATUS_DRAFT);
+        clazz.approve(OWNER_ID, LocalDateTime.now());
+        assertThat(clazz.getStatus()).isEqualTo(ClassEntity.STATUS_UPCOMING);
+
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.empty());
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(buildUser()));
+
+        JoinResult result = service.join("AB23CD", USER_ID);
+
+        assertThat(result).isInstanceOf(PendingRequested.class);
+        verify(enrollmentRepository).save(any());
+    }
+
+    @Test
     void full_class_throws_class_full() {
         ClassInviteCode token = activeToken("AB23CD");
         when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
@@ -517,9 +577,15 @@ class JoinClassServiceTest {
         return ic;
     }
 
+    /**
+     * Builds an approved (joinable) class. New classes start DRAFT, so the
+     * status is lifted here to keep these join tests focused on the invite
+     * and enrollment state machine.
+     */
     private static ClassEntity buildClass() {
         ClassEntity c = new ClassEntity("Demo", OWNER_ID, OWNER_ID, null, null, null, 100);
         ReflectionTestUtils.setField(c, "id", CLASS_ID);
+        ReflectionTestUtils.setField(c, "status", ClassEntity.STATUS_UPCOMING);
         return c;
     }
 

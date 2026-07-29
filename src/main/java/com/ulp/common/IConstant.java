@@ -595,11 +595,11 @@ public interface IConstant {
     // HEAD product area.
     String BASE_HEAD              = "/head";
     String URL_HEAD_DASHBOARD     = BASE_HEAD;
-    String URL_HEAD_ASSIGN        = BASE_HEAD + "/assign";
+    String URL_HEAD_APPROVALS     = BASE_HEAD + "/approvals";
     String URL_HEAD_REPORT        = BASE_HEAD + "/report";
     String URL_HEAD_QUESTION_BANK = BASE_HEAD + "/question-bank/review";
     String VIEW_HEAD_DASHBOARD    = "head/dashboard";
-    String VIEW_HEAD_ASSIGN       = "head/assign";
+    String VIEW_HEAD_APPROVALS    = "head/approvals";
     String VIEW_HEAD_REPORT       = "head/report";
     String VIEW_HEAD_QUESTION_BANK = "questionbank/review";
     String VIEW_HEAD_QB_TESTS      = "head/question-bank-tests";
@@ -607,8 +607,7 @@ public interface IConstant {
     String ATTR_HEAD_DEPARTMENT   = "headDepartment";
     String ATTR_HEAD_KPIS         = "kpis";
     String ATTR_HEAD_RECENT       = "recentClasses";
-    String ATTR_HEAD_CLASS_ROWS   = "classRows";
-    String ATTR_HEAD_LECTURERS    = "lecturers";
+    String ATTR_HEAD_PENDING_CLASSES = "pendingClasses";
     String ATTR_HEAD_REPORT_ROWS  = "reportRows";
     String ATTR_HEAD_EMPTY        = "emptyDepartment";
     String ATTR_QB_ITEMS          = "items";
@@ -621,8 +620,8 @@ public interface IConstant {
     String ATTR_QB_EMPTY_DEPARTMENT = "emptyDepartment";
     String ATTR_QB_EDIT_CATEGORY_ID = "editCategoryId";
     String ATTR_QB_DETAIL         = "detail";
-    String MSG_HEAD_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
-    String MSG_HEAD_REASSIGN_FAIL = "Không thể phân công giảng viên";
+    String MSG_HEAD_CLASS_APPROVED = "Đã duyệt lớp ";
+    String MSG_HEAD_CLASS_REJECTED = "Đã từ chối lớp ";
     String MSG_QB_DRAFT_SAVED     = "Đã lưu câu hỏi nháp";
     String MSG_QB_SUBMITTED       = "Đã gửi câu hỏi lên hàng chờ duyệt";
     String MSG_QB_UPDATED         = "Đã cập nhật câu hỏi";

@@ -6,6 +6,7 @@ import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.repository.ClassRepository;
+import com.ulp.features.classes.service.approval.ClassReviewNotifier;
 import com.ulp.features.classes.service.codes.ClassCodeGenerationException;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
@@ -38,17 +39,20 @@ final class ClassCreator {
     private final ClassCodeGenerator codeGenerator;
     private final InviteCodeService inviteCodeService;
     private final UserRepository userRepository;
+    private final ClassReviewNotifier reviewNotifier;
 
     ClassCreator(ClassRepository classRepository,
                  ClassActivityWriter activityWriter,
                  ClassCodeGenerator codeGenerator,
                  InviteCodeService inviteCodeService,
-                 UserRepository userRepository) {
+                 UserRepository userRepository,
+                 ClassReviewNotifier reviewNotifier) {
         this.classRepository = classRepository;
         this.activityWriter = activityWriter;
         this.codeGenerator = codeGenerator;
         this.inviteCodeService = inviteCodeService;
         this.userRepository = userRepository;
+        this.reviewNotifier = reviewNotifier;
     }
 
     /**
@@ -83,6 +87,16 @@ final class ClassCreator {
                 // surrounding @Transactional method, rolling the class
                 // creation back together with the audit row.
                 inviteCodeService.provisionDefaults(saved.getId(), userId);
+                // The class is persisted DRAFT — tell the department HEAD it
+                // awaits review. The notifier swallows its own failures, but we
+                // do not rely on that: notification is strictly secondary to
+                // creation, so a broken notifier must never roll back a class
+                // the lecturer already submitted for review.
+                try {
+                    reviewNotifier.notifyHeadPendingApproval(saved);
+                } catch (RuntimeException ex) {
+                    log.warn("Không gửi được thông báo chờ duyệt cho lớp {}", saved.getId(), ex);
+                }
                 return saved;
             } catch (DataIntegrityViolationException ex) {
                 if (!isCodeCollision(ex)) {

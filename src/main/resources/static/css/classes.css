@@ -152,6 +152,26 @@
   font-weight: 700; font-size: 15px; color: var(--fg);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* Review badge next to the class name — rendered only while a class is waiting
+   on (DRAFT) or has failed (REJECTED) the department HEAD's review, so the
+   lecturer can tell a pending class from an operational one at a glance.
+   flex: none keeps it from being clipped by the h4's ellipsis truncation. */
+.review-badge {
+  display: inline-block; flex: none;
+  margin-left: 8px; padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .2px;
+  vertical-align: middle;
+}
+.review-badge.status-draft {
+  background: var(--color-warning-soft, #fffbeb);
+  color: var(--color-warning, #b45309);
+}
+.review-badge.status-rejected {
+  background: var(--color-danger-soft, #fef2f2);
+  color: var(--color-danger, #dc2626);
+}
 .class-code {
   display: inline-flex; align-items: center; gap: 6px;
   margin-top: 3px; font-size: 12.5px; color: var(--muted);
