@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.List;
+
 import static com.ulp.common.IConstant.ATTR_FORM;
 import static com.ulp.common.IConstant.ATTR_MODE;
 import static com.ulp.common.IConstant.ATTR_QB_CATEGORIES;
@@ -59,13 +61,20 @@ public class LecturerQuestionBankController {
                        @RequestParam(name = "q", required = false) String q,
                        @AuthenticationPrincipal UlpUserDetails user,
                        Model model) {
-        model.addAttribute(ATTR_QB_ITEMS,
-                itemService.list(user.getId(), user.getRole(), status, categoryId, null, q));
-        model.addAttribute(ATTR_QB_CATEGORIES, itemService.categoriesFor(user.getId(), user.getRole()));
+        // Department-less callers (typically ADMIN, which has no department_id)
+        // must not reach the item lookups: those require a department and would
+        // otherwise surface as a 500. The view already renders an empty state.
+        boolean hasDepartment = itemService.hasDepartment(user.getId(), user.getRole());
+        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !hasDepartment);
+        model.addAttribute(ATTR_QB_ITEMS, hasDepartment
+                ? itemService.list(user.getId(), user.getRole(), status, categoryId, null, q)
+                : List.of());
+        model.addAttribute(ATTR_QB_CATEGORIES, hasDepartment
+                ? itemService.categoriesFor(user.getId(), user.getRole())
+                : List.of());
         model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
         model.addAttribute(ATTR_QB_SELECTED_CATEGORY_ID, categoryId);
         model.addAttribute(ATTR_QB_QUERY, q);
-        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !itemService.hasDepartment(user.getId(), user.getRole()));
         return VIEW_QB_LIST;
     }
 
@@ -162,9 +171,14 @@ public class LecturerQuestionBankController {
     }
 
     private void populateForm(Model model, UlpUserDetails user, String mode) {
+        // Same department guard as list(): skip the category lookup when the
+        // caller has no department so the form renders its empty state.
+        boolean hasDepartment = itemService.hasDepartment(user.getId(), user.getRole());
         model.addAttribute(ATTR_MODE, mode);
-        model.addAttribute(ATTR_QB_CATEGORIES, itemService.categoriesFor(user.getId(), user.getRole()));
-        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !itemService.hasDepartment(user.getId(), user.getRole()));
+        model.addAttribute(ATTR_QB_CATEGORIES, hasDepartment
+                ? itemService.categoriesFor(user.getId(), user.getRole())
+                : List.of());
+        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !hasDepartment);
     }
 
     private static String redirectList() {
