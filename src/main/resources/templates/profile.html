@@ -10,9 +10,10 @@
 <main class="app-page">
   <h1>Hồ sơ cá nhân</h1>
 
-  <div th:if="${profileUpdated}" class="alert alert-success">Cập nhật hồ sơ thành công.</div>
-  <div th:if="${avatarUpdated}" class="alert alert-success">Cập nhật ảnh đại diện thành công.</div>
-  <div th:if="${avatarError}" class="alert alert-error" th:text="${avatarError}">Lỗi upload</div>
+  <!-- Flash payload drained into a toast by notifications.js (loaded via app-header). -->
+  <span id="flash-data"
+        th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+        style="display:none;"></span>
 
   <div class="card profile-card">
     <!-- Avatar row -->

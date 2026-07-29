@@ -22,7 +22,8 @@
     <p class="detail-sub">Cấu hình các nhà cung cấp đăng nhập một chạm. Thay đổi
       có hiệu lực ngay, không cần khởi động lại ứng dụng.</p>
 
-    <!-- Flash → toast on page load (admin.js xử lý). -->
+    <!-- Flash payload drained into a toast by notifications.js — the single
+         owner of this drain. Page scripts must not read data-flash-*. -->
     <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
          th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
 
