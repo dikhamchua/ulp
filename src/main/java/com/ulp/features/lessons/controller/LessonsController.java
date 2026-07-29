@@ -121,7 +121,9 @@ public class LessonsController {
         }
         try {
             lessonsService.create(classId, sectionId,
-                    form.title().trim(), form.status(), form.contentHtml(),
+                    new LessonForm(form.title().trim(), form.status(),
+                            form.contentHtml(), form.contentType(),
+                            form.videoUrl(), form.videoProvider()),
                     user.getId(), user.getRole());
         } catch (RuntimeException ex) {
             return MutationFailureHandler.handle(ex,
@@ -218,8 +220,12 @@ public class LessonsController {
             lessonsService.update(classId, sectionId, lessonId,
                     trimmed, user.getId(), user.getRole());
         } catch (RuntimeException ex) {
-            return MutationFailureHandler.handle(ex,
-                    lessonsTabUrl(classId, sectionId), ra,
+            // Validation failures keep the lecturer on the edit page so the
+            // typed-in values survive; only hard failures fall back to the list.
+            String failureTarget = ex instanceof IllegalArgumentException
+                    ? lessonEditUrl(classId, sectionId, lessonId)
+                    : lessonsTabUrl(classId, sectionId);
+            return MutationFailureHandler.handle(ex, failureTarget, ra,
                     MSG_LESSON_UPDATE_FAILED, log,
                     "Failed to update lesson " + lessonId + " in class " + classId);
         }

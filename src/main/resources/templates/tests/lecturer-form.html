@@ -435,16 +435,21 @@
 <template id="lfQuestionTpl">
   <div class="lf-question">
     <div class="lf-q-head">
-      <select class="lf-input lf-q-type">
-        <option value="MCQ">Một đáp án (MCQ)</option>
-        <option value="MR">Nhiều đáp án (MR)</option>
-      </select>
-      <input class="lf-input lf-q-points" type="number" step="0.01" min="0" value="1" title="Điểm">
+      <span class="lf-q-no">Câu hỏi</span>
+      <!-- Question type is derived from how many options are ticked, so the
+           lecturer never picks MCQ/MR by hand; this badge just mirrors it. -->
+      <span class="lf-q-type-badge" data-type="MCQ">Một đáp án</span>
+      <input type="hidden" class="lf-q-type" value="MCQ">
+      <label class="lf-q-points-field">
+        <span class="lf-q-points-label">Điểm</span>
+        <input class="lf-input lf-q-points" type="number" step="0.01" min="0" value="1">
+      </label>
       <button type="button" class="lf-icon-btn lf-q-remove" title="Xoá câu hỏi">✕</button>
     </div>
     <div class="lf-q-editor"></div>
     <textarea class="lf-q-content" hidden></textarea>
     <textarea class="lf-input lf-q-explanation" rows="1" placeholder="Giải thích (tuỳ chọn)"></textarea>
+    <p class="lf-options-hint">Tích vào ô vuông để đánh dấu đáp án đúng. Tích nhiều ô nếu câu hỏi có nhiều đáp án đúng.</p>
     <div class="lf-options"></div>
     <button type="button" class="tst-btn lf-add-option">+ Thêm đáp án</button>
     <small class="lf-err lf-q-err"></small>
@@ -453,8 +458,9 @@
 
 <template id="lfOptionTpl">
   <div class="lf-option">
-    <label class="lf-o-mark" title="Đánh dấu đáp án đúng">
-      <input type="checkbox" class="lf-o-correct">
+    <label class="lf-o-mark" title="Đánh dấu đây là đáp án đúng">
+      <input type="checkbox" class="lf-o-correct" aria-label="Đáp án đúng">
+      <span class="lf-o-box" aria-hidden="true"></span>
       <span class="lf-o-letter" aria-hidden="true">A</span>
     </label>
     <div class="lf-o-body">

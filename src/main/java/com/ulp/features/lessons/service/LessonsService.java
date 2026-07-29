@@ -99,27 +99,57 @@ public class LessonsService {
     }
 
     /**
-     * Creates a new lesson appended after the current last one. Defaults
-     * the content type to RICHTEXT for backward compatibility — the
-     * lecturer flips the type via the form picker and the dedicated
-     * content endpoints. Sanitises the body only on the RICHTEXT path.
+     * Creates a new lesson as RICHTEXT. Kept for callers that only carry
+     * the raw body; the form-driven path uses the {@link LessonForm}
+     * overload so the picked content type survives the first save.
      */
     @Transactional
     public LessonRow create(Long classId, Long sectionId, String title,
                             String status, String contentHtmlRaw,
                             Long userId, Role role) {
+        return create(classId, sectionId,
+                new LessonForm(title, status, contentHtmlRaw,
+                        CONTENT_TYPE_RICHTEXT, null, null),
+                userId, role);
+    }
+
+    /**
+     * Creates a new lesson appended after the current last one, honouring
+     * the content type picked on the form.
+     *
+     * <p>A brand-new lesson has no uploaded PDF/MP4 yet, so only RICHTEXT
+     * and externally-hosted VIDEO (YouTube / Vimeo URL typed into the form)
+     * can be committed on the very first save. PDF and uploaded MP4 land as
+     * RICHTEXT drafts — the dedicated content endpoints need a persisted
+     * lesson id before they can attach a file, and the lecturer completes
+     * the switch on the following save.
+     */
+    @Transactional
+    public LessonRow create(Long classId, Long sectionId, LessonForm form,
+                            Long userId, Role role) {
         ClassEntity clazz = classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
 
+        String title = form.title();
+        String status = form.status();
         short nextOrder = (short) (lessonRepository.findMaxDisplayOrder(sectionId) + 1);
         Lesson lesson = new Lesson(sectionId, title, nextOrder, userId);
-        // Create always lands as RICHTEXT — the lecturer creates a draft,
-        // then optionally uploads a PDF/MP4 and saves the type switch.
-        lesson.updateContent(HtmlSanitizer.sanitize(contentHtmlRaw));
+        // Always seed a sanitised body: the entity starts as RICHTEXT and its
+        // CHECK constraint rejects a null body.
+        lesson.updateContent(HtmlSanitizer.sanitize(form.contentHtml()));
         if (LESSON_STATUS_PUBLISHED.equals(status)) {
             lesson.publish();
         }
         Lesson saved = lessonRepository.save(lesson);
+
+        // Commit an external video straight away so the lecturer is not asked
+        // to confirm a "type switch" on a lesson that never had prior content.
+        // Runs after the insert because the switcher flushes the row.
+        if (isExternalVideoForm(form)) {
+            saved.setVideoProvider(form.videoProvider());
+            saved.setVideoUrl(form.videoUrl());
+            contentTypeSwitcher.applyTo(saved, form);
+        }
 
         activityWriter.write(
                 saved.getId(),
@@ -389,5 +419,17 @@ public class LessonsService {
 
     private static String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    /**
+     * True when the form describes a VIDEO hosted elsewhere (YouTube /
+     * Vimeo) with a URL already filled in. Uploaded MP4s are excluded:
+     * their file only lands after the lesson row exists.
+     */
+    private static boolean isExternalVideoForm(LessonForm form) {
+        if (!CONTENT_TYPE_VIDEO.equals(form.effectiveContentType())) return false;
+        boolean external = VIDEO_PROVIDER_YOUTUBE.equals(form.videoProvider())
+                || VIDEO_PROVIDER_VIMEO.equals(form.videoProvider());
+        return external && form.videoUrl() != null && !form.videoUrl().isBlank();
     }
 }

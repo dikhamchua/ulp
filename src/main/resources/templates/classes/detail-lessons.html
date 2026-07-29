@@ -142,6 +142,20 @@
                         ? 'Bài giảng của ' + selectedSection.title
                         : 'Tất cả bài giảng'}">Tất cả bài giảng</h2>
         <div class="content-actions" th:if="${canEdit}">
+          <!-- Opens the student-facing view of this class (same section when
+               one is selected) so the lecturer can preview what learners see. -->
+          <a th:href="${selectedSectionId != null}
+                      ? @{'/my/classes/' + ${clazz.id} + '/lessons'(section=${selectedSectionId})}
+                      : @{'/my/classes/' + ${clazz.id} + '/lessons'}"
+             class="content-preview-btn"
+             target="_blank" rel="noopener"
+             title="Mở giao diện học viên trong tab mới">
+            <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Xem ở giao diện người dùng
+          </a>
           <a th:if="${selectedSectionId != null}"
              th:href="@{'/lecturer/classes/' + ${clazz.id}
                        + '/sections/' + ${selectedSectionId} + '/lessons/new'}"

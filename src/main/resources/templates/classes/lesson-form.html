@@ -227,13 +227,35 @@
           </p>
         </section>
 
+        <!-- Create mode: an externally hosted video can be set right away
+             because it needs no upload. MP4 upload still waits for the
+             lesson row to exist, hence the hint below. -->
         <section class="detail-card" data-content-type-section="VIDEO"
                  th:if="${mode == 'create'}">
           <h2 class="detail-card-title">Video bài giảng</h2>
-          <p class="detail-field-help lct-warn">
-            Hãy tạo bài giảng dưới dạng nháp trước, sau đó cấu hình video
-            trong chế độ chỉnh sửa.
-          </p>
+          <div class="lct-video-providers" role="radiogroup" aria-label="Nguồn video">
+            <label>
+              <input type="radio" name="videoProviderUi" value="YOUTUBE"
+                     th:checked="${form.videoProvider != 'VIMEO'}">
+              YouTube
+            </label>
+            <label>
+              <input type="radio" name="videoProviderUi" value="VIMEO"
+                     th:checked="${form.videoProvider == 'VIMEO'}">
+              Vimeo
+            </label>
+          </div>
+          <input type="hidden" th:field="*{videoProvider}">
+          <div class="lct-video-url-block">
+            <label for="lessonVideoUrlInputNew">URL video</label>
+            <input id="lessonVideoUrlInputNew" type="url" th:field="*{videoUrl}"
+                   placeholder="https://www.youtube.com/watch?v=..." maxlength="500">
+            <p class="detail-field-help">
+              Dán liên kết YouTube hoặc Vimeo để lưu ngay khi tạo bài giảng.
+              Muốn tải tệp MP4 lên? Hãy tạo bài giảng trước rồi tải lên trong
+              chế độ chỉnh sửa.
+            </p>
+          </div>
         </section>
 
         <!-- ═══ Bottom row: attachments (left) + main PDF (right) ═════════
@@ -376,6 +398,7 @@
       <section class="detail-card lpdf-card" data-content-type-section="PDF"
                th:if="${mode == 'edit' and lesson != null}"
                th:attr="data-lesson-id=${lesson.id},
+                        data-has-pdf=${lesson.pdfAttachmentId != null},
                         data-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/pdf|}">
         <header class="latt-header">
           <span class="latt-header-icon" aria-hidden="true">
@@ -461,7 +484,7 @@
 
       <!-- Main PDF — create mode placeholder -->
       <section class="detail-card lpdf-card" data-content-type-section="PDF"
-               th:if="${mode == 'create'}">
+               th:if="${mode == 'create'}" data-has-pdf="false">
         <header class="latt-header">
           <span class="latt-header-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -547,11 +570,14 @@
 <script th:if="${mode == 'edit'}" th:src="@{/js/lesson-attachments.js}" defer></script>
 <!-- Lesson content-type picker + sub-section toggling + confirm modal. -->
 <script th:src="@{/js/lesson-form-type.js}" defer
-        th:attr="data-original-type=${form.contentType ?: 'RICHTEXT'}"></script>
+        th:attr="data-original-type=${form.contentType ?: 'RICHTEXT'},
+                 data-lesson-persisted=${mode == 'edit' and lesson != null}"></script>
 
 <!-- Confirm modal — surfaces when the lecturer flips the type for a
-     persisted lesson. lesson-form-type.js binds the buttons. -->
-<div id="lessonTypeConfirmModal" class="lct-modal" hidden role="dialog"
+     persisted lesson. Not rendered while creating: there is no prior
+     content to destroy yet. lesson-form-type.js binds the buttons. -->
+<div th:if="${mode == 'edit' and lesson != null}"
+     id="lessonTypeConfirmModal" class="lct-modal" hidden role="dialog"
      aria-modal="true" aria-labelledby="lessonTypeConfirmTitle">
   <div class="lct-modal-backdrop" data-modal-cancel></div>
   <div class="lct-modal-panel">

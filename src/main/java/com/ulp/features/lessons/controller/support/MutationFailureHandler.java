@@ -11,12 +11,14 @@ import static com.ulp.common.IConstant.ATTR_FLASH_ERROR;
  * Common mutation-failure handler for the lessons-feature controllers.
  *
  * <p>Both {@code SectionsController} and {@code LessonsController} react to
- * the same three exception classes on the mutation path:
+ * the same exception classes on the mutation path:
  * <ul>
  *   <li>{@link AccessDeniedException} bubbles to {@code GlobalExceptionHandler}
  *       so the user sees a 403 page.</li>
  *   <li>{@link EntityNotFoundException} surfaces its message as a flash error
  *       and redirects back to the originating list page.</li>
+ *   <li>{@link IllegalArgumentException} carries a user-facing validation
+ *       message from the service layer and is surfaced verbatim.</li>
  *   <li>Anything else is logged as an internal failure and shown as a generic
  *       retry message.</li>
  * </ul>
@@ -53,6 +55,13 @@ public final class MutationFailureHandler {
         }
         if (ex instanceof EntityNotFoundException notFound) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, notFound.getMessage());
+            return "redirect:" + redirectTarget;
+        }
+        if (ex instanceof IllegalArgumentException invalid) {
+            // Validation the service rejected (e.g. "PDF chưa được tải lên").
+            // The message is already user-facing, so show it verbatim instead
+            // of the generic retry text — retrying alone never fixes it.
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, invalid.getMessage());
             return "redirect:" + redirectTarget;
         }
         logger.error(logTemplate, appendThrowable(logArgs, ex));
