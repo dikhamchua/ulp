@@ -75,15 +75,17 @@
     <section class="lf-panel">
       <div class="lf-panel-head lf-panel-head-stack" style="flex-direction: column; align-items: flex-start; gap: 4px;">
         <h2 class="lf-panel-title">Đáp án</h2>
-        <p class="lf-media-hint">Nhấn vào chữ cái để đánh dấu đáp án đúng. MCQ cần đúng 1 đáp án đúng, MR cho phép nhiều đáp án.</p>
+        <p class="lf-media-hint">Tích vào ô vuông để đánh dấu đáp án đúng. MCQ cần đúng 1 đáp án đúng, MR cho phép nhiều đáp án.</p>
       </div>
       <div class="lf-options">
         <!-- Single-question form: A–H options are rendered by the server.
              Wrapper markup mirrors the exam builder so .is-correct highlights. -->
         <div class="lf-option" th:each="option, stat : *{options}"
              th:classappend="${option.correct} ? 'is-correct'">
-          <label class="lf-o-mark" title="Đánh dấu đáp án đúng">
-            <input type="checkbox" class="lf-o-correct" th:field="*{options[__${stat.index}__].correct}">
+          <label class="lf-o-mark" title="Đánh dấu đây là đáp án đúng">
+            <input type="checkbox" class="lf-o-correct" aria-label="Đáp án đúng"
+                   th:field="*{options[__${stat.index}__].correct}">
+            <span class="lf-o-box" aria-hidden="true"></span>
             <span class="lf-o-letter" aria-hidden="true"
                   th:text="${#strings.arraySplit('A,B,C,D,E,F,G,H', ',')[stat.index]}">A</span>
           </label>
