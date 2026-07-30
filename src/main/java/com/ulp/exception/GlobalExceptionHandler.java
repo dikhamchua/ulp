@@ -14,6 +14,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 import static com.ulp.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
@@ -118,6 +119,21 @@ public class GlobalExceptionHandler {
                     .body(AjaxResult.failure(message));
         }
         model.addAttribute("message", message);
+        return "error";
+    }
+
+    /**
+     * Catches a query/path param that fails to bind to its target type
+     * (e.g. {@code ?classId=abc} against a {@code Long} parameter). Without
+     * this handler the catch-all below turns any hostile or malformed query
+     * param into a 500 instead of a 400.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                     HttpServletRequest request, Model model) {
+        log.info("400 tai [{}]: tham so '{}' khong hop le", request.getRequestURI(), ex.getName());
+        model.addAttribute("message", "Tham số yêu cầu không hợp lệ.");
         return "error";
     }
 

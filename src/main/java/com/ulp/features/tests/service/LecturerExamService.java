@@ -5,9 +5,7 @@ import com.ulp.entities.TestActivity;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
-import com.ulp.features.tests.dto.LecturerTestDtos.ClassOption;
 import com.ulp.features.tests.dto.LecturerTestDtos.ExamForm;
-import com.ulp.features.tests.dto.LecturerTestDtos.LecturerExamRow;
 import com.ulp.features.tests.dto.LecturerTestDtos.OptionForm;
 import com.ulp.features.tests.dto.LecturerTestDtos.QuestionForm;
 import com.ulp.features.tests.dto.TestDtos.PreviewView;
@@ -20,28 +18,24 @@ import com.ulp.common.HtmlSanitizer;
 import com.ulp.features.tests.support.ExamFormValidator;
 import com.ulp.features.tests.support.TestAccessResolver;
 import com.ulp.security.Role;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.ulp.common.IConstant.DEFAULT_EXAM_PAGE_SIZE;
 import static com.ulp.common.IConstant.MSG_QB_INSERT_EMPTY;
 import static com.ulp.common.IConstant.MSG_QB_INSERT_LOCKED;
 
 /**
- * Lecturer exam authoring: list owned exams, create/edit with a full question-set
- * replacement, and re-derive {@code total_questions}. Ownership is enforced via
- * {@link TestAccessResolver#requireManageable}. Question-bank persistence is
- * delegated to {@link ExamQuestionBankWriter}.
+ * Lecturer exam authoring: create/edit with a full question-set replacement,
+ * preview, insert-from-bank, and re-deriving {@code total_questions}. Ownership
+ * is enforced via {@link TestAccessResolver#requireManageable}. Question-bank
+ * persistence is delegated to {@link ExamQuestionBankWriter}; the read-only
+ * listing side lives in {@link LecturerExamQueryService}.
  */
 @Service
 public class LecturerExamService {
@@ -71,47 +65,6 @@ public class LecturerExamService {
         this.takeViewBuilder = takeViewBuilder;
         this.questionBankWriter = questionBankWriter;
         this.questionBankPicker = questionBankPicker;
-    }
-
-    /** One page of exams the lecturer owns (created or leads the class). */
-    @Transactional(readOnly = true)
-    public Page<LecturerExamRow> listOwned(Long userId, int page) {
-        List<Long> ledClassIds = ledClassIds(userId);
-        PageRequest pageable = PageRequest.of(Math.max(page, 0), DEFAULT_EXAM_PAGE_SIZE,
-                Sort.by(Sort.Direction.DESC, "updatedAt"));
-        return toRows(testRepository.findOwnedByLecturer(userId, ledClassIds, pageable));
-    }
-
-    /**
-     * One page of exams belonging to a single class. Class-level authorization
-     * is the caller's responsibility: {@code ClassDetailController} gates the
-     * tests tab with {@code classesService.getViewable(...)} (LECTURER-owns /
-     * HEAD / ADMIN), mirroring every other class-detail tab. This method trusts
-     * that gate and only queries.
-     */
-    @Transactional(readOnly = true)
-    public Page<LecturerExamRow> listForClass(Long classId, int page) {
-        PageRequest pageable = PageRequest.of(Math.max(page, 0), DEFAULT_EXAM_PAGE_SIZE,
-                Sort.by(Sort.Direction.DESC, "updatedAt"));
-        return toRows(testRepository.findByClassId(classId, pageable));
-    }
-
-    /** Maps a page of exams to list rows, resolving class names in one batch. */
-    private Page<LecturerExamRow> toRows(Page<Test> tests) {
-        Map<Long, String> classNames = resolveClassNames(tests.getContent());
-        return tests.map(t -> new LecturerExamRow(t.getId(), t.getTitle(), t.getType(),
-                t.getStatus(), classNames.get(t.getClassId()),
-                t.getTotalQuestions() == null ? 0 : t.getTotalQuestions(), t.getEndAt()));
-    }
-
-    /** Classes the lecturer leads (the exam class picker). */
-    @Transactional(readOnly = true)
-    public List<ClassOption> ledClasses(Long userId) {
-        List<ClassOption> options = new ArrayList<>();
-        for (ClassEntity c : classRepository.findAllByLecturerId(userId)) {
-            options.add(new ClassOption(c.getId(), c.getName()));
-        }
-        return options;
     }
 
     /** Loads an owned exam as an editable form (with its questions + options). */
@@ -276,25 +229,6 @@ public class LecturerExamService {
         if (!leads) {
             throw new AccessDeniedException(TestAccessResolver.NF_MSG);
         }
-    }
-
-    private List<Long> ledClassIds(Long userId) {
-        List<Long> ids = new ArrayList<>();
-        classRepository.findAllByLecturerId(userId).forEach(c -> ids.add(c.getId()));
-        // Sentinel keeps the JPQL IN clause valid when the lecturer leads no class.
-        if (ids.isEmpty()) ids.add(-1L);
-        return ids;
-    }
-
-    private Map<Long, String> resolveClassNames(List<Test> tests) {
-        Map<Long, String> names = new HashMap<>();
-        List<Long> ids = tests.stream().map(Test::getClassId)
-                .filter(id -> id != null).distinct().toList();
-        if (ids.isEmpty()) return names;
-        for (ClassEntity c : classRepository.findAllById(ids)) {
-            names.put(c.getId(), c.getName());
-        }
-        return names;
     }
 
     private static String defaultType(String type) {

@@ -41,7 +41,11 @@
     <!-- Sticky toolbar: Quay lại / Lưu. Lưu is form-associated (form="lfForm")
          and disabled on non-info tabs — there is no form to submit there. -->
     <div class="detail-toolbar">
-      <a th:href="@{/lecturer/tests}" class="toolbar-back">← Quay lại</a>
+      <!-- Back goes to the owning class tests tab when the exam has a class. -->
+      <a class="toolbar-back"
+         th:href="${classId != null}
+             ? @{'/lecturer/classes/' + ${classId} + '/tests'}
+             : @{/lecturer/tests}">← Quay lại</a>
       <span class="toolbar-spacer"></span>
       <a class="toolbar-secondary"
          th:href="@{'/lecturer/tests/' + ${test.id()} + '/preview'}">Xem trước</a>
@@ -87,7 +91,10 @@
 <form th:if="${mode == 'create' or activeDetailTab == 'info'}"
           id="lfForm"
           th:attr="data-save-url=@{/lecturer/tests/save},
-                   data-list-url=@{/lecturer/tests},
+                   data-list-url=${classId != null}
+                       ? @{'/lecturer/classes/' + ${classId} + '/tests'}
+                       : @{/lecturer/tests},
+                   data-preselected-class-id=${classId},
                    data-image-url=@{/lecturer/tests/images},
                    data-bank-search-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/search'} : '',
                    data-bank-insert-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/insert'} : '',

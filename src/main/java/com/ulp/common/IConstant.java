@@ -373,6 +373,9 @@ public interface IConstant {
     String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
     String ATTR_PREVIEW      = "preview";
     String ATTR_EXAM_BANK_CATEGORIES = "examBankCategories";
+    String ATTR_EXAM_FILTER  = "examFilter";
+    /** Led-class options backing the "Lớp" dropdown on the global exam list filter. */
+    String ATTR_EXAM_CLASS_OPTIONS = "examClassOptions";
 
     // Readiness band labels (Vietnamese UI text).
     String BAND_NOT_READY = "Chưa sẵn sàng";
@@ -411,6 +414,19 @@ public interface IConstant {
     // Exam list / submissions page sizes (default + upper bound for ?size).
     int DEFAULT_EXAM_PAGE_SIZE        = 12;
     int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
+
+    // Exam list filter: request params, sort keys and the "all" sentinel. Shared
+    // by the class-tests tab and the global /lecturer/tests list (which adds the
+    // class dimension the class-scoped tab has no use for).
+    String PARAM_EXAM_KEYWORD = "q";
+    String PARAM_EXAM_STATUS  = "status";
+    String PARAM_EXAM_TYPE    = "type";
+    String PARAM_EXAM_SORT    = "sort";
+    String PARAM_EXAM_CLASS   = "classId";
+    String EXAM_FILTER_ALL    = "ALL";
+    String EXAM_SORT_RECENT   = "recent";
+    String EXAM_SORT_TITLE    = "title";
+    String EXAM_SORT_CLOSING  = "closing";
 
     // ───────── Assignments (Sprint 6, #70) ──────────────────────────
     // Route prefixes / canonical URLs.

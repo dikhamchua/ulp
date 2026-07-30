@@ -5,9 +5,7 @@ import com.ulp.entities.TestActivity;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
-import com.ulp.features.tests.dto.LecturerTestDtos.ClassOption;
 import com.ulp.features.tests.dto.LecturerTestDtos.ExamForm;
-import com.ulp.features.tests.dto.LecturerTestDtos.LecturerExamRow;
 import com.ulp.features.tests.dto.LecturerTestDtos.OptionForm;
 import com.ulp.features.tests.dto.LecturerTestDtos.QuestionForm;
 import com.ulp.features.tests.entity.Question;
@@ -17,18 +15,12 @@ import com.ulp.features.tests.repository.TestRepository;
 import com.ulp.features.tests.support.TestAccessResolver;
 import com.ulp.security.Role;
 import org.junit.jupiter.api.BeforeEach;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-import static com.ulp.common.IConstant.DEFAULT_EXAM_PAGE_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -83,14 +75,6 @@ class LecturerExamServiceTest {
 
     // ── Fixtures ────────────────────────────────────────────────────────
 
-    /** A class led by {@link #USER_ID}; mocked because ClassEntity has no id setter. */
-    private ClassEntity ledClass(Long id, String name) {
-        ClassEntity c = mock(ClassEntity.class);
-        when(c.getId()).thenReturn(id);
-        when(c.getName()).thenReturn(name);
-        return c;
-    }
-
     /** A persisted exam mock reporting the given id/status. */
     private Test persistedTest(Long id, String status) {
         Test test = mock(Test.class);
@@ -116,109 +100,6 @@ class LecturerExamServiceTest {
         ClassEntity owned = mock(ClassEntity.class);
         when(owned.getLecturerId()).thenReturn(USER_ID);
         when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(owned));
-    }
-
-    // ── Listing ─────────────────────────────────────────────────────────
-
-    @org.junit.jupiter.api.Test
-    void listOwnedSortsByUpdatedAtDescendingWithTheConfiguredPageSize() {
-        when(classRepository.findAllByLecturerId(USER_ID)).thenReturn(List.of());
-        when(testRepository.findOwnedByLecturer(eq(USER_ID), anyList(), any(Pageable.class)))
-                .thenReturn(Page.empty());
-
-        service.listOwned(USER_ID, 2);
-
-        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(testRepository).findOwnedByLecturer(eq(USER_ID), anyList(), captor.capture());
-        Pageable pageable = captor.getValue();
-        assertThat(pageable.getPageNumber()).isEqualTo(2);
-        assertThat(pageable.getPageSize()).isEqualTo(DEFAULT_EXAM_PAGE_SIZE);
-        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Direction.DESC, "updatedAt"));
-    }
-
-    @org.junit.jupiter.api.Test
-    void listOwnedClampsNegativePagesToZero() {
-        when(classRepository.findAllByLecturerId(USER_ID)).thenReturn(List.of());
-        when(testRepository.findOwnedByLecturer(eq(USER_ID), anyList(), any(Pageable.class)))
-                .thenReturn(Page.empty());
-
-        service.listOwned(USER_ID, -5);
-
-        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(testRepository).findOwnedByLecturer(eq(USER_ID), anyList(), captor.capture());
-        assertThat(captor.getValue().getPageNumber()).isZero();
-    }
-
-    @org.junit.jupiter.api.Test
-    void listOwnedPassesASentinelClassIdWhenTheLecturerLeadsNoClass() {
-        // An empty IN clause is invalid JPQL, so the query must still get one id.
-        when(classRepository.findAllByLecturerId(USER_ID)).thenReturn(List.of());
-        when(testRepository.findOwnedByLecturer(eq(USER_ID), anyList(), any(Pageable.class)))
-                .thenReturn(Page.empty());
-
-        service.listOwned(USER_ID, 0);
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<Long>> captor = ArgumentCaptor.forClass(List.class);
-        verify(testRepository).findOwnedByLecturer(eq(USER_ID), captor.capture(), any(Pageable.class));
-        assertThat(captor.getValue()).containsExactly(-1L);
-    }
-
-    @org.junit.jupiter.api.Test
-    void listOwnedResolvesClassNamesAndDefaultsANullQuestionCountToZero() {
-        Test row = mock(Test.class);
-        when(row.getId()).thenReturn(TEST_ID);
-        when(row.getTitle()).thenReturn("Giữa kỳ");
-        when(row.getClassId()).thenReturn(CLASS_ID);
-        when(row.getTotalQuestions()).thenReturn(null);
-
-        when(classRepository.findAllByLecturerId(USER_ID)).thenReturn(List.of());
-        when(testRepository.findOwnedByLecturer(eq(USER_ID), anyList(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(row)));
-        // Built before the when(...) call: ledClass stubs internally, and Mockito
-        // rejects a nested stubbing started inside an unfinished one.
-        List<ClassEntity> classes = List.of(ledClass(CLASS_ID, "SE1701"));
-        when(classRepository.findAllById(List.of(CLASS_ID))).thenReturn(classes);
-
-        LecturerExamRow mapped = service.listOwned(USER_ID, 0).getContent().get(0);
-
-        assertThat(mapped.className()).isEqualTo("SE1701");
-        assertThat(mapped.totalQuestions()).isZero();
-    }
-
-    @org.junit.jupiter.api.Test
-    void listOwnedSkipsTheClassNameLookupWhenNoExamHasAClass() {
-        Test row = mock(Test.class);
-        when(row.getClassId()).thenReturn(null);
-        when(classRepository.findAllByLecturerId(USER_ID)).thenReturn(List.of());
-        when(testRepository.findOwnedByLecturer(eq(USER_ID), anyList(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(row)));
-
-        LecturerExamRow mapped = service.listOwned(USER_ID, 0).getContent().get(0);
-
-        assertThat(mapped.className()).isNull();
-        verify(classRepository, never()).findAllById(anyList());
-    }
-
-    @org.junit.jupiter.api.Test
-    void listForClassQueriesOnlyThatClass() {
-        when(testRepository.findByClassId(eq(CLASS_ID), any(Pageable.class))).thenReturn(Page.empty());
-
-        service.listForClass(CLASS_ID, 1);
-
-        verify(testRepository).findByClassId(eq(CLASS_ID), eq(PageRequest.of(1,
-                DEFAULT_EXAM_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "updatedAt"))));
-    }
-
-    @org.junit.jupiter.api.Test
-    void ledClassesMapsEveryClassTheLecturerLeads() {
-        List<ClassEntity> classes = List.of(ledClass(1L, "SE1701"), ledClass(2L, "SE1702"));
-        when(classRepository.findAllByLecturerId(USER_ID)).thenReturn(classes);
-
-        List<ClassOption> options = service.ledClasses(USER_ID);
-
-        assertThat(options).containsExactly(
-                new ClassOption(1L, "SE1701"), new ClassOption(2L, "SE1702"));
     }
 
     // ── Save: authorization ─────────────────────────────────────────────

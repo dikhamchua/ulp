@@ -47,7 +47,11 @@
 .tst-table { width: 100%; border-collapse: collapse; background: #fff; }
 .tst-table th, .tst-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef0f2; font-size: 14px; }
 .tst-table th { color: #6b7280; font-weight: 600; }
+/* Actions cell shrinks to its content and never breaks a label mid-word
+   ("Bài nộp" wrapping to "Bài" / "nộp"); the title column absorbs the slack. */
+.tst-row-actions { white-space: nowrap; width: 1%; }
 .tst-row-actions a { margin-right: 10px; color: #2563eb; text-decoration: none; }
+.tst-row-actions a:last-child { margin-right: 0; }
 .tst-row-actions a:hover { text-decoration: underline; }
 
 /* Practice-new form. */

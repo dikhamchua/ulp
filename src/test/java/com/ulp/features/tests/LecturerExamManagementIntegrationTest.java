@@ -103,6 +103,51 @@ class LecturerExamManagementIntegrationTest {
 
     @Test
     @WithUserDetails(LECTURER)
+    void create_form_preselects_class_and_targets_class_tests_tab() throws Exception {
+        // Entering from a class tests tab must bind the exam to that class and
+        // send the lecturer back there after saving.
+        mockMvc.perform(get("/lecturer/tests/new").param("classId", String.valueOf(classId)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(
+                        containsString("data-preselected-class-id=\"" + classId + "\"")))
+                .andExpect(content().string(
+                        containsString("data-list-url=\"/lecturer/classes/" + classId + "/tests\"")));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER)
+    void create_form_ignores_class_the_lecturer_does_not_lead() throws Exception {
+        // A hand-typed foreign id must degrade to the plain create form (no
+        // prefill, no class-scoped redirect) instead of leaking or 500-ing.
+        mockMvc.perform(get("/lecturer/tests/new").param("classId", "99999999"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("data-preselected-class-id=\"99999999\""))))
+                .andExpect(content().string(containsString("data-list-url=\"/lecturer/tests\"")));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER)
+    void class_tests_tab_lists_exams_of_that_class() throws Exception {
+        // The exam created in setUp() belongs to classId, so the class tab must
+        // show it — this is the "lớp không hiện bài test" regression.
+        mockMvc.perform(get("/lecturer/classes/" + classId + "/tests"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Đề GV JUnit")))
+                .andExpect(content().string(
+                        containsString("/lecturer/tests/new?classId=" + classId)));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER)
+    void edit_form_targets_the_owning_class_tests_tab() throws Exception {
+        mockMvc.perform(get("/lecturer/tests/" + examId + "/edit"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(
+                        containsString("data-list-url=\"/lecturer/classes/" + classId + "/tests\"")));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER)
     void owner_preview_shows_student_style_read_only_view() throws Exception {
         mockMvc.perform(get("/lecturer/tests/" + examId + "/preview"))
                 .andExpect(status().isOk())
