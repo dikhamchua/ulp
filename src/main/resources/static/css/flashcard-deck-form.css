@@ -39,9 +39,34 @@
 
 .fc-form-actions { margin-top: 20px; }
 
+/* AI flashcard generator panel (ULP-12.4). Tinted like the exam AI panel so the
+   two generators read as the same feature, but styled locally: the exam rules
+   live in test-lecturer-form.css, which this page does not load. */
+.fc-ai-panel {
+    margin: 0 0 14px; padding: 16px; border: 1px solid #e0d7fb; border-radius: 10px;
+    background: #faf8ff;
+}
+.fc-ai-hint { margin: 0 0 12px; font-size: 12.5px; color: #6b7280; line-height: 1.5; }
+.fc-ai-inputs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.fc-ai-label { font-size: 13px; font-weight: 600; color: #374151; }
+.fc-ai-inputs .fc-ai-label + .fc-ai-label { margin-top: 6px; }
+.fc-ai-text,
+.fc-ai-input {
+    padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 14px; font-family: inherit; background: #fff; box-sizing: border-box;
+}
+.fc-ai-text { width: 100%; resize: vertical; min-height: 96px; }
+.fc-ai-inputs .fc-ai-input { width: 100%; }
+.fc-ai-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.fc-ai-toolbar .fc-ai-input { width: auto; min-width: 150px; flex: 0 1 auto; }
+.fc-ai-state { margin-top: 12px; font-size: 13px; color: #4b5563; }
+.fc-ai-state.is-error { color: #b91c1c; }
+
 @media (max-width: 640px) {
     .fc-card-row { grid-template-columns: 1fr; }
     .fc-row-sides { grid-template-columns: 1fr; }
     .fc-row-actions { flex-direction: row; padding-top: 0; }
     .fc-row-index { display: none; }
+    .fc-ai-toolbar .fc-ai-input,
+    .fc-ai-toolbar .fc-btn { width: 100%; }
 }

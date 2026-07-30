@@ -305,6 +305,8 @@ public interface IConstant {
     // Route prefixes / canonical URLs.
     String BASE_FLASHCARDS      = "/my/flashcards";
     String API_FLASHCARDS       = "/api/flashcards";
+    /** Deck-scoped AI generation endpoint, appended to {@code API_FLASHCARDS/{deckId}}. */
+    String SUBPATH_AI_GENERATE  = "/ai-generate";
 
     // View names.
     String VIEW_FLASHCARD_LIST   = "flashcards/list";
@@ -333,6 +335,8 @@ public interface IConstant {
     String MSG_CARD_NOT_FOUND  = "Không tìm thấy thẻ";
     String MSG_DECK_NOT_FOUND  = "Không tìm thấy bộ thẻ";
     String MSG_SHARE_CLASS_INVALID = "Bạn không thuộc lớp này";
+    // AI flashcard generator (ULP-12.4).
+    String MSG_AI_NO_MATERIAL  = "Vui lòng tải lên tài liệu hoặc dán nội dung để sinh thẻ";
 
     // SM-2 rating → quality map (Không nhớ / Khó / Tốt / Dễ).
     int QUALITY_FORGOT = 1;
