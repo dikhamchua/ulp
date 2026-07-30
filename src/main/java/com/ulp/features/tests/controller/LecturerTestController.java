@@ -3,6 +3,8 @@ package com.ulp.features.tests.controller;
 import com.ulp.entities.ClassEntity;
 import com.ulp.features.classes.controller.support.ClassDetailModelSupport;
 import com.ulp.features.classes.service.ClassesService;
+import com.ulp.features.tests.dto.LecturerTestDtos.ClassOption;
+import com.ulp.features.tests.dto.LecturerTestDtos.ExamFilter;
 import com.ulp.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ulp.features.tests.dto.LecturerTestDtos.ExamHeader;
 import com.ulp.features.tests.dto.LecturerTestDtos.LecturerExamRow;
@@ -10,6 +12,7 @@ import com.ulp.features.tests.dto.LecturerTestDtos.SaveResult;
 import com.ulp.features.tests.dto.TestDtos.PreviewView;
 import com.ulp.features.tests.service.ExamMonitorService;
 import com.ulp.features.tests.service.ExamQuestionBankPickerService;
+import com.ulp.features.tests.service.LecturerExamQueryService;
 import com.ulp.features.tests.service.LecturerExamService;
 import com.ulp.features.storage.StorageNotConfiguredException;
 import com.ulp.features.upload.ExamImageStorageService;
@@ -37,12 +40,17 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static com.ulp.common.IConstant.ATTR_ACTIVE_DETAIL_TAB;
+import static com.ulp.common.IConstant.ATTR_CLASS_ID;
 import static com.ulp.common.IConstant.ATTR_EXAMS_PAGE;
 import static com.ulp.common.IConstant.ATTR_EXAM_BANK_CATEGORIES;
+import static com.ulp.common.IConstant.ATTR_EXAM_CLASS_OPTIONS;
+import static com.ulp.common.IConstant.ATTR_EXAM_FILTER;
 import static com.ulp.common.IConstant.ATTR_EXAM_FORM;
 import static com.ulp.common.IConstant.ATTR_LED_CLASSES;
 import static com.ulp.common.IConstant.ATTR_MODE;
@@ -57,6 +65,11 @@ import static com.ulp.common.IConstant.MODE_CREATE;
 import static com.ulp.common.IConstant.MODE_EDIT;
 import static com.ulp.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
 import static com.ulp.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
+import static com.ulp.common.IConstant.PARAM_EXAM_CLASS;
+import static com.ulp.common.IConstant.PARAM_EXAM_KEYWORD;
+import static com.ulp.common.IConstant.PARAM_EXAM_SORT;
+import static com.ulp.common.IConstant.PARAM_EXAM_STATUS;
+import static com.ulp.common.IConstant.PARAM_EXAM_TYPE;
 import static com.ulp.common.IConstant.TAB_HISTORY;
 import static com.ulp.common.IConstant.TAB_INFO;
 import static com.ulp.common.IConstant.TAB_MONITOR;
@@ -90,6 +103,7 @@ public class LecturerTestController {
             Set.of(TAB_INFO, TAB_MONITOR, TAB_SUBMISSIONS, TAB_HISTORY);
 
     private final LecturerExamService examService;
+    private final LecturerExamQueryService examQueryService;
     private final ExamMonitorService monitorService;
     private final ClassesService classesService;
     private final ClassDetailModelSupport classDetailSupport;
@@ -97,12 +111,14 @@ public class LecturerTestController {
     private final ExamQuestionBankPickerService questionBankPickerService;
 
     public LecturerTestController(LecturerExamService examService,
+                                  LecturerExamQueryService examQueryService,
                                   ExamMonitorService monitorService,
                                   ClassesService classesService,
                                   ClassDetailModelSupport classDetailSupport,
                                   ExamImageStorageService examImageStorage,
                                   ExamQuestionBankPickerService questionBankPickerService) {
         this.examService = examService;
+        this.examQueryService = examQueryService;
         this.monitorService = monitorService;
         this.classesService = classesService;
         this.classDetailSupport = classDetailSupport;
@@ -110,23 +126,78 @@ public class LecturerTestController {
         this.questionBankPickerService = questionBankPickerService;
     }
 
-    /** Lists exams the lecturer owns (SSR numbered pager). */
+    /**
+     * Lists exams the lecturer owns across every class, narrowed by the optional
+     * keyword / status / type / class filter and ordered by {@code sort} (SSR
+     * numbered pager). Unknown filter values — including a {@code classId} the
+     * lecturer does not lead — are sanitised to their defaults by
+     * {@link ExamFilter#of}, so hand-typed URLs never 4xx and never widen scope.
+     *
+     * <p>A role with no owned exams (ADMIN leads no class) simply gets an empty
+     * page: the query's ownership predicate is the data-scope gate, so the screen
+     * renders its empty state instead of failing.
+     */
     @GetMapping
     public String list(@RequestParam(name = "page", defaultValue = "0") int page,
+                       @RequestParam(name = PARAM_EXAM_KEYWORD, required = false) String keyword,
+                       @RequestParam(name = PARAM_EXAM_STATUS, required = false) String status,
+                       @RequestParam(name = PARAM_EXAM_TYPE, required = false) String type,
+                       // Bound as text, not Long: an unparsable id must sanitise to
+                       // "all classes", not raise a bind error the advice turns into 500.
+                       @RequestParam(name = PARAM_EXAM_CLASS, required = false) String classId,
+                       @RequestParam(name = PARAM_EXAM_SORT, required = false) String sort,
                        @AuthenticationPrincipal UlpUserDetails user, Model model) {
-        Page<LecturerExamRow> exams = examService.listOwned(user.getId(), page);
+        List<ClassOption> ledClasses = examQueryService.ledClasses(user.getId());
+        ExamFilter filter =
+                ExamFilter.ofRawClassId(keyword, status, type, sort, classId, ledClasses);
+        Page<LecturerExamRow> exams = examQueryService.listOwned(user.getId(), page, filter);
         model.addAttribute(ATTR_EXAMS_PAGE, exams);
+        model.addAttribute(ATTR_EXAM_FILTER, filter);
+        model.addAttribute(ATTR_EXAM_CLASS_OPTIONS, ledClasses);
+        model.addAttribute(ATTR_PAGER_PARAMS, pagerParamsOf(filter));
         return VIEW_TEST_LECTURER_LIST;
     }
 
-    /** Renders the create form with a blank question builder. */
+    /**
+     * Page-independent query params the pager must preserve. Built as a
+     * LinkedHashMap because {@code Map.of} rejects null values and the class
+     * dimension is absent whenever the filter spans every class.
+     */
+    private static Map<String, Object> pagerParamsOf(ExamFilter filter) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put(PARAM_EXAM_KEYWORD, filter.keyword());
+        params.put(PARAM_EXAM_STATUS, filter.status());
+        params.put(PARAM_EXAM_TYPE, filter.type());
+        params.put(PARAM_EXAM_SORT, filter.sort());
+        if (filter.classIdOrNull() != null) {
+            params.put(PARAM_EXAM_CLASS, filter.classIdOrNull());
+        }
+        return params;
+    }
+
+    /**
+     * Renders the create form with a blank question builder. When entered from a
+     * class tests tab, {@code classId} preselects that class and the post-save
+     * redirect points back at the class tests tab instead of the global list.
+     * An id the lecturer does not lead is ignored (no prefill), so a hand-typed
+     * value degrades to the plain create form rather than leaking a class.
+     */
     @GetMapping("/new")
-    public String newForm(@AuthenticationPrincipal UlpUserDetails user, Model model) {
+    public String newForm(@RequestParam(name = "classId", required = false) Long classId,
+                          @AuthenticationPrincipal UlpUserDetails user, Model model) {
+        List<ClassOption> ledClasses = examQueryService.ledClasses(user.getId());
         model.addAttribute(ATTR_EXAM_FORM, null);
-        model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(user.getId()));
+        model.addAttribute(ATTR_LED_CLASSES, ledClasses);
+        model.addAttribute(ATTR_CLASS_ID, preselectableClassId(classId, ledClasses));
         model.addAttribute(ATTR_EXAM_BANK_CATEGORIES, java.util.List.of());
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         return VIEW_TEST_LECTURER_FORM;
+    }
+
+    /** Returns {@code classId} only when the lecturer leads it; otherwise null. */
+    private static Long preselectableClassId(Long classId, List<ClassOption> ledClasses) {
+        if (classId == null) return null;
+        return ledClasses.stream().anyMatch(c -> classId.equals(c.id())) ? classId : null;
     }
 
     /**
@@ -160,10 +231,12 @@ public class LecturerTestController {
         // Header + info-form are always needed (page chrome + tab #1 content).
         ExamForm form = examService.getForEdit(id, userId);
         model.addAttribute(ATTR_EXAM_FORM, form);
-        model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(userId));
+        model.addAttribute(ATTR_LED_CLASSES, examQueryService.ledClasses(userId));
         model.addAttribute(ATTR_EXAM_BANK_CATEGORIES,
                 questionBankPickerService.categoriesFor(userId, user.getRole(), id));
         model.addAttribute(ATTR_MODE, MODE_EDIT);
+        // Drives the post-save redirect back to this exam's class tests tab.
+        model.addAttribute(ATTR_CLASS_ID, form.classId());
         model.addAttribute(ATTR_TEST, monitorService.header(id, userId));
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);
 

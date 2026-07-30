@@ -3,8 +3,8 @@
 <head th:replace="~{fragments/head :: head(${clazz.name} + ' | Bài test', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
@@ -16,32 +16,91 @@
 <div class="class-detail-layout">
   <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'tests')}"></aside>
 
-  <main class="col">
+  <main class="col detail-page">
     <div class="tst-toolbar">
-      <h1 class="detail-title" style="margin:0">Bài test của lớp</h1>
-      <a class="tst-btn tst-btn-primary" th:href="@{/lecturer/tests/new}">Tạo bài test</a>
+      <h1 class="detail-page-title" style="margin:0">Bài test của lớp</h1>
+      <a class="tst-btn tst-btn-primary"
+         th:href="@{/lecturer/tests/new(classId=${clazz.id})}">Tạo bài test</a>
     </div>
 
-    <div class="tst-empty" th:if="${examsPage.totalElements == 0}">
-      Lớp này chưa có bài test nào.
-    </div>
+    <section class="detail-card">
+      <h2 class="detail-card-title">
+        Danh sách bài test
+        <span th:if="${examsPage.totalElements > 0}"
+              th:text="'(' + ${examsPage.totalElements} + ')'">(0)</span>
+      </h2>
 
-    <section class="detail-panel" th:if="${examsPage.totalElements > 0}">
-      <table class="tst-table">
+      <form class="detail-filter-bar" method="get"
+            th:action="@{'/lecturer/classes/' + ${clazz.id} + '/tests'}">
+        <div class="detail-filter-field is-grow">
+          <label class="detail-filter-label" for="examKeyword">Từ khoá</label>
+          <input class="detail-filter-input" id="examKeyword" type="search" name="q"
+                 placeholder="Tìm theo tiêu đề bài test"
+                 th:value="${examFilter.keyword()}">
+        </div>
+        <div class="detail-filter-field">
+          <label class="detail-filter-label" for="examStatus">Trạng thái</label>
+          <select class="detail-filter-select" id="examStatus" name="status">
+            <option value="ALL" th:selected="${examFilter.status() == 'ALL'}">Tất cả</option>
+            <option value="DRAFT" th:selected="${examFilter.status() == 'DRAFT'}">Nháp</option>
+            <option value="PUBLISHED" th:selected="${examFilter.status() == 'PUBLISHED'}">Đã phát hành</option>
+            <option value="ARCHIVED" th:selected="${examFilter.status() == 'ARCHIVED'}">Lưu trữ</option>
+          </select>
+        </div>
+        <div class="detail-filter-field">
+          <label class="detail-filter-label" for="examType">Loại</label>
+          <select class="detail-filter-select" id="examType" name="type">
+            <option value="ALL" th:selected="${examFilter.type() == 'ALL'}">Tất cả</option>
+            <option value="MOCK" th:selected="${examFilter.type() == 'MOCK'}">MOCK</option>
+            <option value="MODULE" th:selected="${examFilter.type() == 'MODULE'}">MODULE</option>
+            <option value="PRACTICE" th:selected="${examFilter.type() == 'PRACTICE'}">PRACTICE</option>
+          </select>
+        </div>
+        <div class="detail-filter-field">
+          <label class="detail-filter-label" for="examSort">Sắp xếp</label>
+          <select class="detail-filter-select" id="examSort" name="sort">
+            <option value="recent" th:selected="${examFilter.sort() == 'recent'}">Mới cập nhật</option>
+            <option value="title" th:selected="${examFilter.sort() == 'title'}">Tiêu đề A→Z</option>
+            <option value="closing" th:selected="${examFilter.sort() == 'closing'}">Đóng sớm nhất</option>
+          </select>
+        </div>
+        <div class="detail-filter-actions">
+          <button class="detail-filter-apply" type="submit">Áp dụng</button>
+          <!-- Reset drops every query param, returning to the unfiltered page 0. -->
+          <a class="detail-filter-reset" th:if="${!examFilter.isEmpty()}"
+             th:href="@{'/lecturer/classes/' + ${clazz.id} + '/tests'}">Xoá lọc</a>
+        </div>
+      </form>
+
+      <p class="detail-empty" th:if="${examsPage.totalElements == 0 and examFilter.isEmpty()}">
+        Lớp này chưa có bài test nào. Bấm <strong>Tạo bài test</strong> để thêm bài đầu tiên.
+      </p>
+      <p class="detail-empty" th:if="${examsPage.totalElements == 0 and !examFilter.isEmpty()}">
+        Không có bài test nào khớp bộ lọc. Hãy thử từ khoá khác hoặc <strong>Xoá lọc</strong>.
+      </p>
+
+      <table class="detail-table" th:if="${examsPage.totalElements > 0}">
         <thead>
         <tr>
           <th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th>
-          <th>Số câu</th><th>Đóng lúc</th><th>Thao tác</th>
+          <th style="white-space:nowrap">Số câu</th>
+          <th style="white-space:nowrap">Đóng lúc</th>
+          <th>Thao tác</th>
         </tr>
         </thead>
         <tbody>
         <tr th:each="exam : ${examsPage.content}">
           <td th:text="${exam.title()}">Tên</td>
-          <td><span class="tst-badge" th:classappend="'tst-badge-' + ${exam.type()}"
-                    th:text="${exam.type()}">MOCK</span></td>
-          <td th:text="${exam.status()}">DRAFT</td>
+          <td><span class="detail-type-badge" th:text="${exam.type()}">MOCK</span></td>
+          <td>
+            <!-- PUBLISHED reads as active; DRAFT/CLOSED share the muted look. -->
+            <span class="status-pill"
+                  th:classappend="${exam.status() == 'PUBLISHED'} ? 'status-active' : 'status-inactive'"
+                  th:text="${exam.status()}">DRAFT</span>
+          </td>
           <td th:text="${exam.totalQuestions()}">0</td>
-          <td th:text="${exam.endAt() != null ? #temporals.format(exam.endAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
+          <td style="white-space:nowrap"
+              th:text="${exam.endAt() != null ? #temporals.format(exam.endAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
           <td class="tst-row-actions">
             <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='info')}">Sửa</a>
             <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/preview'}">Xem trước</a>
@@ -51,9 +110,21 @@
         </tr>
         </tbody>
       </table>
-    </section>
 
-    <div th:replace="~{fragments/pager :: pager(${examsPage}, '/lecturer/classes/' + ${clazz.id} + '/tests', null)}"></div>
+      <!-- Pagination carries the active filter so paging never resets it. -->
+      <nav class="detail-pagination" th:if="${examsPage.totalPages > 1}" aria-label="Phân trang"
+           th:with="baseUrl='/lecturer/classes/' + ${clazz.id} + '/tests'">
+        <a class="page-link" th:if="${!examsPage.first}"
+           th:href="@{__${baseUrl}__(page=${examsPage.number - 1},q=${examFilter.keyword()},
+                     status=${examFilter.status()},type=${examFilter.type()},sort=${examFilter.sort()})}">‹ Trước</a>
+        <span class="page-current"
+              th:text="'Trang ' + (${examsPage.number} + 1) + ' / ' + ${examsPage.totalPages}
+                       + ' · ' + ${examsPage.totalElements} + ' bài test'">Trang 1 / 1</span>
+        <a class="page-link" th:if="${!examsPage.last}"
+           th:href="@{__${baseUrl}__(page=${examsPage.number + 1},q=${examFilter.keyword()},
+                     status=${examFilter.status()},type=${examFilter.type()},sort=${examFilter.sort()})}">Sau ›</a>
+      </nav>
+    </section>
   </main>
 </div>
 

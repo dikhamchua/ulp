@@ -9,7 +9,8 @@ import com.ulp.features.classes.service.ClassesService;
 import com.ulp.features.classes.service.JoinClassService;
 import com.ulp.features.classes.service.invites.InviteCodeService;
 import com.ulp.features.classes.service.invites.InviteCodeValidationException;
-import com.ulp.features.tests.service.LecturerExamService;
+import com.ulp.features.tests.dto.LecturerTestDtos.ExamFilter;
+import com.ulp.features.tests.service.LecturerExamQueryService;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -58,14 +59,14 @@ public class ClassDetailController {
     private final ClassMembersService classMembersService;
     private final InviteCodeService inviteCodeService;
     private final ClassDetailModelSupport detailSupport;
-    private final LecturerExamService examService;
+    private final LecturerExamQueryService examService;
     private final JoinClassService joinClassService;
 
     public ClassDetailController(ClassesService classesService,
                                  ClassMembersService classMembersService,
                                  InviteCodeService inviteCodeService,
                                  ClassDetailModelSupport detailSupport,
-                                 LecturerExamService examService,
+                                 LecturerExamQueryService examService,
                                  JoinClassService joinClassService) {
         this.classesService = classesService;
         this.classMembersService = classMembersService;
@@ -142,15 +143,26 @@ public class ClassDetailController {
         return "redirect:" + classUrl(id) + "/" + TAB_MEMBERS;
     }
 
-    /** Renders the class exams tab — the exams belonging to this class. */
+    /**
+     * Renders the class exams tab — the exams belonging to this class, narrowed
+     * by the optional keyword / status / type filter and ordered by {@code sort}.
+     * Unknown filter values are sanitised to their defaults by
+     * {@link ExamFilter#of}, so hand-typed URLs never 4xx.
+     */
     @GetMapping("/classes/{id}/tests")
     public String detailTests(@PathVariable Long id,
                               @RequestParam(name = "page", defaultValue = "0") int page,
+                              @RequestParam(name = PARAM_EXAM_KEYWORD, required = false) String keyword,
+                              @RequestParam(name = PARAM_EXAM_STATUS, required = false) String status,
+                              @RequestParam(name = PARAM_EXAM_TYPE, required = false) String type,
+                              @RequestParam(name = PARAM_EXAM_SORT, required = false) String sort,
                               @AuthenticationPrincipal UlpUserDetails user,
                               Model model) {
         ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
         detailSupport.populateDetail(model, clazz, TAB_TESTS, user.getId(), user.getRole());
-        model.addAttribute(ATTR_EXAMS_PAGE, examService.listForClass(id, page));
+        ExamFilter filter = ExamFilter.of(keyword, status, type, sort);
+        model.addAttribute(ATTR_EXAM_FILTER, filter);
+        model.addAttribute(ATTR_EXAMS_PAGE, examService.listForClass(id, page, filter));
         return VIEW_CLASS_DETAIL_TESTS;
     }
 

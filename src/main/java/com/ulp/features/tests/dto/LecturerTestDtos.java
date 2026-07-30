@@ -1,10 +1,18 @@
 package com.ulp.features.tests.dto;
 
+import com.ulp.common.IConstant;
+import com.ulp.features.tests.entity.Test;
 import org.springframework.data.domain.Page;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+
+import static com.ulp.common.IConstant.EXAM_FILTER_ALL;
+import static com.ulp.common.IConstant.EXAM_SORT_CLOSING;
+import static com.ulp.common.IConstant.EXAM_SORT_RECENT;
+import static com.ulp.common.IConstant.EXAM_SORT_TITLE;
 
 /**
  * Lecturer-facing DTOs: exam authoring form, exam list, live monitor snapshot,
@@ -71,6 +79,107 @@ public final class LecturerTestDtos {
     /** A row on the lecturer exam list. */
     public record LecturerExamRow(Long id, String title, String type, String status,
                                   String className, int totalQuestions, LocalDateTime endAt) {
+    }
+
+    /**
+     * Normalised filter state for the exam lists. {@code status}/{@code type}
+     * hold either a concrete enum value or {@link IConstant#EXAM_FILTER_ALL};
+     * {@code sort} is one of the {@code EXAM_SORT_*} keys; {@code classId} is
+     * either a class the caller may narrow to or {@code null} for "all classes".
+     * {@link #of} sanitises raw request params so the service and template never
+     * see unknown values.
+     */
+    public record ExamFilter(String keyword, String status, String type, String sort,
+                             Long classId) {
+
+        private static final Set<String> STATUSES =
+                Set.of(Test.STATUS_DRAFT, Test.STATUS_PUBLISHED, Test.STATUS_ARCHIVED);
+        private static final Set<String> TYPES =
+                Set.of(Test.TYPE_MOCK, Test.TYPE_MODULE, Test.TYPE_PRACTICE);
+        private static final Set<String> SORTS =
+                Set.of(EXAM_SORT_RECENT, EXAM_SORT_TITLE, EXAM_SORT_CLOSING);
+
+        /**
+         * Builds a filter without the class dimension — for lists already scoped
+         * to one class (the class-detail tests tab), where a class picker would
+         * be meaningless.
+         */
+        public static ExamFilter of(String keyword, String status, String type, String sort) {
+            return of(keyword, status, type, sort, null, List.of());
+        }
+
+        /**
+         * Builds a filter from a raw, still-unparsed {@code classId} query param.
+         * Binding it as text keeps a hand-typed {@code ?classId=abc} out of
+         * Spring's type conversion, which would raise a bind error that the
+         * catch-all advice renders as a 500; here it simply degrades to
+         * "all classes" like any other unusable value.
+         */
+        public static ExamFilter ofRawClassId(String keyword, String status, String type,
+                                              String sort, String classId,
+                                              List<ClassOption> allowedClasses) {
+            return of(keyword, status, type, sort, parseId(classId), allowedClasses);
+        }
+
+        /**
+         * Builds a filter from raw query params, falling back to safe defaults.
+         * {@code classId} survives only when {@code allowedClasses} contains it,
+         * so a hand-typed id of a class the caller does not lead degrades to
+         * "all classes" instead of leaking that class's exams.
+         */
+        public static ExamFilter of(String keyword, String status, String type, String sort,
+                                    Long classId, List<ClassOption> allowedClasses) {
+            return new ExamFilter(
+                    keyword == null ? "" : keyword.trim(),
+                    whitelist(status, STATUSES, EXAM_FILTER_ALL),
+                    whitelist(type, TYPES, EXAM_FILTER_ALL),
+                    whitelist(sort, SORTS, EXAM_SORT_RECENT),
+                    whitelistClass(classId, allowedClasses));
+        }
+
+        /** True when no narrowing is applied — used to pick the empty-state copy. */
+        public boolean isEmpty() {
+            return keyword.isEmpty()
+                    && EXAM_FILTER_ALL.equals(status)
+                    && EXAM_FILTER_ALL.equals(type)
+                    && classId == null;
+        }
+
+        /** Returns {@code null} for the "any" sentinel so JPQL can skip the predicate. */
+        public String statusOrNull() {
+            return EXAM_FILTER_ALL.equals(status) ? null : status;
+        }
+
+        /** Returns {@code null} for the "any" sentinel so JPQL can skip the predicate. */
+        public String typeOrNull() {
+            return EXAM_FILTER_ALL.equals(type) ? null : type;
+        }
+
+        /** Already null for "all classes"; named for symmetry with the sibling accessors. */
+        public Long classIdOrNull() {
+            return classId;
+        }
+
+        private static String whitelist(String value, Set<String> allowed, String fallback) {
+            if (value == null) return fallback;
+            String trimmed = value.trim();
+            return allowed.contains(trimmed) ? trimmed : fallback;
+        }
+
+        /** Parses an id, treating anything non-numeric as "not supplied". */
+        private static Long parseId(String raw) {
+            if (raw == null || raw.isBlank()) return null;
+            try {
+                return Long.valueOf(raw.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+
+        private static Long whitelistClass(Long classId, List<ClassOption> allowed) {
+            if (classId == null || classId <= 0 || allowed == null) return null;
+            return allowed.stream().anyMatch(c -> classId.equals(c.id())) ? classId : null;
+        }
     }
 
     /** Minimal exam header for the monitor page (avoids leaking the entity). */

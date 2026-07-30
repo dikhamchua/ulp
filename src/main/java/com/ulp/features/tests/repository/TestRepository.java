@@ -36,8 +36,46 @@ public interface TestRepository extends JpaRepository<Test, Long> {
                                     @Param("classIds") Collection<Long> classIds,
                                     Pageable pageable);
 
+    /**
+     * Filtered exams the lecturer owns, for the global {@code /lecturer/tests}
+     * screen. Same ownership predicate as {@link #findOwnedByLecturer} (so
+     * {@code classIds} must likewise be non-empty — callers pass a sentinel when
+     * the lecturer leads no class), then narrowed further: a {@code null}
+     * {@code classId}/{@code status}/{@code type} means "any" and {@code keyword}
+     * matches the title case-insensitively (an empty string matches all).
+     * Sorting comes from the {@link Pageable}.
+     */
+    @Query("SELECT t FROM Test t WHERE (t.createdBy = :userId OR t.classId IN :classIds)"
+            + " AND (:classId IS NULL OR t.classId = :classId)"
+            + " AND (:status IS NULL OR t.status = :status)"
+            + " AND (:type IS NULL OR t.type = :type)"
+            + " AND LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    Page<Test> searchOwnedByLecturer(@Param("userId") Long userId,
+                                     @Param("classIds") Collection<Long> classIds,
+                                     @Param("classId") Long classId,
+                                     @Param("keyword") String keyword,
+                                     @Param("status") String status,
+                                     @Param("type") String type,
+                                     Pageable pageable);
+
     /** Exams belonging to a single class (class-detail "Bài test" tab). */
     Page<Test> findByClassId(Long classId, Pageable pageable);
+
+    /**
+     * Filtered exams of a single class for the class-detail "Bài test" tab.
+     * A {@code null} {@code status}/{@code type} means "any"; {@code keyword}
+     * matches the title case-insensitively and an empty string matches all.
+     * Sorting comes from the {@link Pageable}.
+     */
+    @Query("SELECT t FROM Test t WHERE t.classId = :classId"
+            + " AND (:status IS NULL OR t.status = :status)"
+            + " AND (:type IS NULL OR t.type = :type)"
+            + " AND LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    Page<Test> searchByClass(@Param("classId") Long classId,
+                             @Param("keyword") String keyword,
+                             @Param("status") String status,
+                             @Param("type") String type,
+                             Pageable pageable);
 
     /**
      * Published exams in a single class whose title contains {@code title}

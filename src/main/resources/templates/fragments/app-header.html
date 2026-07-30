@@ -31,6 +31,11 @@
        th:href="@{/lecturer/classes}" th:classappend="${active == 'classes'} ? 'active'">Lớp học</a>
     <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
        th:href="@{/lecturer/library}" th:classappend="${active == 'library'} ? 'active'">Kho học liệu</a>
+    <!-- ADMIN is included here, unlike the question bank below: the exam list is
+         owner-scoped (created-by / led-classes), so an account owning nothing
+         gets an empty page instead of an exception. -->
+    <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
+       th:href="@{/lecturer/tests}" th:classappend="${active == 'tests'} ? 'active'">Bài test</a>
     <!-- Lecturer contribution entry to the department-scoped shared question bank.
          ADMIN is excluded on purpose: the bank is scoped to a department and the
          admin account belongs to none, so the link would only ever lead to an

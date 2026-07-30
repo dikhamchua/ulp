@@ -142,6 +142,24 @@
             return bankSearchUrl;
         }
 
+        // Selects the given class in the picker when it is one of the rendered
+        // options; a stale/foreign id leaves the picker untouched.
+        function preselectClass(rawId) {
+            if (!rawId) return;
+            var select = document.getElementById('lfClass');
+            if (!select) return;
+            var match = select.querySelector('option[value="' + rawId + '"]');
+            if (match) select.value = rawId;
+        }
+
+        // Post-save landing page: the class tests tab when the exam belongs to a
+        // class (read at save time, so switching the picker retargets), else the
+        // global exam list. data-list-url is the server-rendered fallback.
+        function listUrlFor(classId) {
+            if (classId != null) return '/lecturer/classes/' + classId + '/tests';
+            return form.getAttribute('data-list-url') || '/lecturer/tests';
+        }
+
         function escapeHtml(value) {
             return String(value || '')
                 .replace(/&/g, '&amp;')
@@ -346,7 +364,7 @@
                 if (btn) btn.disabled = true;
                 window.FcCommon.postJson(form.getAttribute('data-save-url'), payload)
                     .then(function () {
-                        window.location.href = form.getAttribute('data-list-url');
+                        window.location.href = listUrlFor(payload.classId);
                     })
                     .catch(function (err) {
                         submitting = false;
@@ -361,6 +379,9 @@
             hydrate(data);
         } else {
             form.dataset.questionBankLocked = '0';
+            // Entered from a class tests tab: preselect that class so the exam is
+            // bound to it without the lecturer picking it again.
+            preselectClass(form.getAttribute('data-preselected-class-id'));
             // Create mode defaults to reading passage + empty question set.
             mode.mountDescriptionEditor('');
             mode.setExamMode('READING');
