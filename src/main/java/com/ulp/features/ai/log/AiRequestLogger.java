@@ -32,6 +32,9 @@ public class AiRequestLogger {
     /** Marks a call made by the lecturer AI question generator (ULP-12.2). */
     public static final String SOURCE_QUESTION_GEN = "QUESTION_GEN";
 
+    /** Marks a call made by the AI flashcard generator in the deck editor (ULP-12.4). */
+    public static final String SOURCE_FLASHCARD_GEN = "FLASHCARD_GEN";
+
     private final AiRequestLogWriter writer;
 
     AiRequestLogger(AiRequestLogWriter writer) {

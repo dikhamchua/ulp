@@ -166,5 +166,15 @@
         if (addBtn) addBtn.addEventListener('click', function () { addRow(); });
         bindImport();
         renumber();
+
+        // Row-appending seam for sibling modules (AI generator, ULP-12.4).
+        // Deliberately exposes only appending, NOT saving: the submit orchestrator
+        // above stays the single owner of the save path, so a second module cannot
+        // introduce a double-submit race.
+        window.FcDeckEditor = {
+            deckId: deckId,
+            addRow: function (values) { return addRow(values); },
+            renumber: renumber
+        };
     });
 })();

@@ -1,5 +1,8 @@
 package com.ulp.features.flashcards.controller;
 
+import com.ulp.features.ai.client.AiClientException;
+import com.ulp.features.ai.flashcardgen.AiFlashcardGenDtos.GenerateRequest;
+import com.ulp.features.ai.flashcardgen.AiFlashcardGenerationService;
 import com.ulp.features.flashcards.dto.FlashcardDtos;
 import com.ulp.features.flashcards.dto.FlashcardDtos.ImportResult;
 import com.ulp.features.flashcards.dto.FlashcardDtos.ImportedCardRow;
@@ -35,6 +38,8 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.ulp.common.IConstant.API_FLASHCARDS;
+import static com.ulp.common.IConstant.MSG_AI_NO_MATERIAL;
+import static com.ulp.common.IConstant.SUBPATH_AI_GENERATE;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.badRequest;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.forbidden;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.internalError;
@@ -43,7 +48,7 @@ import static com.ulp.features.lessons.dto.SectionDtos.AjaxResult;
 
 /**
  * JSON API for flashcards under {@code /api/flashcards}: bulk card save,
- * Smart-Review rating submit, and Excel import.
+ * Smart-Review rating submit, Excel import, and AI card generation.
  *
  * <p>All authorization lives in the services / {@code DeckAccessResolver}; this
  * controller only maps exceptions onto the shared {@link AjaxResult} envelope
@@ -67,17 +72,20 @@ public class FlashcardApiController {
     private final DeckAccessResolver accessResolver;
     private final FlashcardImportParser importParser;
     private final FlashcardImportTemplate importTemplate;
+    private final AiFlashcardGenerationService aiGenerationService;
 
     public FlashcardApiController(CardService cardService,
                                   SmartReviewService smartReviewService,
                                   DeckAccessResolver accessResolver,
                                   FlashcardImportParser importParser,
-                                  FlashcardImportTemplate importTemplate) {
+                                  FlashcardImportTemplate importTemplate,
+                                  AiFlashcardGenerationService aiGenerationService) {
         this.cardService = cardService;
         this.smartReviewService = smartReviewService;
         this.accessResolver = accessResolver;
         this.importParser = importParser;
         this.importTemplate = importTemplate;
+        this.aiGenerationService = aiGenerationService;
     }
 
     /** Replaces the deck's cards with the submitted set; owner-only. */
@@ -143,6 +151,57 @@ public class FlashcardApiController {
             return notFound(ex.getMessage());
         } catch (RuntimeException ex) {
             log.error("Failed to import Excel for deck {}", deckId, ex);
+            return internalError();
+        }
+    }
+
+    /**
+     * Generates card rows from an uploaded document or pasted text; owner-only.
+     *
+     * <p>Same contract as {@link #importExcel}: nothing is persisted, the rows go back to
+     * the editor as unsaved fields and only the existing save flow commits them. That is why
+     * the browser can feed AI rows and Excel rows through one code path.
+     *
+     * <p>Multipart rather than JSON because the file and the parameters arrive together;
+     * {@code file} and {@code text} are each optional, but one of them is required.
+     *
+     * @param deckId   the deck being edited
+     * @param file     an uploaded PDF or DOCX, optional when text is pasted
+     * @param text     pasted material, optional when a file is uploaded
+     * @param count    how many cards to generate
+     * @param language language hint; blank means "follow the document"
+     * @param user     the authenticated owner
+     * @return the generated rows, or a Vietnamese error message
+     */
+    @PostMapping(value = "/{deckId}" + SUBPATH_AI_GENERATE,
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> aiGenerate(@PathVariable Long deckId,
+                                        @RequestParam(name = "file", required = false) MultipartFile file,
+                                        @RequestParam(name = "text", required = false) String text,
+                                        @RequestParam(name = "count", defaultValue = "20") int count,
+                                        @RequestParam(name = "language", required = false) String language,
+                                        @AuthenticationPrincipal UlpUserDetails user) {
+        boolean hasFile = file != null && !file.isEmpty();
+        boolean hasText = text != null && !text.isBlank();
+        if (!hasFile && !hasText) {
+            return badRequest(MSG_AI_NO_MATERIAL);
+        }
+        try {
+            return ResponseEntity.ok(AjaxResult.success(aiGenerationService.generate(
+                    user.getId(), deckId, hasFile ? file : null, text,
+                    new GenerateRequest(count, language))));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AiClientException ex) {
+            // Provider outage or misconfiguration: surfaced as a retryable failure rather
+            // than a 500 — the deck itself is untouched.
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to generate AI cards for deck {}", deckId, ex);
             return internalError();
         }
     }

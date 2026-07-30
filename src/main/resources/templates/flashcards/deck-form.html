@@ -47,12 +47,47 @@
             Import Excel
           </button>
           <input type="file" id="fcImportInput" accept=".xlsx" hidden>
+          <button type="button" class="fc-btn fc-btn-ghost" id="fcAiGenBtn">
+            <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 3v4"/><path d="M12 17v4"/><path d="M5 12H3"/><path d="M21 12h-2"/><path d="M8 8l8 8"/><path d="M16 8l-8 8"/></svg>
+            Sinh thẻ bằng AI
+          </button>
           <button type="button" class="fc-btn fc-btn-ghost" id="fcAddCard">
             <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             Thêm thẻ
           </button>
         </div>
       </div>
+
+      <!-- AI flashcard generator (ULP-12.4). Same contract as the Excel import:
+           the generated rows land in the editor unsaved, and only "Lưu bộ thẻ"
+           writes them — nothing is persisted by the generate call itself. -->
+      <section class="fc-ai-panel" id="fcAiPanel" hidden>
+        <p class="fc-ai-hint">Tải lên tài liệu PDF/DOCX hoặc dán nội dung, AI sẽ đề xuất thẻ. Các thẻ sinh ra được thêm vào danh sách bên dưới để bạn kiểm tra, chỉ được lưu khi bạn nhấn "Lưu bộ thẻ".</p>
+        <div class="fc-ai-inputs">
+          <label class="fc-ai-label" for="fcAiText">Nội dung tài liệu</label>
+          <textarea class="fc-ai-text" id="fcAiText" rows="6"
+                    placeholder="Dán nội dung vào đây (bỏ qua nếu đã tải file)"></textarea>
+          <label class="fc-ai-label" for="fcAiFile">Hoặc tải file (PDF, DOCX — tối đa 10 MB)</label>
+          <input class="fc-ai-input" id="fcAiFile" type="file" accept=".pdf,.docx">
+        </div>
+        <div class="fc-ai-toolbar">
+          <select class="fc-ai-input" id="fcAiCount" aria-label="Số thẻ">
+            <option value="5">5 thẻ</option>
+            <option value="10">10 thẻ</option>
+            <option value="20" selected>20 thẻ</option>
+            <option value="30">30 thẻ</option>
+            <option value="50">50 thẻ</option>
+          </select>
+          <select class="fc-ai-input" id="fcAiLanguage" aria-label="Ngôn ngữ">
+            <option value="">Theo tài liệu</option>
+            <option value="tiếng việt">Tiếng Việt</option>
+            <option value="english">English</option>
+          </select>
+          <button type="button" class="fc-btn fc-btn-primary" id="fcAiGenerate">Sinh thẻ</button>
+          <button type="button" class="fc-btn fc-btn-ghost" id="fcAiClose">Đóng</button>
+        </div>
+        <div class="fc-ai-state" id="fcAiState">Nhập tài liệu rồi nhấn "Sinh thẻ".</div>
+      </section>
 
       <div id="fcCardList">
         <!-- Existing card rows -->
@@ -113,5 +148,7 @@
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/flashcard-common.js}"></script>
 <script th:src="@{/js/flashcard-deck-form.js}"></script>
+<!-- Loaded after the editor: it appends rows through window.FcDeckEditor. -->
+<script th:src="@{/js/flashcard-ai-generate.js}"></script>
 </body>
 </html>
