@@ -40,7 +40,20 @@ public class AiProviderService {
     private static final String MASKED_DISPLAY = "••••••••••••";
 
     private static final String PING_MESSAGE = "ping";
-    private static final int PING_MAX_TOKENS = 5;
+
+    /**
+     * Token budget for the connectivity ping, sized for reasoning models.
+     *
+     * <p>A reasoning model spends tokens on an internal chain of thought before emitting
+     * the first character of its reply, so a small budget is exhausted mid-thought: the
+     * provider returns {@code finish_reason: "length"} and the test fails even though it
+     * is reachable and authenticated. Measured cost of answering the word "ping" varies
+     * by two orders of magnitude across providers, so this ceiling is set well above the
+     * observed worst case rather than fitted to it — a connectivity check is a manual,
+     * infrequent admin action costing a fraction of a cent, and a budget guessed too low
+     * fails a healthy provider, which is the far more expensive mistake.
+     */
+    private static final int PING_MAX_TOKENS = 2048;
 
     private final AiProviderRepository repository;
     private final AiClient aiClient;

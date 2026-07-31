@@ -114,14 +114,17 @@ public class AiFlashcardPromptBuilder {
     /**
      * Upper bound on the generated response, scaled to the number of cards asked for.
      *
-     * <p>A flashcard is a term plus a one-line definition — far shorter than an MCQ with
-     * four options — so 120 tokens per card leaves headroom for Vietnamese diacritics
-     * without letting a 50-card request run unbounded.
+     * <p>Budgeted per card at the same rate as the question generator. A flashcard is
+     * shorter than an MCQ, but the ceiling has to cover the worst provider in the
+     * fallback chain, not the best: reasoning models emit far more tokens for the same
+     * payload, and a reply truncated at {@code max_tokens} yields unparsable JSON that
+     * surfaces to the user as an AI failure. The flat addend covers the JSON envelope,
+     * which does not scale with the card count.
      *
      * @param count the requested card count; clamped before scaling
      * @return the {@code max_tokens} value for the call
      */
     public static int maxTokensFor(int count) {
-        return 120 * clampCount(count);
+        return 400 * clampCount(count) + 500;
     }
 }
