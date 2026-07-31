@@ -8,6 +8,7 @@ import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.flashcards.dto.FlashcardDtos.ClassOption;
 import com.ulp.features.flashcards.dto.FlashcardDtos.DeckForm;
+import com.ulp.features.flashcards.repository.FlashcardDeckClassRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ class DeckShareServiceTest {
 
     @Autowired private DeckService deckService;
     @Autowired private DeckShareService deckShareService;
+    @Autowired private FlashcardDeckClassRepository deckClassRepository;
     @Autowired private ClassRepository classRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
@@ -140,6 +142,65 @@ class DeckShareServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
 
         assertThat(deckShareService.currentTargets(deckId)).containsExactly(classA.getId());
+    }
+
+    @Test
+    void shareToClassAddsExactlyOneRow() {
+        long before = deckClassRepository.count();
+        deckShareService.shareToClass(deckId, owner.getId(), classA.getId());
+
+        assertThat(deckClassRepository.count()).isEqualTo(before + 1);
+        assertThat(deckShareService.currentTargets(deckId)).containsExactly(classA.getId());
+    }
+
+    @Test
+    void shareToClassIsIdempotent() {
+        deckShareService.shareToClass(deckId, owner.getId(), classA.getId());
+        long afterFirst = deckClassRepository.count();
+        deckShareService.shareToClass(deckId, owner.getId(), classA.getId());
+
+        assertThat(deckClassRepository.count()).isEqualTo(afterFirst);
+        assertThat(deckShareService.currentTargets(deckId)).containsExactly(classA.getId());
+    }
+
+    @Test
+    void nonOwnerCannotShareToClass() {
+        long before = deckClassRepository.count();
+        assertThatThrownBy(() ->
+                deckShareService.shareToClass(deckId, memberA.getId(), classA.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+
+        // Status alone would not prove nothing was written.
+        assertThat(deckClassRepository.count()).isEqualTo(before);
+    }
+
+    @Test
+    void cannotShareToClassOwnerIsNotIn() {
+        ClassEntity foreign = saveClass("Not mine 3", "NOTM3");
+        long before = deckClassRepository.count();
+
+        assertThatThrownBy(() ->
+                deckShareService.shareToClass(deckId, owner.getId(), foreign.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+
+        assertThat(deckClassRepository.count()).isEqualTo(before);
+    }
+
+    @Test
+    void unshareFromClassRemovesOnlyThatClass() {
+        deckShareService.share(deckId, owner.getId(), List.of(classA.getId(), classB.getId()));
+        long before = deckClassRepository.count();
+
+        deckShareService.unshareFromClass(deckId, owner.getId(), classB.getId());
+
+        assertThat(deckClassRepository.count()).isEqualTo(before - 1);
+        assertThat(deckShareService.currentTargets(deckId)).containsExactly(classA.getId());
+    }
+
+    @Test
+    void unshareFromClassIsIdempotent() {
+        deckShareService.unshareFromClass(deckId, owner.getId(), classA.getId());
+        assertThat(deckShareService.currentTargets(deckId)).isEmpty();
     }
 
     @Test

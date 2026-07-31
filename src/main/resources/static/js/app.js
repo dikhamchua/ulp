@@ -162,11 +162,44 @@
     else window.iziToast.info(common);
   }
 
+  // Toast carrying one inline button, e.g. "Hoàn tác" after an unshare.
+  //
+  // SECURITY: iziToast injects both `message` and the button markup as HTML, it
+  // does not escape either. `opts.label` is interpolated straight into a
+  // <button>, so pass ONLY constant strings from IConstant or literals — never a
+  // class name or anything else the user controls. Callers must escape `msg`
+  // themselves before passing it here.
+  function showActionToast(msg, opts) {
+    if (!msg) return;
+    var o = opts || {};
+    if (typeof window.iziToast === 'undefined') {
+      console.log('[Toast action]', msg);
+      return;
+    }
+    window.iziToast.show({
+      message: msg,
+      position: 'topRight',
+      timeout: o.timeout || 6000,
+      progressBar: true,
+      close: true,
+      transitionIn: 'fadeInLeft',
+      transitionOut: 'fadeOutRight',
+      buttons: [[
+        '<button type="button">' + (o.label || 'OK') + '</button>',
+        function (instance, toast) {
+          instance.hide({ transitionOut: 'fadeOutRight' }, toast);
+          if (typeof o.onAction === 'function') o.onAction();
+        }
+      ]]
+    });
+  }
+
   window.UlpToast = {
     success: function (msg, title) { showToast('success', msg, title); },
     error:   function (msg, title) { showToast('error', msg, title); },
     warning: function (msg, title) { showToast('warning', msg, title); },
-    info:    function (msg, title) { showToast('info', msg, title); }
+    info:    function (msg, title) { showToast('info', msg, title); },
+    action:  function (msg, opts) { showActionToast(msg, opts); }
   };
 
 })();

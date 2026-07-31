@@ -94,8 +94,21 @@ public class DeckService {
         List<ClassOption> targets = targetClasses(deckId);
         List<ClassOption> shareClasses = resolved.isOwner()
                 ? shareService.shareableClasses(userId) : List.of();
+        // The token is a capability: only ever hand it to the owner.
+        String shareToken = resolved.isOwner() ? deck.getShareToken() : null;
         return new DeckDetailView(deck.getId(), deck.getTitle(), deck.getDescription(),
-                count, resolved.isOwner(), !targets.isEmpty(), targets, shareClasses);
+                count, resolved.isOwner(), !targets.isEmpty(), targets, shareClasses,
+                countDistinctMembers(targets), deck.isPublicLink(), shareToken);
+    }
+
+    /**
+     * Distinct people reached across every target class. Short-circuits on an
+     * empty target list because JPQL {@code IN ()} is a syntax error.
+     */
+    private long countDistinctMembers(List<ClassOption> targets) {
+        if (targets.isEmpty()) return 0;
+        List<Long> classIds = targets.stream().map(ClassOption::id).toList();
+        return enrollmentRepository.countDistinctActiveMembers(classIds);
     }
 
     /** The classes a deck currently targets, as id + name options. */

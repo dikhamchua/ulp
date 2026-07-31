@@ -307,6 +307,12 @@ public interface IConstant {
     String API_FLASHCARDS       = "/api/flashcards";
     /** Deck-scoped AI generation endpoint, appended to {@code API_FLASHCARDS/{deckId}}. */
     String SUBPATH_AI_GENERATE  = "/ai-generate";
+    /** Anonymous public-link prefix; {@code permitAll} in SecurityConfig. */
+    String PATH_PUBLIC_DECK     = "/s";
+    /** Class-target share endpoints, appended to {@code API_FLASHCARDS/{deckId}}. */
+    String SUBPATH_SHARE_CLASS  = "/share/class";
+    /** Public-link endpoints, appended to {@code API_FLASHCARDS/{deckId}}. */
+    String SUBPATH_SHARE_PUBLIC = "/share/public";
 
     // View names.
     String VIEW_FLASHCARD_LIST   = "flashcards/list";
@@ -314,6 +320,7 @@ public interface IConstant {
     String VIEW_FLASHCARD_DETAIL = "flashcards/deck-detail";
     String VIEW_FLASHCARD_FLIP   = "flashcards/flashcard-flip";
     String VIEW_FLASHCARD_REVIEW = "flashcards/flashcard-review";
+    String VIEW_PUBLIC_DECK      = "flashcards/public-deck";
 
     // Model attribute keys.
     String ATTR_DECK          = "deck";
@@ -335,6 +342,8 @@ public interface IConstant {
     String MSG_CARD_NOT_FOUND  = "Không tìm thấy thẻ";
     String MSG_DECK_NOT_FOUND  = "Không tìm thấy bộ thẻ";
     String MSG_SHARE_CLASS_INVALID = "Bạn không thuộc lớp này";
+    // Share modal toasts live in flashcard-share.js: every one of them reports an
+    // AJAX result to the browser, so no server code can ever consume them.
     // AI flashcard generator (ULP-12.4).
     String MSG_AI_NO_MATERIAL  = "Vui lòng tải lên tài liệu hoặc dán nội dung để sinh thẻ";
 

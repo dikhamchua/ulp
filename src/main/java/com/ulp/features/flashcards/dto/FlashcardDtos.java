@@ -94,11 +94,22 @@ public final class FlashcardDtos {
      * @param shared        whether the deck targets at least one class
      * @param targetClasses every class the deck currently targets (id + name)
      * @param shareClasses  classes the owner may pick from; empty for non-owners
+     * @param memberCount   distinct people reached across every target class
+     * @param publicLink    whether the public link is switched on
+     * @param shareToken    the public-link token; null until first enabled, and
+     *                      only ever populated for the owner
      */
     public record DeckDetailView(Long id, String title, String description,
                                  long cardCount, boolean owner, boolean shared,
                                  List<ClassOption> targetClasses,
-                                 List<ClassOption> shareClasses) {
+                                 List<ClassOption> shareClasses,
+                                 long memberCount,
+                                 boolean publicLink,
+                                 String shareToken) {
+    }
+
+    /** Anonymous view of a deck reached by public link; owner and classes omitted. */
+    public record PublicDeckView(String title, String description, long cardCount) {
     }
 
     /**

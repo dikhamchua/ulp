@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository for {@link FlashcardDeck}. The entity's
@@ -42,6 +43,14 @@ public interface FlashcardDeckRepository extends JpaRepository<FlashcardDeck, Lo
             + "ORDER BY d.updatedAt DESC")
     List<FlashcardDeck> findSharedToClassesExcludingOwner(
             @Param("classIds") Collection<Long> classIds, @Param("ownerId") Long ownerId);
+
+    /**
+     * Looks a deck up by its public-link token. The unique index on
+     * {@code share_token} guarantees at most one match. Returning a match does
+     * NOT mean the link is switched on — callers must still check
+     * {@code isPublicLink()}.
+     */
+    Optional<FlashcardDeck> findByShareToken(String shareToken);
 
     /** Decks targeting a single class (class-page surface), newest-updated first. */
     @Query("SELECT DISTINCT d FROM FlashcardDeck d "

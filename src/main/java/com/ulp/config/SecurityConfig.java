@@ -178,6 +178,7 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
+                        .requestMatchers("/s/**").permitAll()
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
                         .requestMatchers("/head/**").hasRole(Roles.HEAD)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
