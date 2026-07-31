@@ -63,6 +63,11 @@ public class AiClient {
             "Chưa cấu hình AI provider nào đang bật. Vào Cài đặt hệ thống → AI để thêm provider.";
     private static final String MSG_ALL_FAILED_PREFIX =
             "Tất cả AI provider đều thất bại: ";
+    private static final String MSG_TRUNCATED =
+            "Phản hồi bị cắt do chạm giới hạn token của provider";
+
+    /** OpenAI-standard {@code finish_reason} meaning the reply hit the {@code max_tokens} ceiling. */
+    private static final String FINISH_REASON_LENGTH = "length";
 
     private final AiProviderRepository repository;
     private final RestClient restClient;
@@ -336,6 +341,7 @@ public class AiClient {
             throw new TransientProviderException("Phản hồi có định dạng không mong đợi");
         }
         failOnEmbeddedError(choice);
+        failOnTruncation(choice);
         Object message = choice.get("message");
         if (!(message instanceof Map<?, ?> msg)) {
             throw new TransientProviderException("Phản hồi thiếu trường 'message'");
@@ -379,6 +385,34 @@ public class AiClient {
             throw new TransientProviderException(detail);
         }
         throw new PermanentProviderException(detail);
+    }
+
+    /**
+     * Rejects a choice the provider cut short at the {@code max_tokens} ceiling.
+     *
+     * <p>The second way an HTTP 200 is really a failure. A reply that stopped at the token
+     * limit carries {@code finish_reason: "length"} and whatever partial text it had
+     * produced — for a caller expecting JSON that means unparsable output. Without this
+     * check the fragment would be returned as a normal answer, the attempt logged as a
+     * success, and the fallback chain never advanced; the caller's parser would then fail
+     * and blame the model for sending invalid data.
+     *
+     * <p>Classified as transient because the cause is a verbose model rather than an
+     * over-long prompt: providers differ by an order of magnitude in how many tokens they
+     * spend on the same task, so the next one in the chain may well finish within budget.
+     * Marking it permanent would stop the chain on a failure another provider can fix.
+     *
+     * <p>Only the exact value {@code "length"} triggers this. An unrecognised
+     * {@code finish_reason} is left alone — treating unknown values as truncation would
+     * reject good replies from gateways that report non-standard reasons.
+     *
+     * @param choice the first element of the {@code choices} array
+     * @throws TransientProviderException when the reply was truncated
+     */
+    private static void failOnTruncation(Map<?, ?> choice) {
+        if (FINISH_REASON_LENGTH.equals(choice.get("finish_reason"))) {
+            throw new TransientProviderException(MSG_TRUNCATED);
+        }
     }
 
     /**
