@@ -67,6 +67,18 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
             + "WHERE e.classId IN :classIds AND e.status = 'ACTIVE'")
     List<ClassUserId> findActiveUserIdsByClassIds(@Param("classIds") Collection<Long> classIds);
 
+    /**
+     * Distinct ACTIVE members across the given classes; a user enrolled in two
+     * of them counts once. Callers MUST short-circuit on an empty collection
+     * (empty {@code IN ()} is invalid SQL).
+     *
+     * @param classIds the classes to count members across
+     * @return the number of distinct ACTIVE-enrolled users
+     */
+    @Query("SELECT COUNT(DISTINCT e.user.id) FROM Enrollment e "
+            + "WHERE e.classId IN :classIds AND e.status = 'ACTIVE'")
+    long countDistinctActiveMembers(@Param("classIds") Collection<Long> classIds);
+
     /** Projection for {@link #countActiveGroupedByClassIds}. */
     interface ClassCount {
         Long getClassId();

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${deck.title()} + ' — Bộ thẻ chia sẻ', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-flip.css}">
+</head>
+<body>
+<!-- No app-header: visitors are anonymous, so there is no session to render. -->
+<main class="fc-page fc-study-page">
+  <div class="fc-form-head">
+    <h1 class="fc-page-title" th:text="${deck.title()}">Tên bộ thẻ</h1>
+    <p class="fc-page-sub" th:if="${deck.description()}" th:text="${deck.description()}">Mô tả</p>
+  </div>
+
+  <div id="fcStudy" th:attr="data-cards=${cardsJson}"></div>
+
+  <!-- Zero-card state: rendered server-side so a visitor never sees a blank page. -->
+  <div class="fc-empty fc-study-empty" th:if="${deck.cardCount()} == 0">
+    Bộ thẻ này chưa có thẻ nào để học.
+  </div>
+
+  <!-- Client-side empty state, kept for parity with flashcard-flip.js. -->
+  <div class="fc-empty fc-study-empty" id="fcEmpty" hidden>
+    Bộ thẻ này chưa có thẻ nào để học.
+  </div>
+
+  <!-- Card viewer -->
+  <div class="fc-study" id="fcViewer" hidden>
+    <div class="fc-flip-card" id="fcFlipCard" tabindex="0" role="button"
+         aria-label="Nhấn để lật thẻ">
+      <div class="fc-flip-inner">
+        <div class="fc-flip-face fc-flip-front">
+          <div class="fc-face-text" id="fcFrontText"></div>
+        </div>
+        <div class="fc-flip-face fc-flip-back">
+          <div class="fc-face-text" id="fcBackText"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fc-study-controls">
+      <button type="button" class="fc-btn fc-btn-ghost" id="fcPrev">&larr; Trước</button>
+      <span class="fc-counter"><span id="fcPos">1</span>/<span id="fcTotal">1</span></span>
+      <button type="button" class="fc-btn fc-btn-ghost" id="fcNext">Sau &rarr;</button>
+      <button type="button" class="fc-btn fc-btn-secondary" id="fcShuffle">Xáo trộn</button>
+    </div>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/flashcard-flip.js}"></script>
+</body>
+</html>

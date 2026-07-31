@@ -91,6 +91,40 @@ public class DeckShareService {
     }
 
     /**
+     * Adds one class target; owner-only, idempotent. Notifies the class only
+     * when the row is newly created, so repeated calls cannot spam students.
+     *
+     * @throws AccessDeniedException if the caller is not the owner, or the class
+     *                               is not an eligible target
+     */
+    @Transactional
+    public void shareToClass(Long deckId, Long ownerId, Long classId) {
+        FlashcardDeck deck = accessResolver.requireOwner(deckId, ownerId);
+        if (!isOwnersClass(ownerId, classId)) {
+            throw new AccessDeniedException(MSG_SHARE_CLASS_INVALID);
+        }
+        // Already a target: stay silent rather than writing a duplicate row and
+        // re-notifying the class.
+        if (currentTargets(deckId).contains(classId)) {
+            return;
+        }
+        deckClassRepository.save(new FlashcardDeckClass(deckId, classId));
+        notifier.notifyNewlyShared(deck, ownerId, List.of(classId));
+    }
+
+    /**
+     * Removes one class target; owner-only, idempotent. Emits no notification,
+     * matching {@link #unshareAll}.
+     *
+     * @throws AccessDeniedException if the caller is not the deck owner
+     */
+    @Transactional
+    public void unshareFromClass(Long deckId, Long ownerId, Long classId) {
+        accessResolver.requireOwner(deckId, ownerId);
+        deckClassRepository.deleteByDeckIdAndClassIdIn(deckId, List.of(classId));
+    }
+
+    /**
      * Removes every target class from the deck; owner-only. Succeeds silently
      * when the deck already targets nothing. Emits no notification.
      *

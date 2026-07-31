@@ -15,10 +15,14 @@ import java.time.LocalDateTime;
 /**
  * JPA entity mapping the {@code flashcard_decks} table (ULP-5.x).
  *
- * <p>A deck is a personal collection of two-sided cards owned by a student.
- * The deck row itself carries no sharing state: which classes a deck targets
- * lives entirely in {@link FlashcardDeckClass}, and a deck is shared exactly
- * when it has at least one row there.
+ * <p>A deck is a personal collection of two-sided cards owned by a student or
+ * a lecturer (a lecturer may share to the classes they teach).
+ *
+ * <p>Sharing state is split across two places. Which classes a deck targets
+ * lives entirely in {@link FlashcardDeckClass}, and a deck is class-shared
+ * exactly when it has at least one row there. The public-link state, by
+ * contrast, lives on this row: {@code is_public} is the on/off switch and
+ * {@code share_token} is the link identity.
  *
  * <p>{@link SQLRestriction} filters soft-deleted rows out of every default
  * query, mirroring {@link com.ulp.entities.ClassEntity}. No {@code @Data} —
@@ -50,6 +54,12 @@ public class FlashcardDeck {
 
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted = false;
+
+    @Column(name = "share_token", length = 40)
+    private String shareToken;
+
+    @Column(name = "is_public", nullable = false)
+    private boolean publicLink = false;
 
     /** JPA-only constructor; do not call from application code. */
     protected FlashcardDeck() {
@@ -97,6 +107,34 @@ public class FlashcardDeck {
         this.deleted = true;
     }
 
+    /**
+     * Turns the public link on, minting a token only when the deck has none.
+     * Keeping an existing token means a link shared earlier still resolves.
+     *
+     * @param freshToken a newly generated token, used only on first enable
+     */
+    public void enablePublicLink(String freshToken) {
+        if (this.shareToken == null) {
+            this.shareToken = freshToken;
+        }
+        this.publicLink = true;
+    }
+
+    /** Turns the link off but keeps the token so re-enabling revives sent URLs. */
+    public void disablePublicLink() {
+        this.publicLink = false;
+    }
+
+    /**
+     * Replaces the token, permanently killing every URL already handed out.
+     * Leaves the on/off switch untouched — the caller decides that separately.
+     *
+     * @param freshToken the replacement token
+     */
+    public void regenerateToken(String freshToken) {
+        this.shareToken = freshToken;
+    }
+
     // ── Getters ────────────────────────────────────────────────────────
 
     public Long getId() {
@@ -125,5 +163,15 @@ public class FlashcardDeck {
 
     public boolean isDeleted() {
         return deleted;
+    }
+
+    /** The public-link token, or null when the link has never been enabled. */
+    public String getShareToken() {
+        return shareToken;
+    }
+
+    /** Whether the public link is currently switched on. */
+    public boolean isPublicLink() {
+        return publicLink;
     }
 }

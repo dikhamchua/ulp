@@ -12,6 +12,8 @@ import com.ulp.features.flashcards.dto.FlashcardDtos.SaveCardsRequest;
 import com.ulp.features.flashcards.imports.FlashcardImportParser;
 import com.ulp.features.flashcards.imports.FlashcardImportTemplate;
 import com.ulp.features.flashcards.service.CardService;
+import com.ulp.features.flashcards.service.DeckPublicLinkService;
+import com.ulp.features.flashcards.service.DeckShareService;
 import com.ulp.features.flashcards.service.SmartReviewService;
 import com.ulp.features.flashcards.support.DeckAccessResolver;
 import com.ulp.security.UlpUserDetails;
@@ -25,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,13 +36,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.ulp.common.IConstant.API_FLASHCARDS;
 import static com.ulp.common.IConstant.MSG_AI_NO_MATERIAL;
+import static com.ulp.common.IConstant.PATH_PUBLIC_DECK;
 import static com.ulp.common.IConstant.SUBPATH_AI_GENERATE;
+import static com.ulp.common.IConstant.SUBPATH_SHARE_CLASS;
+import static com.ulp.common.IConstant.SUBPATH_SHARE_PUBLIC;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.badRequest;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.forbidden;
 import static com.ulp.features.lessons.controller.support.AjaxResponses.internalError;
@@ -48,7 +55,8 @@ import static com.ulp.features.lessons.dto.SectionDtos.AjaxResult;
 
 /**
  * JSON API for flashcards under {@code /api/flashcards}: bulk card save,
- * Smart-Review rating submit, Excel import, and AI card generation.
+ * Smart-Review rating submit, Excel import, AI card generation, and the
+ * share-modal endpoints (per-class targets plus the public link).
  *
  * <p>All authorization lives in the services / {@code DeckAccessResolver}; this
  * controller only maps exceptions onto the shared {@link AjaxResult} envelope
@@ -73,19 +81,25 @@ public class FlashcardApiController {
     private final FlashcardImportParser importParser;
     private final FlashcardImportTemplate importTemplate;
     private final AiFlashcardGenerationService aiGenerationService;
+    private final DeckShareService shareService;
+    private final DeckPublicLinkService publicLinkService;
 
     public FlashcardApiController(CardService cardService,
                                   SmartReviewService smartReviewService,
                                   DeckAccessResolver accessResolver,
                                   FlashcardImportParser importParser,
                                   FlashcardImportTemplate importTemplate,
-                                  AiFlashcardGenerationService aiGenerationService) {
+                                  AiFlashcardGenerationService aiGenerationService,
+                                  DeckShareService shareService,
+                                  DeckPublicLinkService publicLinkService) {
         this.cardService = cardService;
         this.smartReviewService = smartReviewService;
         this.accessResolver = accessResolver;
         this.importParser = importParser;
         this.importTemplate = importTemplate;
         this.aiGenerationService = aiGenerationService;
+        this.shareService = shareService;
+        this.publicLinkService = publicLinkService;
     }
 
     /** Replaces the deck's cards with the submitted set; owner-only. */
@@ -204,6 +218,115 @@ public class FlashcardApiController {
             log.error("Failed to generate AI cards for deck {}", deckId, ex);
             return internalError();
         }
+    }
+
+    // ── Sharing ─────────────────────────────────────────────────────────
+
+    /** Adds one class to the deck's share targets; owner-only, idempotent. */
+    @PostMapping("/{deckId}" + SUBPATH_SHARE_CLASS + "/{classId}")
+    public ResponseEntity<?> shareToClass(@PathVariable Long deckId,
+                                          @PathVariable Long classId,
+                                          @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            shareService.shareToClass(deckId, user.getId(), classId);
+            return ResponseEntity.ok(AjaxResult.success());
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to share deck {} to class {}", deckId, classId, ex);
+            return internalError();
+        }
+    }
+
+    /** Removes one class from the deck's share targets; owner-only, idempotent. */
+    @DeleteMapping("/{deckId}" + SUBPATH_SHARE_CLASS + "/{classId}")
+    public ResponseEntity<?> unshareFromClass(@PathVariable Long deckId,
+                                              @PathVariable Long classId,
+                                              @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            shareService.unshareFromClass(deckId, user.getId(), classId);
+            return ResponseEntity.ok(AjaxResult.success());
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to unshare deck {} from class {}", deckId, classId, ex);
+            return internalError();
+        }
+    }
+
+    /** Turns the public link on; owner-only. Returns the full shareable URL. */
+    @PostMapping("/{deckId}" + SUBPATH_SHARE_PUBLIC)
+    public ResponseEntity<?> enablePublicLink(@PathVariable Long deckId,
+                                              @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            String token = publicLinkService.enable(deckId, user.getId());
+            return ResponseEntity.ok(AjaxResult.success(shareUrl(token)));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to enable public link for deck {}", deckId, ex);
+            return internalError();
+        }
+    }
+
+    /** Turns the public link off; owner-only. The token survives for re-enabling. */
+    @DeleteMapping("/{deckId}" + SUBPATH_SHARE_PUBLIC)
+    public ResponseEntity<?> disablePublicLink(@PathVariable Long deckId,
+                                               @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            publicLinkService.disable(deckId, user.getId());
+            return ResponseEntity.ok(AjaxResult.success());
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to disable public link for deck {}", deckId, ex);
+            return internalError();
+        }
+    }
+
+    /** Mints a fresh token, killing every URL already shared; owner-only. */
+    @PostMapping("/{deckId}" + SUBPATH_SHARE_PUBLIC + "/regenerate")
+    public ResponseEntity<?> regeneratePublicLink(@PathVariable Long deckId,
+                                                  @AuthenticationPrincipal UlpUserDetails user) {
+        try {
+            String token = publicLinkService.regenerate(deckId, user.getId());
+            return ResponseEntity.ok(AjaxResult.success(shareUrl(token)));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to regenerate public link for deck {}", deckId, ex);
+            return internalError();
+        }
+    }
+
+    /**
+     * Builds the absolute URL the owner copies, resolved against the request's
+     * own host so the link works behind a proxy or on a non-default port.
+     */
+    private static String shareUrl(String token) {
+        return ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path(PATH_PUBLIC_DECK).path("/").path(token)
+                .toUriString();
     }
 
     /** Streams the two-column .xlsx import template; any authenticated user. */
