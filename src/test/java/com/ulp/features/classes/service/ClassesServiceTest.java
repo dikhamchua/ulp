@@ -12,6 +12,8 @@ import com.ulp.features.classes.service.approval.ClassReviewNotifier;
 import com.ulp.features.classes.service.codes.ClassCodeGenerationException;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
+import com.ulp.features.classes.service.support.ClassListStatsLoader;
+import com.ulp.features.classes.service.support.ClassListStatsLoader.Stats;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +65,7 @@ class ClassesServiceTest {
     private InviteCodeService inviteCodeService;
     private UserRepository userRepository;
     private ClassReviewNotifier reviewNotifier;
+    private ClassListStatsLoader statsLoader;
     private ClassesService service;
 
     @BeforeEach
@@ -74,9 +77,11 @@ class ClassesServiceTest {
         inviteCodeService = mock(InviteCodeService.class);
         userRepository = mock(UserRepository.class);
         reviewNotifier = mock(ClassReviewNotifier.class);
+        statsLoader = mock(ClassListStatsLoader.class);
         when(userRepository.findById(any())).thenReturn(Optional.empty());
+        when(statsLoader.load(any())).thenReturn(Map.of());
         service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository, reviewNotifier);
+                codeGenerator, inviteCodeService, userRepository, reviewNotifier, statsLoader);
         when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
                 .thenReturn(Optional.empty());
     }
@@ -122,10 +127,27 @@ class ClassesServiceTest {
     }
 
     @Test
-    void list_returns_zero_stat_columns() {
+    void list_maps_batch_stats_onto_rows() {
         Pageable pageable = PageRequest.of(0, 20);
         when(classRepository.findAllByLecturerId(eq(LECTURER_ID), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(buildClass(1L, "X", LECTURER_ID)), pageable, 1));
+        when(statsLoader.load(List.of(1L)))
+                .thenReturn(Map.of(1L, new Stats(12, 5, 3, 7)));
+
+        ClassRow row = service.listForUser(LECTURER_ID, Role.LECTURER, pageable).getContent().get(0);
+
+        assertThat(row.studentCount()).isEqualTo(12);
+        assertThat(row.lectureCount()).isEqualTo(5);
+        assertThat(row.assignmentCount()).isEqualTo(3);
+        assertThat(row.materialCount()).isEqualTo(7);
+    }
+
+    @Test
+    void list_defaults_missing_stats_to_zero() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(classRepository.findAllByLecturerId(eq(LECTURER_ID), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(buildClass(1L, "X", LECTURER_ID)), pageable, 1));
+        // Default stub returns empty map — row must still render zeros.
 
         ClassRow row = service.listForUser(LECTURER_ID, Role.LECTURER, pageable).getContent().get(0);
 

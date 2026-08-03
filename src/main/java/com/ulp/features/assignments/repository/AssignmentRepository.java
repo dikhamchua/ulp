@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,4 +48,19 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
      */
     @Query("SELECT a FROM Assignment a WHERE a.classId = :classId AND a.deleted = false AND a.status <> 'DRAFT' ORDER BY a.createdAt DESC")
     List<Assignment> findPublishedByClassId(@Param("classId") Long classId);
+
+    /**
+     * Batch count of non-deleted assignments (DRAFT + PUBLISHED + CLOSED) per class.
+     * Callers MUST pass a non-empty collection.
+     */
+    @Query("SELECT a.classId AS classId, COUNT(a) AS cnt FROM Assignment a "
+            + "WHERE a.classId IN :classIds AND a.deleted = false "
+            + "GROUP BY a.classId")
+    List<ClassCount> countNotDeletedGroupedByClassIds(@Param("classIds") Collection<Long> classIds);
+
+    /** Projection for grouped class counts ({@code classId}, {@code cnt}). */
+    interface ClassCount {
+        Long getClassId();
+        Long getCnt();
+    }
 }

@@ -11,6 +11,8 @@ import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.service.approval.ClassReviewNotifier;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
+import com.ulp.features.classes.service.support.ClassListStatsLoader;
+import com.ulp.features.classes.service.support.ClassListStatsLoader.Stats;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
@@ -57,6 +59,7 @@ public class ClassesService {
     private final ClassRepository classRepository;
     private final ClassInviteCodeRepository inviteCodeRepository;
     private final ClassActivityWriter activityWriter;
+    private final ClassListStatsLoader statsLoader;
     private final ClassCreator creator;
 
     public ClassesService(ClassRepository classRepository,
@@ -65,10 +68,12 @@ public class ClassesService {
                           ClassCodeGenerator codeGenerator,
                           InviteCodeService inviteCodeService,
                           UserRepository userRepository,
-                          ClassReviewNotifier reviewNotifier) {
+                          ClassReviewNotifier reviewNotifier,
+                          ClassListStatsLoader statsLoader) {
         this.classRepository = classRepository;
         this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
+        this.statsLoader = statsLoader;
         this.creator = new ClassCreator(classRepository, activityWriter,
                 codeGenerator, inviteCodeService, userRepository, reviewNotifier);
     }
@@ -96,11 +101,14 @@ public class ClassesService {
         List<ClassEntity> content = page.getContent();
         // List UI "Mã lớp" is the shareable 6-char invite CODE, not classes.code (5-char).
         Map<Long, String> inviteCodes = loadActiveInviteCodes(content);
+        List<Long> classIds = content.stream().map(ClassEntity::getId).toList();
+        Map<Long, Stats> statsByClass = statsLoader.load(classIds);
         List<ClassRow> rows = new ArrayList<>(content.size());
         for (int i = 0; i < content.size(); i++) {
             ClassEntity entity = content.get(i);
             String displayCode = inviteCodes.getOrDefault(entity.getId(), entity.getCode());
-            rows.add(ClassRowMapper.toRow(entity, i, displayCode));
+            Stats stats = statsByClass.getOrDefault(entity.getId(), ClassListStatsLoader.ZERO);
+            rows.add(ClassRowMapper.toRow(entity, i, displayCode, stats));
         }
         return new PageImpl<>(rows, pageable, page.getTotalElements());
     }

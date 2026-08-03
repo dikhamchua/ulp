@@ -21,8 +21,10 @@ public class ClassesDtos {
      * index so each class gets a distinct color — see {@link com.ulp.features.classes.ClassGradient}.
      *
      * <p>The stat columns ({@code studentCount}, {@code lectureCount},
-     * {@code assignmentCount}, {@code materialCount}) temporarily return 0 for
-     * Sprint 2. Sprint 3/5 will wire them to real counts.
+     * {@code assignmentCount}, {@code materialCount}) are batch-loaded by
+     * {@link com.ulp.features.classes.service.support.ClassListStatsLoader}:
+     * ACTIVE enrollments, all non-deleted lessons (incl. DRAFT), all non-deleted
+     * assignments (incl. DRAFT), and lesson attachments under the class.
      *
      * <p>{@code createdAtIso} is {@code created_at.toString()} in ISO-8601 format,
      * used for client-side sorting by creation date.

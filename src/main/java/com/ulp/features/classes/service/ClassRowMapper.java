@@ -3,6 +3,8 @@ package com.ulp.features.classes.service;
 import com.ulp.entities.ClassEntity;
 import com.ulp.features.classes.ClassGradient;
 import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
+import com.ulp.features.classes.service.support.ClassListStatsLoader;
+import com.ulp.features.classes.service.support.ClassListStatsLoader.Stats;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -28,13 +30,10 @@ final class ClassRowMapper {
      * cosmetic ordering of class thumbnails.
      *
      * @param displayCode code shown under the class name (prefer active invite CODE)
+     * @param stats       batch-loaded counters for the list card (never null)
      */
-    static ClassRow toRow(ClassEntity e, int index, String displayCode) {
-        // TODO Sprint 3/5: wire real counts from enrollments/lessons/assignments/lesson_attachments
-        int studentCount = 0;
-        int lectureCount = 0;
-        int assignmentCount = 0;
-        int materialCount = 0;
+    static ClassRow toRow(ClassEntity e, int index, String displayCode, Stats stats) {
+        Stats safe = stats != null ? stats : ClassListStatsLoader.ZERO;
         String createdAtIso = e.getCreatedAt() != null ? e.getCreatedAt().toString() : "";
         String code = displayCode != null && !displayCode.isBlank() ? displayCode : e.getCode();
         return new ClassRow(
@@ -42,15 +41,13 @@ final class ClassRowMapper {
                 e.getName(),
                 code,
                 ClassGradient.forIndex(index).css(),
-                studentCount, lectureCount, assignmentCount, materialCount,
+                safe.studentCount(),
+                safe.lectureCount(),
+                safe.assignmentCount(),
+                safe.materialCount(),
                 createdAtIso,
                 e.getStatus()
         );
-    }
-
-    /** Convenience overload when no invite code is available — falls back to {@code classes.code}. */
-    static ClassRow toRow(ClassEntity e, int index) {
-        return toRow(e, index, e.getCode());
     }
 
     /**

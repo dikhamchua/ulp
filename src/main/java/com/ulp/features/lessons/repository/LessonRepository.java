@@ -63,6 +63,22 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
         Long getLessonId();
     }
 
+    /**
+     * Batch count of all non-soft-deleted lessons (DRAFT + PUBLISHED) per class.
+     * Soft-deleted lessons/sections are excluded by {@code @SQLRestriction}.
+     * Callers MUST pass a non-empty collection.
+     */
+    @Query("SELECT s.classId AS classId, COUNT(l) AS cnt FROM Lesson l, Section s "
+            + "WHERE l.sectionId = s.id AND s.classId IN :classIds "
+            + "GROUP BY s.classId")
+    List<ClassCount> countAllGroupedByClassIds(@Param("classIds") Collection<Long> classIds);
+
+    /** Projection for grouped class counts ({@code classId}, {@code cnt}). */
+    interface ClassCount {
+        Long getClassId();
+        Long getCnt();
+    }
+
     /** Loads a lesson scoped by section to harden the URL hierarchy. */
     Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);
 
