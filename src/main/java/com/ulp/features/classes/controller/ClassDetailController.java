@@ -2,6 +2,8 @@ package com.ulp.features.classes.controller;
 
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.ClassInviteCode;
+import com.ulp.entities.User;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.controller.support.ClassDetailModelSupport;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.service.ClassMembersService;
@@ -9,6 +11,7 @@ import com.ulp.features.classes.service.ClassesService;
 import com.ulp.features.classes.service.JoinClassService;
 import com.ulp.features.classes.service.invites.InviteCodeService;
 import com.ulp.features.classes.service.invites.InviteCodeValidationException;
+import com.ulp.features.subjects.service.SubjectService;
 import com.ulp.features.tests.dto.LecturerTestDtos.ExamFilter;
 import com.ulp.features.tests.service.LecturerExamQueryService;
 import com.ulp.security.Roles;
@@ -61,19 +64,25 @@ public class ClassDetailController {
     private final ClassDetailModelSupport detailSupport;
     private final LecturerExamQueryService examService;
     private final JoinClassService joinClassService;
+    private final SubjectService subjectService;
+    private final UserRepository userRepository;
 
     public ClassDetailController(ClassesService classesService,
                                  ClassMembersService classMembersService,
                                  InviteCodeService inviteCodeService,
                                  ClassDetailModelSupport detailSupport,
                                  LecturerExamQueryService examService,
-                                 JoinClassService joinClassService) {
+                                 JoinClassService joinClassService,
+                                 SubjectService subjectService,
+                                 UserRepository userRepository) {
         this.classesService = classesService;
         this.classMembersService = classMembersService;
         this.inviteCodeService = inviteCodeService;
         this.detailSupport = detailSupport;
         this.examService = examService;
         this.joinClassService = joinClassService;
+        this.subjectService = subjectService;
+        this.userRepository = userRepository;
     }
 
     /** Renders the class board (announcement) tab. */
@@ -245,6 +254,11 @@ public class ClassDetailController {
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
         model.addAttribute(ATTR_CLASS_ID, id);
+        model.addAttribute(ATTR_SUBJECT_OPTIONS, subjectService.listActiveOptions());
+        Long lecturerDeptId = userRepository.findById(user.getId())
+                .map(User::getDepartmentId)
+                .orElse(null);
+        model.addAttribute(ATTR_LECTURER_DEPARTMENT_ID, lecturerDeptId);
         return VIEW_CLASS_DETAIL_SETTINGS;
     }
 }

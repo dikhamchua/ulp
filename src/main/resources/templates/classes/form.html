@@ -8,10 +8,17 @@
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
 <main class="class-page">
+  <!-- Flash payload for notifications.js (app-header); do not drain in page JS. -->
+  <span id="flash-data"
+        th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+        style="display:none;"></span>
+
   <div class="class-form-card">
     <h1 th:text="${mode == 'edit' ? 'Chỉnh sửa lớp học' : 'Tạo lớp học mới'}">Tạo lớp học mới</h1>
 
-    <form th:action="@{${formAction}}" method="post" th:object="${form}" novalidate>
+    <form th:action="@{${formAction}}" method="post" th:object="${form}" novalidate
+          id="classForm"
+          th:attr="data-lecturer-department-id=${lecturerDepartmentId}">
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
       <!-- Name -->
@@ -23,6 +30,32 @@
                placeholder="VD: Java cơ bản - Ca 1" maxlength="300" required aria-required="true">
         <span id="name-error" class="field-error" role="alert" th:if="${#fields.hasErrors('name')}"
               th:errors="*{name}">Lỗi tên</span>
+      </div>
+
+      <!-- Subject (môn học) — drives class.department_id -->
+      <div class="field-row">
+        <label for="subjectId">Môn học <span class="required" aria-hidden="true">*</span></label>
+        <select id="subjectId" th:field="*{subjectId}"
+                th:classappend="${#fields.hasErrors('subjectId')} ? 'is-invalid' : ''"
+                th:attr="aria-invalid=${#fields.hasErrors('subjectId')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('subjectId')} ? 'subjectId-error' : 'subject-cross-dept-warning'"
+                required aria-required="true">
+          <option value="">— Chọn môn học —</option>
+          <option th:each="opt : ${subjectOptions}"
+                  th:value="${opt.id()}"
+                  th:text="${opt.label()}"
+                  th:attr="data-department-id=${opt.departmentId()}">
+            [CNTT] PRJ301 — Lập trình Java
+          </option>
+        </select>
+        <span id="subjectId-error" class="field-error" role="alert" th:if="${#fields.hasErrors('subjectId')}"
+              th:errors="*{subjectId}">Lỗi môn học</span>
+        <div id="subject-cross-dept-warning"
+             class="field-warning cross-dept-warning"
+             role="status"
+             hidden>
+          Môn học thuộc bộ môn khác với bộ môn của bạn. Lớp sẽ vào hàng chờ duyệt của
+          trưởng bộ môn sở hữu môn học đó.
+        </div>
       </div>
 
       <!-- Description -->
@@ -78,5 +111,6 @@
 </main>
 
 <script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-form-subject.js}"></script>
 </body>
 </html>

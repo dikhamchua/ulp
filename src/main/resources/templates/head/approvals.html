@@ -41,6 +41,7 @@
           <tr>
             <th>Mã</th>
             <th>Tên lớp</th>
+            <th>Môn học</th>
             <th>Giảng viên</th>
             <th>Ngày tạo</th>
             <th>Hành động</th>
@@ -50,7 +51,20 @@
           <tr th:each="row : ${pendingClasses}">
             <td><code th:text="${row.classCode()}">CODE</code></td>
             <td th:text="${row.className()}">Tên</td>
-            <td th:text="${row.lecturerName()}">GV</td>
+            <td>
+              <span th:if="${row.subjectTitle() != null and !#strings.isEmpty(row.subjectTitle())}"
+                    th:text="${row.subjectTitle()}">Môn</span>
+              <span th:if="${row.subjectTitle() == null or #strings.isEmpty(row.subjectTitle())}"
+                    class="muted">—</span>
+            </td>
+            <td>
+              <span th:text="${row.lecturerName()}">GV</span>
+              <span th:if="${row.crossDepartmentLecturer()}"
+                    class="status-pill status-warning head-cross-dept-badge"
+                    title="Giảng viên thuộc bộ môn khác (hoặc chưa gán bộ môn)">
+                Khác bộ môn GV
+              </span>
+            </td>
             <td>
               <span th:if="${row.createdAt() != null}"
                     th:text="${#temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm')}">—</span>

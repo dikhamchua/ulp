@@ -26,6 +26,40 @@ a.dept-name-link:focus-visible {
   outline: none;
 }
 
+/* Subject list: code cell must read as a clickable link (not plain text). */
+a.subject-code-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-primary, #2563eb);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+a.subject-code-link code {
+  color: inherit;
+  background: transparent;
+  font-weight: inherit;
+  padding: 0;
+}
+
+/* Read-only value on detail forms (department label when locked). */
+.field-static {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text, #111827);
+}
+
+a.subject-code-link:hover,
+a.subject-code-link:focus-visible {
+  color: var(--color-primary-hover, #1d4ed8);
+  text-decoration-thickness: 2px;
+  outline: none;
+}
+
 /* ── Status visibility toggle (form) ─────────────────────────────────────── */
 .dept-status-toggle {
   display: flex;
