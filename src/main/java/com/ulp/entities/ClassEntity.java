@@ -67,10 +67,18 @@ public class ClassEntity {
     @Column(name = "lecturer_id", nullable = false)
     private Long lecturerId;
 
-    /** Owning department; nullable until backfilled or set on create. */
+    /** Owning department; always stamped from the bound subject's department. */
     @Setter
     @Column(name = "department_id")
     private Long departmentId;
+
+    /**
+     * Bound subject (môn học). Required on create/update write paths; may be
+     * null only for rare legacy orphans the migration could not backfill.
+     */
+    @Setter
+    @Column(name = "subject_id")
+    private Long subjectId;
 
     @Column(name = "start_date")
     private LocalDate startDate;

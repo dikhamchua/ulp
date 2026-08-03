@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Trưởng bộ môn | Môn học', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin-departments.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/head-department.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('head')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/head-sidebar :: headSidebar('subjects')}"></aside>
+
+  <main class="col">
+    <span id="flash-data"
+          th:attr="data-flash-success=${flashSuccess},
+                   data-flash-error=${flashError}"
+          style="display:none;"></span>
+
+    <h1 class="detail-title">Môn học</h1>
+    <p class="detail-sub">
+      Danh mục môn học thuộc bộ môn của bạn. Giảng viên chọn môn khi tạo lớp;
+      bộ môn của lớp lấy theo môn học.
+    </p>
+
+    <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
+      Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
+    </div>
+
+    <section class="users-toolbar" th:if="${!emptyDepartment}">
+      <div class="users-toolbar-row" style="justify-content:flex-end;">
+        <a th:href="@{/head/subjects/new}" class="create-btn">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"/><path d="M5 12h14"/>
+          </svg>
+          Tạo môn học
+        </a>
+      </div>
+    </section>
+
+    <section class="admin-list-panel" th:if="${!emptyDepartment}">
+      <div th:if="${subjects == null or subjects.isEmpty()}"
+           class="admin-list-empty" role="status">
+        Chưa có môn học nào. Hãy tạo môn học đầu tiên.
+      </div>
+
+      <table class="admin-list-table"
+             th:if="${subjects != null and !subjects.isEmpty()}">
+        <thead>
+          <tr>
+            <th>Mã</th>
+            <th>Tên môn</th>
+            <th>Trạng thái</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="row : ${subjects}">
+            <td>
+              <a class="subject-code-link"
+                 th:href="@{'/head/subjects/' + ${row.id()} + '/edit'}"
+                 th:title="'Mở chi tiết môn ' + ${row.code()}">
+                <code th:text="${row.code()}">CODE</code>
+              </a>
+            </td>
+            <td th:text="${row.title()}">Tên</td>
+            <td>
+              <form th:action="@{'/head/subjects/' + ${row.id()} + '/toggle'}"
+                    method="post" class="inline-form subject-status-switch-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <label class="dept-switch"
+                       th:attr="title=${row.active()} ? 'Đang hiện — bấm để ẩn' : 'Đang ẩn — bấm để hiện'">
+                  <input type="checkbox"
+                         th:checked="${row.active()}"
+                         th:aria-label="${row.active()} ? 'Ẩn môn học' : 'Hiện môn học'"
+                         onchange="this.form.submit()">
+                  <span class="dept-switch-slider" aria-hidden="true"></span>
+                  <span class="sr-only"
+                        th:text="${row.active()} ? 'Hiện' : 'Ẩn'">Hiện</span>
+                </label>
+              </form>
+            </td>
+            <td class="admin-actions">
+              <form th:action="@{'/head/subjects/' + ${row.id()} + '/delete'}" method="post"
+                    class="inline-form"
+                    onsubmit="return confirm('Xoá môn học này?');">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="btn-danger btn-sm">Xoá</button>
+              </form>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/head-department.js}"></script>
+</body>
+</html>

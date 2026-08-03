@@ -230,6 +230,22 @@
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
 .field-row textarea { min-height: 110px; resize: vertical; }
+.field-row select {
+  width: 100%; height: 42px; padding: 0 12px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+  font-size: 14px;
+}
+.field-row select:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft, rgba(37,99,235,.12));
+}
+.field-row select.is-invalid {
+  border-color: var(--danger);
+}
+.field-warning {
+  display: block; margin-top: 6px; font-size: 12.5px; line-height: 1.45;
+  color: #9a6700; background: #fff8e6; border: 1px solid #f5d78e;
+  border-radius: 8px; padding: 8px 10px;
+}
 .field-row input.is-invalid,
 .field-row textarea.is-invalid {
   border-color: var(--danger);

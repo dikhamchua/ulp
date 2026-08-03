@@ -2,12 +2,15 @@ package com.ulp.features.head.service;
 
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.Department;
+import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.service.approval.ClassReviewNotifier;
 import com.ulp.features.head.dto.HeadDtos.ApprovalQueueView;
 import com.ulp.features.head.dto.HeadDtos.DepartmentSummary;
 import com.ulp.features.head.dto.HeadDtos.PendingClassRow;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.repository.SubjectRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -44,15 +48,18 @@ public class HeadClassApprovalService {
     private final HeadDepartmentResolver resolver;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
+    private final SubjectRepository subjectRepository;
     private final ClassReviewNotifier reviewNotifier;
 
     public HeadClassApprovalService(HeadDepartmentResolver resolver,
                                     ClassRepository classRepository,
                                     UserRepository userRepository,
+                                    SubjectRepository subjectRepository,
                                     ClassReviewNotifier reviewNotifier) {
         this.resolver = resolver;
         this.classRepository = classRepository;
         this.userRepository = userRepository;
+        this.subjectRepository = subjectRepository;
         this.reviewNotifier = reviewNotifier;
     }
 
@@ -73,14 +80,24 @@ public class HeadClassApprovalService {
         List<ClassEntity> drafts = classRepository
                 .findAllByDepartmentIdAndStatusOrderByCreatedAtDesc(
                         dept.getId(), ClassEntity.STATUS_DRAFT);
-        Map<Long, String> lecturerNames = loadLecturerNames(drafts);
+        Map<Long, User> lecturers = loadLecturers(drafts);
+        Map<Long, String> subjectTitles = loadSubjectTitles(drafts);
 
         List<PendingClassRow> rows = new ArrayList<>(drafts.size());
         for (ClassEntity c : drafts) {
+            User lecturer = lecturers.get(c.getLecturerId());
+            String lecturerName = lecturer != null ? lecturer.getFullName() : "—";
+            Long lecturerDeptId = lecturer != null ? lecturer.getDepartmentId() : null;
+            boolean crossDept = isCrossDepartmentLecturer(lecturerDeptId, c.getDepartmentId());
+            String subjectTitle = c.getSubjectId() != null
+                    ? subjectTitles.get(c.getSubjectId())
+                    : null;
             rows.add(new PendingClassRow(
                     c.getId(), c.getName(), c.getCode(),
-                    lecturerNames.getOrDefault(c.getLecturerId(), "—"),
-                    c.getCreatedAt()));
+                    lecturerName,
+                    c.getCreatedAt(),
+                    crossDept,
+                    subjectTitle));
         }
         return new ApprovalQueueView(
                 new DepartmentSummary(dept.getId(), dept.getCode(), dept.getName()),
@@ -90,21 +107,13 @@ public class HeadClassApprovalService {
     /**
      * Approves a DRAFT class, making it operational and joinable, and notifies
      * the owning lecturer.
-     *
-     * @param headUserId the authenticated HEAD's user id
-     * @param classId    the class to approve
-     * @return the class display name, for the success toast
-     * @throws AccessDeniedException   when the class is outside the HEAD's department
-     * @throws EntityNotFoundException when no such class exists
-     * @throws IllegalStateException   when the class is not DRAFT
      */
     @Transactional
     public String approve(Long headUserId, Long classId) {
         ClassEntity clazz = loadOwnDepartmentClass(headUserId, classId);
         clazz.approve(headUserId, LocalDateTime.now());
         ClassEntity saved = classRepository.save(clazz);
-        // Notification is secondary to the state transition: a broken notifier
-        // must not roll back an approval the HEAD already granted.
+        // Notification is secondary to the state transition.
         try {
             reviewNotifier.notifyLecturerApproved(saved);
         } catch (RuntimeException ex) {
@@ -116,22 +125,12 @@ public class HeadClassApprovalService {
     /**
      * Rejects a DRAFT class into the terminal REJECTED state with an optional
      * reviewer note, and notifies the owning lecturer.
-     *
-     * @param headUserId the authenticated HEAD's user id
-     * @param classId    the class to reject
-     * @param note       optional reviewer explanation; blank is stored as null
-     * @return the class display name, for the success toast
-     * @throws AccessDeniedException   when the class is outside the HEAD's department
-     * @throws EntityNotFoundException when no such class exists
-     * @throws IllegalStateException   when the class is not DRAFT
      */
     @Transactional
     public String reject(Long headUserId, Long classId, String note) {
         ClassEntity clazz = loadOwnDepartmentClass(headUserId, classId);
         clazz.reject(headUserId, note, LocalDateTime.now());
         ClassEntity saved = classRepository.save(clazz);
-        // Same rationale as approve(): the rejection stands even if the
-        // lecturer cannot be notified about it.
         try {
             reviewNotifier.notifyLecturerRejected(saved, saved.getRejectionNote());
         } catch (RuntimeException ex) {
@@ -156,15 +155,36 @@ public class HeadClassApprovalService {
         return clazz;
     }
 
-    /** Resolves lecturer display names for the queue rows, one lookup per id. */
-    private Map<Long, String> loadLecturerNames(List<ClassEntity> classes) {
-        Map<Long, String> names = new HashMap<>();
+    /** True when lecturer dept is null or differs from the class department. */
+    static boolean isCrossDepartmentLecturer(Long lecturerDepartmentId, Long classDepartmentId) {
+        if (classDepartmentId == null) {
+            return false;
+        }
+        return lecturerDepartmentId == null
+                || !Objects.equals(lecturerDepartmentId, classDepartmentId);
+    }
+
+    private Map<Long, User> loadLecturers(List<ClassEntity> classes) {
+        Map<Long, User> byId = new HashMap<>();
         for (ClassEntity c : classes) {
-            if (c.getLecturerId() != null && !names.containsKey(c.getLecturerId())) {
+            if (c.getLecturerId() != null && !byId.containsKey(c.getLecturerId())) {
                 userRepository.findById(c.getLecturerId())
-                        .ifPresent(u -> names.put(u.getId(), u.getFullName()));
+                        .ifPresent(u -> byId.put(u.getId(), u));
             }
         }
-        return names;
+        return byId;
+    }
+
+    private Map<Long, String> loadSubjectTitles(List<ClassEntity> classes) {
+        Map<Long, String> titles = new HashMap<>();
+        for (ClassEntity c : classes) {
+            Long sid = c.getSubjectId();
+            if (sid != null && !titles.containsKey(sid)) {
+                subjectRepository.findById(sid)
+                        .map(Subject::getTitle)
+                        .ifPresent(t -> titles.put(sid, t));
+            }
+        }
+        return titles;
     }
 }
