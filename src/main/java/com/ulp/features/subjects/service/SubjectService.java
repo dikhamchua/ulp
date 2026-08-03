@@ -251,6 +251,15 @@ public class SubjectService {
         throw new AccessDeniedException(MSG_SUBJECT_CREATE_FORBIDDEN);
     }
 
+    /**
+     * Loads a subject and asserts the actor may view/mutate it (HEAD dept scope, ADMIN any).
+     * Shared by chapter-outline operations on the same subject.
+     */
+    @Transactional(readOnly = true)
+    public Subject requireScopedSubject(Long id, Long actorId, Role role) {
+        return requireScoped(id, actorId, role);
+    }
+
     private Subject requireScoped(Long id, Long actorId, Role role) {
         Subject subject = subjectRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_SUBJECT_NOT_FOUND));
