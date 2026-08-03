@@ -5,6 +5,7 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -84,6 +85,7 @@ public class ClassesDtos {
      * <p>Validation rules:
      * <ul>
      *   <li>{@code name}: required, 3–300 characters</li>
+     *   <li>{@code subjectId}: required — class department is stamped from subject</li>
      *   <li>{@code description}: optional, ≤2000 characters</li>
      *   <li>{@code maxStudents}: optional, 1–1000</li>
      *   <li>{@code endDate} must be STRICTLY after {@code startDate} when both are
@@ -95,6 +97,9 @@ public class ClassesDtos {
             @NotBlank(message = "Tên lớp không được để trống")
             @Size(min = 3, max = 300, message = "Tên lớp 3–300 ký tự")
             String name,
+
+            @NotNull(message = "Vui lòng chọn môn học")
+            Long subjectId,
 
             @Size(max = 2000, message = "Mô tả tối đa 2000 ký tự")
             String description,
@@ -109,7 +114,7 @@ public class ClassesDtos {
 
         /** Returns an empty form instance, used when rendering {@code GET /new}. */
         public static ClassForm empty() {
-            return new ClassForm("", "", null, null, 100);
+            return new ClassForm("", null, "", null, null, 100);
         }
 
         /** Converts an entity to a form instance to pre-fill the edit form.
@@ -120,6 +125,7 @@ public class ClassesDtos {
         public static ClassForm fromEntity(ClassEntity e) {
             return new ClassForm(
                     e.getName(),
+                    e.getSubjectId(),
                     e.getDescription(),
                     e.getStartDate(),
                     e.getEndDate(),

@@ -3,7 +3,6 @@ package com.ulp.features.classes.service;
 import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
 import com.ulp.entities.ClassInviteCode;
-import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.features.classes.repository.ClassInviteCodeRepository;
@@ -13,6 +12,8 @@ import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
 import com.ulp.features.classes.service.support.ClassListStatsLoader;
 import com.ulp.features.classes.service.support.ClassListStatsLoader.Stats;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.service.SubjectService;
 import com.ulp.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
@@ -60,6 +61,7 @@ public class ClassesService {
     private final ClassInviteCodeRepository inviteCodeRepository;
     private final ClassActivityWriter activityWriter;
     private final ClassListStatsLoader statsLoader;
+    private final SubjectService subjectService;
     private final ClassCreator creator;
 
     public ClassesService(ClassRepository classRepository,
@@ -67,15 +69,16 @@ public class ClassesService {
                           ClassActivityWriter activityWriter,
                           ClassCodeGenerator codeGenerator,
                           InviteCodeService inviteCodeService,
-                          UserRepository userRepository,
+                          SubjectService subjectService,
                           ClassReviewNotifier reviewNotifier,
                           ClassListStatsLoader statsLoader) {
         this.classRepository = classRepository;
         this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
         this.statsLoader = statsLoader;
+        this.subjectService = subjectService;
         this.creator = new ClassCreator(classRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository, reviewNotifier);
+                codeGenerator, inviteCodeService, subjectService, reviewNotifier);
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────
@@ -163,9 +166,14 @@ public class ClassesService {
     public ClassEntity update(Long id, ClassForm form, Long userId, Role role) {
         ClassEntity entity = loadEditable(id, userId, role);
 
+        // Restamp subject + department from catalog (same rule as create).
+        Subject subject = subjectService.requireActiveSubject(form.subjectId());
+
         Map<String, Object> oldState = ClassRowMapper.snapshot(entity);
         entity.updateDetails(form.name(), form.description(),
                 form.startDate(), form.endDate(), form.maxStudents());
+        entity.setSubjectId(subject.getId());
+        entity.setDepartmentId(subject.getDepartmentId());
         ClassEntity saved = classRepository.save(entity);
 
         Map<String, Object> newState = ClassRowMapper.snapshot(saved);

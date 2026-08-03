@@ -384,11 +384,6 @@ Xem migration để lấy email + password mẫu.
 - Dùng `@SpringBootTest` + `@AutoConfigureMockMvc`; security test dùng
   `@WithMockUser` hoặc `with(user(...))`
 
-### File size
-
-Giữ file Java dưới ~200 dòng khi có thể. File hiện có vài chỗ vượt — tách
-khi đụng vào để refactor (đừng refactor file lành nếu không cần).
-
 ---
 
 ## 10. Harness integration

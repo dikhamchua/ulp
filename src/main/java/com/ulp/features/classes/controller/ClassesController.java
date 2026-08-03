@@ -1,10 +1,13 @@
 package com.ulp.features.classes.controller;
 
 import com.ulp.entities.ClassEntity;
-import com.ulp.features.classes.controller.support.ClassDetailModelSupport;
+import com.ulp.entities.User;
+import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.features.classes.service.ClassesService;
+import com.ulp.features.subjects.service.SubjectService;
+import com.ulp.features.subjects.service.SubjectValidationException;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
@@ -31,20 +34,8 @@ import static com.ulp.features.classes.controller.support.ClassDetailModelSuppor
  * Controller for the lecturer class CRUD screens (list, create, edit, delete).
  * Only LECTURER, HEAD, and ADMIN roles may access these endpoints (see {@link Roles}).
  *
- * <p>Exposed endpoints:
- * <ul>
- *   <li>{@code GET  /lecturer/classes}             — list all classes for the current user</li>
- *   <li>{@code GET  /lecturer/classes/new}         — render the create-class form</li>
- *   <li>{@code POST /lecturer/classes}             — submit the create-class form</li>
- *   <li>{@code GET  /lecturer/classes/{id}}        — redirect to the default board tab</li>
- *   <li>{@code GET  /lecturer/classes/{id}/edit}   — render the edit-class form</li>
- *   <li>{@code POST /lecturer/classes/{id}}        — submit the edit-class form</li>
- *   <li>{@code POST /lecturer/classes/{id}/delete} — soft-delete after confirm modal</li>
- * </ul>
- *
- * <p>Sidebar tabs (board/members/settings/...) and invite regeneration live on
- * {@link ClassDetailController}. Validation errors render inline beneath each
- * field via {@code th:errors}; the service layer enforces owner authorization.
+ * <p>Create/edit forms require a subject; class department is stamped from that
+ * subject (not from the lecturer's department).
  */
 @Controller
 @RequestMapping(BASE_LECTURER)
@@ -52,16 +43,21 @@ import static com.ulp.features.classes.controller.support.ClassDetailModelSuppor
 public class ClassesController {
 
     private final ClassesService classesService;
+    private final SubjectService subjectService;
+    private final UserRepository userRepository;
 
-    public ClassesController(ClassesService classesService) {
+    public ClassesController(ClassesService classesService,
+                             SubjectService subjectService,
+                             UserRepository userRepository) {
         this.classesService = classesService;
+        this.subjectService = subjectService;
+        this.userRepository = userRepository;
     }
 
     /**
      * Lists all classes owned by or accessible to the authenticated user.
      *
      * <p>Pagination defaults: 20 rows per page, sorted by {@code createdAt DESC}.
-     * Clients can override via {@code ?page=N&size=M&sort=...} query parameters.
      */
     @GetMapping("/classes")
     public String list(@AuthenticationPrincipal UlpUserDetails user,
@@ -69,8 +65,6 @@ public class ClassesController {
                                direction = Sort.Direction.DESC) Pageable pageable,
                        Model model) {
         Page<ClassRow> page = classesService.listForUser(user.getId(), user.getRole(), pageable);
-        // Keep the existing template loop driven by ${classes} (a List). The Page
-        // object is exposed separately as ${classesPage} for the pagination block.
         model.addAttribute(ATTR_CLASSES, page.getContent());
         model.addAttribute(ATTR_CLASSES_PAGE, page);
         return VIEW_CLASS_MANAGE;
@@ -81,13 +75,14 @@ public class ClassesController {
      * Preserves a previously bound {@code form} flash attribute on validation redirect.
      */
     @GetMapping("/classes/new")
-    public String createForm(Model model) {
+    public String createForm(@AuthenticationPrincipal UlpUserDetails user, Model model) {
         // Preserve flashed form values from a prior failed POST.
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, ClassForm.empty());
         }
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
+        populateSubjectPicker(model, user);
         return VIEW_CLASS_FORM;
     }
 
@@ -102,16 +97,24 @@ public class ClassesController {
                          @AuthenticationPrincipal UlpUserDetails user,
                          Model model,
                          RedirectAttributes ra) {
-        // Validation failed — re-render with bound values + field errors.
         if (result.hasErrors()) {
             rebindDateRangeError(result);
             model.addAttribute(ATTR_MODE, MODE_CREATE);
             model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
+            populateSubjectPicker(model, user);
             return VIEW_CLASS_FORM;
         }
-        ClassEntity saved = classesService.create(form, user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_CREATED + saved.getCode());
-        return "redirect:" + URL_CLASSES_LIST;
+        try {
+            ClassEntity saved = classesService.create(form, user.getId());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_CREATED + saved.getCode());
+            return "redirect:" + URL_CLASSES_LIST;
+        } catch (SubjectValidationException ex) {
+            result.rejectValue("subjectId", "subject.invalid", ex.getMessage());
+            model.addAttribute(ATTR_MODE, MODE_CREATE);
+            model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
+            populateSubjectPicker(model, user);
+            return VIEW_CLASS_FORM;
+        }
     }
 
     /**
@@ -131,6 +134,7 @@ public class ClassesController {
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
         model.addAttribute(ATTR_CLASS_ID, id);
+        populateSubjectPicker(model, user);
         return VIEW_CLASS_FORM;
     }
 
@@ -146,17 +150,26 @@ public class ClassesController {
                          @AuthenticationPrincipal UlpUserDetails user,
                          Model model,
                          RedirectAttributes ra) {
-        // Validation failed — re-render with bound values + field errors.
         if (result.hasErrors()) {
             rebindDateRangeError(result);
             model.addAttribute(ATTR_MODE, MODE_EDIT);
             model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
             model.addAttribute(ATTR_CLASS_ID, id);
+            populateSubjectPicker(model, user);
             return VIEW_CLASS_FORM;
         }
-        classesService.update(id, form, user.getId(), user.getRole());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_UPDATED);
-        return "redirect:" + URL_CLASSES_LIST;
+        try {
+            classesService.update(id, form, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_UPDATED);
+            return "redirect:" + URL_CLASSES_LIST;
+        } catch (SubjectValidationException ex) {
+            result.rejectValue("subjectId", "subject.invalid", ex.getMessage());
+            model.addAttribute(ATTR_MODE, MODE_EDIT);
+            model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
+            model.addAttribute(ATTR_CLASS_ID, id);
+            populateSubjectPicker(model, user);
+            return VIEW_CLASS_FORM;
+        }
     }
 
     /** Soft-deletes a class after the user confirms the action via the confirm modal. */
@@ -177,14 +190,19 @@ public class ClassesController {
 
     /**
      * Rebinds a cross-field date-range validation error to the {@code endDate} field.
-     *
-     * <p>{@code @AssertTrue isDateRangeValid()} produces a global error whose field name
-     * is {@code dateRangeValid}. This method promotes it to a field error on {@code endDate}
-     * so the Thymeleaf template can render it inline beneath the correct input.
      */
     private void rebindDateRangeError(BindingResult result) {
         result.getFieldErrors("dateRangeValid").forEach(err ->
                 result.rejectValue("endDate", "dateRange.invalid", err.getDefaultMessage())
         );
+    }
+
+    /** Loads active subject options and the caller's department for the cross-dept warning. */
+    private void populateSubjectPicker(Model model, UlpUserDetails user) {
+        model.addAttribute(ATTR_SUBJECT_OPTIONS, subjectService.listActiveOptions());
+        Long lecturerDeptId = userRepository.findById(user.getId())
+                .map(User::getDepartmentId)
+                .orElse(null);
+        model.addAttribute(ATTR_LECTURER_DEPARTMENT_ID, lecturerDeptId);
     }
 }

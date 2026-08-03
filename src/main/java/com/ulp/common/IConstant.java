@@ -794,4 +794,47 @@ public interface IConstant {
     String ATTR_AI_LOGS_FILTER    = "filter";
     String ATTR_AI_LOGS_TOTALS    = "totals";
     String ATTR_AI_LOGS_PROVIDERS = "providerNames";
+
+    // ───────── Subject catalog (department-owned môn học) ────────────
+    String URL_ADMIN_SUBJECTS = "/admin/subjects";
+    String URL_HEAD_SUBJECTS  = BASE_HEAD + "/subjects";
+
+    String VIEW_ADMIN_SUBJECTS      = "admin/subjects";
+    String VIEW_ADMIN_SUBJECTS_FORM = "admin/subjects-form";
+    String VIEW_HEAD_SUBJECTS       = "head/subjects";
+    String VIEW_HEAD_SUBJECTS_FORM  = "head/subjects-form";
+
+    String TAB_SUBJECTS = "subjects";
+
+    String ATTR_SUBJECTS              = "subjects";
+    String ATTR_SUBJECT_OPTIONS       = "subjectOptions";
+    String ATTR_SUBJECT_DEPARTMENTS   = "subjectDepartments";
+    /** "CNTT — Công nghệ thông tin" label on subject detail header/meta. */
+    String ATTR_SUBJECT_DEPARTMENT_LABEL = "subjectDepartmentLabel";
+    String ATTR_LECTURER_DEPARTMENT_ID = "lecturerDepartmentId";
+
+    String MSG_SUBJECT_CREATED     = "Đã tạo môn học ";
+    String MSG_SUBJECT_UPDATED     = "Đã cập nhật môn học";
+    String MSG_SUBJECT_DELETED     = "Đã xoá môn học";
+    String MSG_SUBJECT_ACTIVATED   = "Đã hiện môn học";
+    String MSG_SUBJECT_DEACTIVATED = "Đã ẩn môn học";
+    String MSG_SUBJECT_NOT_FOUND   = "Không tìm thấy môn học";
+    String MSG_SUBJECT_CODE_EXISTS = "Mã môn học đã tồn tại trong bộ môn";
+    String MSG_SUBJECT_DEPT_REQUIRED = "Vui lòng chọn bộ môn";
+    String MSG_SUBJECT_REQUIRED    = "Vui lòng chọn môn học";
+    String MSG_SUBJECT_INACTIVE_OR_MISSING =
+            "Môn học không tồn tại hoặc đã ngừng hoạt động";
+    String MSG_SUBJECT_VIEW_FORBIDDEN =
+            "Không có quyền xem danh mục môn học";
+    String MSG_SUBJECT_CREATE_FORBIDDEN =
+            "Không có quyền tạo môn học";
+    String MSG_SUBJECT_MUTATE_FORBIDDEN =
+            "Không có quyền thao tác môn học";
+    String MSG_SUBJECT_CROSS_DEPARTMENT =
+            "Môn học không thuộc bộ môn của bạn";
+    String MSG_SUBJECT_NO_DEPARTMENT =
+            "Không có bộ môn";
+    /** HEAD has no resolved department_id for subject catalog screens. */
+    String MSG_HEAD_NO_DEPARTMENT =
+            "Bạn chưa được gán bộ môn";
 }

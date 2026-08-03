@@ -1,8 +1,9 @@
 package com.ulp.features.classes.service;
 
 import com.ulp.security.Role;
-import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.service.SubjectService;
 import com.ulp.features.classes.dto.ClassesDtos.ClassRow;
 import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
@@ -63,10 +64,11 @@ class ClassesServiceTest {
     private ClassActivityWriter activityWriter;
     private ClassCodeGenerator codeGenerator;
     private InviteCodeService inviteCodeService;
-    private UserRepository userRepository;
+    private SubjectService subjectService;
     private ClassReviewNotifier reviewNotifier;
     private ClassListStatsLoader statsLoader;
     private ClassesService service;
+    private Subject activeSubject;
 
     @BeforeEach
     void setUp() {
@@ -75,15 +77,26 @@ class ClassesServiceTest {
         activityWriter = mock(ClassActivityWriter.class);
         codeGenerator = mock(ClassCodeGenerator.class);
         inviteCodeService = mock(InviteCodeService.class);
-        userRepository = mock(UserRepository.class);
+        subjectService = mock(SubjectService.class);
         reviewNotifier = mock(ClassReviewNotifier.class);
         statsLoader = mock(ClassListStatsLoader.class);
-        when(userRepository.findById(any())).thenReturn(Optional.empty());
         when(statsLoader.load(any())).thenReturn(Map.of());
+        activeSubject = new Subject(10L, "PRJ301", "Lập trình Java", null, true, 1L);
+        ReflectionTestUtils.setField(activeSubject, "id", 55L);
+        when(subjectService.requireActiveSubject(any())).thenReturn(activeSubject);
         service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository, reviewNotifier, statsLoader);
+                codeGenerator, inviteCodeService, subjectService, reviewNotifier, statsLoader);
         when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
                 .thenReturn(Optional.empty());
+    }
+
+    private static ClassForm form(String name, String description, Integer max) {
+        return new ClassForm(name, 55L, description, null, null, max);
+    }
+
+    private static ClassForm form(String name, String description,
+                                  java.time.LocalDate start, java.time.LocalDate end, Integer max) {
+        return new ClassForm(name, 55L, description, start, end, max);
     }
 
     // ───────────────── List by role ─────────────────
@@ -169,8 +182,7 @@ class ClassesServiceTest {
                     return e;
                 });
 
-        ClassForm form = new ClassForm("Java", "Khoá nhập môn",
-                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 12, 31), 50);
+        ClassForm form = form("Java", "Khoá nhập môn", LocalDate.of(2026, 7, 1), LocalDate.of(2026, 12, 31), 50);
         ClassEntity saved = service.create(form, LECTURER_ID);
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
@@ -201,7 +213,7 @@ class ClassesServiceTest {
                     return e;
                 });
 
-        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassForm form = form("Java", "x", 100);
         ClassEntity saved = service.create(form, LECTURER_ID);
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
@@ -219,7 +231,7 @@ class ClassesServiceTest {
                 new RuntimeException("Cannot be null: classes.name"));
         when(classRepository.saveAndFlush(any(ClassEntity.class))).thenThrow(other);
 
-        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassForm form = form("Java", "x", 100);
 
         assertThatThrownBy(() -> service.create(form, LECTURER_ID))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -239,7 +251,7 @@ class ClassesServiceTest {
                 new RuntimeException("Duplicate entry for key 'uk_classes_code'"));
         when(classRepository.saveAndFlush(any(ClassEntity.class))).thenThrow(collision);
 
-        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassForm form = form("Java", "x", 100);
 
         assertThatThrownBy(() -> service.create(form, LECTURER_ID))
                 .isInstanceOf(ClassCodeGenerationException.class);
@@ -267,7 +279,7 @@ class ClassesServiceTest {
         doThrow(new IllegalStateException("notification backend down"))
                 .when(reviewNotifier).notifyHeadPendingApproval(any(ClassEntity.class));
 
-        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassForm form = form("Java", "x", 100);
         ClassEntity saved = service.create(form, LECTURER_ID);
 
         assertThat(saved.getId()).isEqualTo(102L);
@@ -294,7 +306,7 @@ class ClassesServiceTest {
                 });
         // Default mock behaviour: notifyHeadPendingApproval does nothing.
 
-        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassForm form = form("Java", "x", 100);
         ClassEntity saved = service.create(form, LECTURER_ID);
 
         assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
@@ -310,7 +322,7 @@ class ClassesServiceTest {
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ClassForm form = new ClassForm("New name", "desc", null, null, 50);
+        ClassForm form = form("New name", "desc", 50);
         service.update(9L, form, LECTURER_ID, Role.LECTURER);
 
         assertThat(entity.getName()).isEqualTo("New name");
@@ -336,7 +348,7 @@ class ClassesServiceTest {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID); // owned by lecturer id=42
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
 
-        ClassForm form = new ClassForm("Y", "", null, null, 50);
+        ClassForm form = form("Y", "", 50);
 
         assertThatThrownBy(() -> service.update(9L, form, OTHER_LECTURER_ID, Role.LECTURER))
                 .isInstanceOf(AccessDeniedException.class);
@@ -352,7 +364,7 @@ class ClassesServiceTest {
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ClassForm form = new ClassForm("Y", "", null, null, 50);
+        ClassForm form = form("Y", "", 50);
         service.update(9L, form, HEAD_ID, Role.HEAD);
 
         assertThat(entity.getName()).isEqualTo("Y");
@@ -366,7 +378,7 @@ class ClassesServiceTest {
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ClassForm form = new ClassForm("Y", "", null, null, 50);
+        ClassForm form = form("Y", "", 50);
         service.update(9L, form, ADMIN_ID, Role.ADMIN);
 
         assertThat(entity.getName()).isEqualTo("Y");
@@ -376,7 +388,7 @@ class ClassesServiceTest {
     void update_throws_entity_not_found_when_missing() {
         when(classRepository.findById(999L)).thenReturn(Optional.empty());
 
-        ClassForm form = new ClassForm("X", "", null, null, 50);
+        ClassForm form = form("X", "", 50);
         assertThatThrownBy(() -> service.update(999L, form, LECTURER_ID, Role.LECTURER))
                 .isInstanceOf(EntityNotFoundException.class);
     }

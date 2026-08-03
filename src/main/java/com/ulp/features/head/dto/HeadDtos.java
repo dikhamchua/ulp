@@ -41,13 +41,21 @@ public final class HeadDtos {
     ) {
     }
 
-    /** One DRAFT class awaiting the department HEAD's review. */
+    /**
+     * One DRAFT class awaiting the department HEAD's review.
+     *
+     * @param crossDepartmentLecturer true when the lecturer's department differs
+     *                                from the class department (or lecturer has none)
+     * @param subjectTitle            optional subject display title when bound
+     */
     public record PendingClassRow(
             Long classId,
             String className,
             String classCode,
             String lecturerName,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            boolean crossDepartmentLecturer,
+            String subjectTitle
     ) {
     }
 

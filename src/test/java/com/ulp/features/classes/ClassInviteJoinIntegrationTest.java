@@ -10,6 +10,8 @@ import com.ulp.features.classes.repository.ClassInviteCodeRepository;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.repository.EnrollmentRepository;
 import com.ulp.features.classes.service.ClassesService;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.repository.SubjectRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +66,7 @@ class ClassInviteJoinIntegrationTest {
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private ClassesService classesService;
+    @Autowired private SubjectRepository subjectRepository;
     @PersistenceContext private EntityManager em;
 
     private User lecturer;
@@ -84,6 +87,7 @@ class ClassInviteJoinIntegrationTest {
     void create_class_provisions_one_active_code_and_one_active_link() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "ProvCheck")
+                        .param("subjectId", String.valueOf(activeSubjectId()))
                         .param("maxStudents", "100"))
                 .andExpect(status().is3xxRedirection());
 
@@ -667,13 +671,20 @@ class ClassInviteJoinIntegrationTest {
      * invite and enrollment flow, not the approval gate.
      */
     private ClassEntity createClassViaController(Long lecturerId, String name) {
-        ClassForm form = new ClassForm(name, null, null, null, 100);
+        ClassForm form = new ClassForm(name, activeSubjectId(), null, null, null, 100);
         ClassEntity saved = classesService.create(form, lecturerId);
         saved.approve(lecturerId, java.time.LocalDateTime.now());
         classRepository.saveAndFlush(saved);
         em.flush();
         em.clear();
         return classRepository.findById(saved.getId()).orElseThrow();
+    }
+
+    private Long activeSubjectId() {
+        return subjectRepository.findAllByActiveTrueOrderByCodeAsc().stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No active subject seeded"))
+                .getId();
     }
 
     private String activeCode(Long classId) {

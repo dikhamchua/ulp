@@ -2,14 +2,14 @@ package com.ulp.features.classes.service;
 
 import com.ulp.entities.ClassActivity;
 import com.ulp.entities.ClassEntity;
-import com.ulp.entities.User;
-import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.classes.dto.ClassesDtos.ClassForm;
 import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.service.approval.ClassReviewNotifier;
 import com.ulp.features.classes.service.codes.ClassCodeGenerationException;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.service.SubjectService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedExceptionUtils;
@@ -21,13 +21,11 @@ import org.springframework.dao.DataIntegrityViolationException;
  * audit row, and the default CODE + LINK invite token provisioning.
  *
  * <p>Plain helper instantiated by {@link ClassesService} during construction
- * rather than a separate Spring bean so that the existing
- * {@code (classRepository, activityWriter, codeGenerator, inviteCodeService)}
- * constructor surface is preserved for unit tests.
+ * rather than a separate Spring bean so that the existing constructor surface
+ * is preserved for unit tests.
  *
- * <p>The {@code @Transactional} boundary lives on {@link ClassesService#create}
- * which calls into this helper, so failures during token provisioning roll
- * back the entity insert and the audit row together.
+ * <p>Class {@code department_id} is always stamped from the selected subject's
+ * department — never from the lecturer's user row.
  */
 final class ClassCreator {
 
@@ -38,20 +36,20 @@ final class ClassCreator {
     private final ClassActivityWriter activityWriter;
     private final ClassCodeGenerator codeGenerator;
     private final InviteCodeService inviteCodeService;
-    private final UserRepository userRepository;
+    private final SubjectService subjectService;
     private final ClassReviewNotifier reviewNotifier;
 
     ClassCreator(ClassRepository classRepository,
                  ClassActivityWriter activityWriter,
                  ClassCodeGenerator codeGenerator,
                  InviteCodeService inviteCodeService,
-                 UserRepository userRepository,
+                 SubjectService subjectService,
                  ClassReviewNotifier reviewNotifier) {
         this.classRepository = classRepository;
         this.activityWriter = activityWriter;
         this.codeGenerator = codeGenerator;
         this.inviteCodeService = inviteCodeService;
-        this.userRepository = userRepository;
+        this.subjectService = subjectService;
         this.reviewNotifier = reviewNotifier;
     }
 
@@ -62,6 +60,9 @@ final class ClassCreator {
      * causes immediately.
      */
     ClassEntity create(ClassForm form, Long userId) {
+        // Resolve once outside the retry loop — subject binding does not change per attempt.
+        Subject subject = subjectService.requireActiveSubject(form.subjectId());
+
         DataIntegrityViolationException lastCollision = null;
         for (int attempt = 1; attempt <= MAX_CODE_GEN_ATTEMPTS; attempt++) {
             ClassEntity entity = new ClassEntity(
@@ -69,10 +70,9 @@ final class ClassCreator {
                     form.description(), form.startDate(), form.endDate(),
                     form.maxStudents());
             entity.setCode(codeGenerator.generate());
-            // Inherit department from lecturer when available so HEAD scope works.
-            userRepository.findById(userId)
-                    .map(User::getDepartmentId)
-                    .ifPresent(entity::setDepartmentId);
+            // Department always comes from the subject catalog, not the lecturer.
+            entity.setSubjectId(subject.getId());
+            entity.setDepartmentId(subject.getDepartmentId());
             try {
                 ClassEntity saved = classRepository.saveAndFlush(entity);
                 activityWriter.write(
