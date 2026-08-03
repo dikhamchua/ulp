@@ -171,6 +171,8 @@ public interface IConstant {
     String TAB_USERS     = "users";
     String TAB_INFO      = "info";
     String TAB_HISTORY   = "history";
+    /** Subject detail sample-chapter outline tab. */
+    String TAB_CHAPTERS  = "chapters";
     String TAB_ACTIVITY  = "activity";
     String TAB_MONITOR     = "monitor";
     String TAB_SUBMISSIONS = "submissions";
@@ -812,6 +814,9 @@ public interface IConstant {
     /** "CNTT — Công nghệ thông tin" label on subject detail header/meta. */
     String ATTR_SUBJECT_DEPARTMENT_LABEL = "subjectDepartmentLabel";
     String ATTR_LECTURER_DEPARTMENT_ID = "lecturerDepartmentId";
+    /** Live sample chapters on subject detail tab=chapters. */
+    String ATTR_SUBJECT_CHAPTERS = "subjectChapters";
+    String ATTR_CHAPTER_FORM     = "chapterForm";
 
     String MSG_SUBJECT_CREATED     = "Đã tạo môn học ";
     String MSG_SUBJECT_UPDATED     = "Đã cập nhật môn học";
@@ -837,4 +842,13 @@ public interface IConstant {
     /** HEAD has no resolved department_id for subject catalog screens. */
     String MSG_HEAD_NO_DEPARTMENT =
             "Bạn chưa được gán bộ môn";
+
+    // Subject sample-chapter outline (tab Chương)
+    String MSG_CHAPTER_CREATED        = "Đã thêm chương mẫu";
+    String MSG_CHAPTER_RENAMED        = "Đã đổi tên chương mẫu";
+    String MSG_CHAPTER_DELETED        = "Đã xoá chương mẫu";
+    String MSG_CHAPTER_MOVED          = "Đã sắp xếp lại chương mẫu";
+    String MSG_CHAPTER_NOT_FOUND      = "Không tìm thấy chương mẫu";
+    String MSG_CHAPTER_TITLE_REQUIRED = "Tên chương không được để trống";
+    String MSG_CHAPTER_INVALID_DIRECTION = "Hướng sắp xếp không hợp lệ";
 }

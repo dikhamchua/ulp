@@ -74,4 +74,27 @@ public final class SubjectDtos {
     /** Lightweight department option for ADMIN create form. */
     public record DepartmentOption(Long id, String code, String name) {
     }
+
+    /** One live sample-chapter row on the subject outline tab. */
+    public record ChapterRow(
+            Long id,
+            String title,
+            short displayOrder
+    ) {
+    }
+
+    /**
+     * Create/rename form for a sample chapter title.
+     *
+     * <p>Used with {@code @Valid} on POST handlers; blank titles stay as field errors.
+     */
+    public record ChapterTitleForm(
+            @NotBlank(message = "Tên chương không được để trống")
+            @Size(max = 200, message = "Tên chương tối đa 200 ký tự")
+            String title
+    ) {
+        public static ChapterTitleForm empty() {
+            return new ChapterTitleForm("");
+        }
+    }
 }
