@@ -1,8 +1,6 @@
 package com.ulp.features.tests.service;
 
-import com.ulp.entities.ClassEntity;
 import com.ulp.entities.TestActivity;
-import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
 import com.ulp.features.tests.dto.LecturerTestDtos.ExamForm;
@@ -18,7 +16,6 @@ import com.ulp.common.HtmlSanitizer;
 import com.ulp.features.tests.support.ExamFormValidator;
 import com.ulp.features.tests.support.TestAccessResolver;
 import com.ulp.security.Role;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +39,6 @@ public class LecturerExamService {
 
     private final TestRepository testRepository;
     private final QuestionRepository questionRepository;
-    private final ClassRepository classRepository;
     private final TestAccessResolver accessResolver;
     private final TestActivityWriter activityWriter;
     private final TakeViewBuilder takeViewBuilder;
@@ -51,7 +47,6 @@ public class LecturerExamService {
 
     public LecturerExamService(TestRepository testRepository,
                                QuestionRepository questionRepository,
-                               ClassRepository classRepository,
                                TestAccessResolver accessResolver,
                                TestActivityWriter activityWriter,
                                TakeViewBuilder takeViewBuilder,
@@ -59,7 +54,6 @@ public class LecturerExamService {
                                ExamQuestionBankPickerService questionBankPicker) {
         this.testRepository = testRepository;
         this.questionRepository = questionRepository;
-        this.classRepository = classRepository;
         this.accessResolver = accessResolver;
         this.activityWriter = activityWriter;
         this.takeViewBuilder = takeViewBuilder;
@@ -225,11 +219,9 @@ public class LecturerExamService {
     }
 
     private void requireLeadsClass(Long userId, Long classId) {
-        boolean leads = classRepository.findById(classId)
-                .map(ClassEntity::getLecturerId).map(userId::equals).orElse(false);
-        if (!leads) {
-            throw new AccessDeniedException(TestAccessResolver.NF_MSG);
-        }
+        // Delegated so the save path and the create-mode bank picker share one
+        // authoring check instead of two copies that can drift apart.
+        accessResolver.requireClassAuthoring(userId, classId);
     }
 
     private static String defaultType(String type) {

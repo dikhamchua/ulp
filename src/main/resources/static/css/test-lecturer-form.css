@@ -410,6 +410,15 @@
   color: #4b5563;
   font-size: 13px;
 }
+/* Empty-state actions; collapses to nothing while the list has results. */
+.lf-bank-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lf-bank-state-actions:not(:empty) {
+  margin-top: 10px;
+}
 .lf-bank-results {
   display: flex;
   flex-direction: column;

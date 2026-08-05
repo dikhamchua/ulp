@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.ulp.common.IConstant.MSG_SUBJECT_CODE_EXISTS;
+import static com.ulp.common.IConstant.MSG_SUBJECT_CODE_RESERVED;
 import static com.ulp.common.IConstant.MSG_SUBJECT_CREATE_FORBIDDEN;
 import static com.ulp.common.IConstant.MSG_SUBJECT_CROSS_DEPARTMENT;
 import static com.ulp.common.IConstant.MSG_SUBJECT_DEPT_REQUIRED;
@@ -121,6 +122,7 @@ public class SubjectService {
     public String create(SubjectForm form, Long actorId, Role role) {
         Long departmentId = resolveCreateDepartmentId(form, actorId, role);
         String code = normalizeCode(form.code());
+        rejectReservedCode(code);
         assertCodeUnique(departmentId, code, null);
 
         Subject entity = new Subject(
@@ -140,6 +142,7 @@ public class SubjectService {
     public void update(Long id, SubjectForm form, Long actorId, Role role) {
         Subject entity = requireScoped(id, actorId, role);
         String code = normalizeCode(form.code());
+        rejectReservedCode(code);
         assertCodeUnique(entity.getDepartmentId(), code, id);
         boolean wasActive = entity.isActive();
         entity.applyEdit(
@@ -163,6 +166,10 @@ public class SubjectService {
     @Transactional
     public boolean toggleActive(Long id, Long actorId, Role role) {
         Subject entity = requireScoped(id, actorId, role);
+        // Reserved placeholders may still be hidden, never shown again.
+        if (!entity.isActive() && isReservedCode(entity.getCode())) {
+            throw new SubjectValidationException(MSG_SUBJECT_CODE_RESERVED);
+        }
         boolean now = entity.toggleActive();
         subjectRepository.save(entity);
         auditWriter.write(entity.getId(),
@@ -198,6 +205,11 @@ public class SubjectService {
         Map<Long, Department> depts = loadDepartments(subjects);
         List<SubjectOption> options = new ArrayList<>(subjects.size());
         for (Subject s : subjects) {
+            // Belt and braces: hide the retired placeholder even if a department
+            // kept it (V50 skips departments that have no real subject).
+            if (isReservedCode(s.getCode())) {
+                continue;
+            }
             Department d = depts.get(s.getDepartmentId());
             String deptCode = d != null ? d.getCode() : "?";
             String label = "[" + deptCode + "] " + s.getCode() + " — " + s.getTitle();
@@ -294,6 +306,23 @@ public class SubjectService {
 
     private static String normalizeCode(String raw) {
         return raw == null ? "" : raw.trim().toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Blocks the retired backfill placeholder from being re-created. V50
+     * soft-deleted it, which frees the {@code (department_id,'UNASSIGNED')}
+     * slot on {@code uk_subjects_dept_live_code}, so the database alone no
+     * longer prevents a duplicate.
+     */
+    private static void rejectReservedCode(String normalizedCode) {
+        if (isReservedCode(normalizedCode)) {
+            throw new SubjectValidationException(MSG_SUBJECT_CODE_RESERVED);
+        }
+    }
+
+    /** True for codes the system reserves and users may never claim. */
+    private static boolean isReservedCode(String code) {
+        return Subject.CODE_UNASSIGNED.equalsIgnoreCase(code == null ? null : code.trim());
     }
 
     private List<SubjectRow> toRows(List<Subject> subjects) {

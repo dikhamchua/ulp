@@ -792,6 +792,8 @@ public interface IConstant {
     String MSG_SUBJECT_DEACTIVATED = "Đã ẩn môn học";
     String MSG_SUBJECT_NOT_FOUND   = "Không tìm thấy môn học";
     String MSG_SUBJECT_CODE_EXISTS = "Mã môn học đã tồn tại trong bộ môn";
+    String MSG_SUBJECT_CODE_RESERVED =
+            "Mã môn học này được hệ thống giữ chỗ, vui lòng chọn mã khác";
     String MSG_SUBJECT_DEPT_REQUIRED = "Vui lòng chọn bộ môn";
     String MSG_SUBJECT_REQUIRED    = "Vui lòng chọn môn học";
     String MSG_SUBJECT_INACTIVE_OR_MISSING =

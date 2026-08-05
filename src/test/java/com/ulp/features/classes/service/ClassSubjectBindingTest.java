@@ -7,6 +7,7 @@ import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.classes.service.approval.ClassReviewNotifier;
 import com.ulp.features.classes.service.codes.ClassCodeGenerator;
 import com.ulp.features.classes.service.invites.InviteCodeService;
+import com.ulp.features.classes.service.support.ClassListStatsLoader;
 import com.ulp.features.subjects.entity.Subject;
 import com.ulp.features.subjects.service.SubjectService;
 import com.ulp.features.subjects.service.SubjectValidationException;
@@ -46,9 +47,10 @@ class ClassSubjectBindingTest {
         InviteCodeService inviteCodeService = mock(InviteCodeService.class);
         subjectService = mock(SubjectService.class);
         ClassReviewNotifier reviewNotifier = mock(ClassReviewNotifier.class);
+        ClassListStatsLoader listStatsLoader = mock(ClassListStatsLoader.class);
 
         service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService, subjectService, reviewNotifier);
+                codeGenerator, inviteCodeService, subjectService, reviewNotifier, listStatsLoader);
 
         when(codeGenerator.generate()).thenReturn("ABC12");
         when(classRepository.saveAndFlush(any(ClassEntity.class))).thenAnswer(inv -> {

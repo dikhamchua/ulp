@@ -67,6 +67,25 @@ public final class LecturerTestDtos {
                                    List<BankOptionSnapshot> options) {
     }
 
+    /**
+     * Why a picker result set came out the way it did, so the client can explain
+     * an empty list instead of showing one generic line for every cause.
+     *
+     * @param subjectBound         false when the class has no subject, which
+     *                             degrades the search to HEAD-bank-only
+     * @param subjectLabel         the resolved subject, or null when unbound
+     * @param classId              the class the scope was resolved from, so the
+     *                             client can link to its edit screen
+     * @param chapterFilterApplied whether a chapter or query narrowed the result
+     */
+    public record BankScopeInfo(boolean subjectBound, String subjectLabel,
+                                Long classId, boolean chapterFilterApplied) {
+    }
+
+    /** Picker payload: matches plus enough scope to render a useful empty state. */
+    public record BankSearchResult(List<BankItemSnapshot> items, BankScopeInfo scope) {
+    }
+
     /** Chosen ACTIVE bank item ids to snapshot into a test (insert-from-bank). */
     public record BankInsertRequest(List<Long> itemIds) {
     }

@@ -23,7 +23,14 @@ import java.time.LocalDateTime;
 @SQLRestriction("is_deleted = 0")
 public class Subject {
 
-    /** Reserved placeholder code seeded per department for legacy backfill. */
+    /**
+     * Reserved placeholder code seeded per department for legacy backfill.
+     *
+     * <p>V50 retired it by soft-delete, which nulls {@code live_code} and so
+     * frees the {@code (department_id,'UNASSIGNED')} slot on
+     * {@code uk_subjects_dept_live_code}. The database therefore no longer
+     * stops a new one: {@code SubjectService} guards this code instead.
+     */
     public static final String CODE_UNASSIGNED = "UNASSIGNED";
 
     @Id

@@ -97,7 +97,9 @@
                    data-preselected-class-id=${classId},
                    data-image-url=@{/lecturer/tests/images},
                    data-bank-search-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/search'} : '',
-                   data-bank-insert-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/insert'} : '',
+                   data-bank-mode=${mode},
+                   data-bank-class-search-url=@{'/lecturer/classes/CLASS_ID/question-bank/search'},
+                   data-bank-class-chapters-url=@{'/lecturer/classes/CLASS_ID/question-bank/chapters'},
                    data-ai-generate-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/ai-questions/generate'} : '',
                    data-ai-confirm-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/ai-questions/confirm'} : '',
                    data-edit-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/edit'} : ''"
@@ -238,12 +240,14 @@
         <div>
           <h2 class="lf-panel-title">Câu hỏi</h2>
           <p class="lf-media-hint">Phần này chèn snapshot từ ngân hàng câu hỏi của môn lớp này vào bài test: câu hoạt động từ ngân hàng bộ môn (HEAD) và từ ngân hàng cá nhân của bạn. Chỉnh sửa câu hỏi trong ngân hàng sau đó không ảnh hưởng tới câu đã chèn.</p>
+          <p class="lf-media-hint" th:if="${mode == 'create'}">Ở màn tạo mới, hãy chọn lớp trước rồi mới chọn câu từ ngân hàng; câu đã chọn chỉ được lưu khi bạn nhấn "Lưu bài test".</p>
         </div>
         <div class="lf-panel-actions">
           <!-- Hidden for ADMIN: the bank is department-scoped and admin has no department. -->
           <a th:if="${mode == 'edit'}" sec:authorize="hasAnyRole('LECTURER','HEAD')"
              class="tst-btn" th:href="@{/lecturer/question-bank}">Mở ngân hàng câu hỏi</a>
-          <button type="button" class="tst-btn" id="lfOpenBankPicker" th:if="${mode == 'edit'}">+ Chọn câu từ ngân hàng</button>
+          <!-- Ungated: create mode picks from the bank too, scoped by the chosen class. -->
+          <button type="button" class="tst-btn" id="lfOpenBankPicker">+ Chọn câu từ ngân hàng</button>
           <button type="button" class="tst-btn" id="lfOpenAiGen" th:if="${mode == 'edit'}">Sinh câu hỏi bằng AI</button>
           <button type="button" class="tst-btn" id="lfAddQuestion">+ Thêm câu hỏi</button>
         </div>
@@ -263,6 +267,9 @@
           <button type="button" class="tst-btn" id="lfBankClose">Đóng</button>
         </div>
         <div class="lf-bank-state" id="lfBankState">Nhập từ khoá hoặc chọn chương để tải câu hỏi hoạt động của môn lớp này từ ngân hàng bộ môn và ngân hàng cá nhân của bạn.</div>
+        <!-- Anchor for the empty-state action (clear filters / fix class subject /
+             open the bank). Filled client-side; the state text above stays plain. -->
+        <div class="lf-bank-state-actions" id="lfBankStateActions"></div>
         <div class="lf-bank-results" id="lfBankResults"></div>
       </section>
 

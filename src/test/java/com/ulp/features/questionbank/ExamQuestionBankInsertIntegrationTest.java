@@ -11,6 +11,7 @@ import com.ulp.features.questionbank.repository.QuestionBankOptionRepository;
 import com.ulp.features.subjects.entity.Subject;
 import com.ulp.features.subjects.repository.SubjectRepository;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
+import com.ulp.features.tests.dto.LecturerTestDtos.BankSearchResult;
 import com.ulp.features.tests.entity.Question;
 import com.ulp.features.tests.entity.QuestionOption;
 import com.ulp.features.tests.repository.QuestionOptionRepository;
@@ -154,6 +155,49 @@ class ExamQuestionBankInsertIntegrationTest {
         assertThat(results.stream().map(BankItemSnapshot::id))
                 .contains(headItemId)
                 .doesNotContain(ownItemId);
+    }
+
+    @Test
+    void search_with_scope_reports_subject_bound_when_class_has_subject() {
+        BankSearchResult result =
+                pickerService.searchActiveWithScope(lecturerId, Role.LECTURER, testId, null, null);
+
+        assertThat(result.items()).isNotEmpty();
+        assertThat(result.scope().subjectBound()).isTrue();
+        assertThat(result.scope().subjectLabel()).isNotBlank();
+        assertThat(result.scope().classId()).isNotNull();
+        // No chapter and no query were supplied, so nothing narrowed the result.
+        assertThat(result.scope().chapterFilterApplied()).isFalse();
+    }
+
+    @Test
+    void search_with_scope_reports_subject_unbound_when_class_has_no_subject() {
+        ClassEntity clazz = classRepository.findAllByLecturerId(lecturerId).stream().findFirst().orElseThrow();
+        clazz.setSubjectId(null);
+        classRepository.save(clazz);
+
+        BankSearchResult result =
+                pickerService.searchActiveWithScope(lecturerId, Role.LECTURER, testId, null, null);
+
+        // The client uses these to explain the HEAD-bank-only degradation and to
+        // link back to the class so the author can bind a subject.
+        assertThat(result.scope().subjectBound()).isFalse();
+        assertThat(result.scope().subjectLabel()).isNull();
+        assertThat(result.scope().classId()).isEqualTo(clazz.getId());
+    }
+
+    @Test
+    void search_with_scope_flags_chapter_filter_applied() {
+        BankSearchResult byQuery =
+                pickerService.searchActiveWithScope(lecturerId, Role.LECTURER, testId, null, "zzzqqq");
+        assertThat(byQuery.items()).isEmpty();
+        assertThat(byQuery.scope().chapterFilterApplied()).isTrue();
+
+        // A chapter id alone must flag it too, so "clear filters" is offered.
+        BankSearchResult byChapter =
+                pickerService.searchActiveWithScope(lecturerId, Role.LECTURER, testId, -1L, null);
+        assertThat(byChapter.items()).isEmpty();
+        assertThat(byChapter.scope().chapterFilterApplied()).isTrue();
     }
 
     @Test
