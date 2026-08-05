@@ -1,4 +1,4 @@
-/* Question bank screens — auto-submit toggle switches + category modal. */
+/* Question bank screens — subject → chapter dependent dropdowns. */
 (function () {
   'use strict';
 
@@ -7,53 +7,52 @@
   // A second drain in a page script fires a duplicate toast — see
   // .claude/rules/flash-toast-drain.md
 
-  // Submit the parent form when an auto-submit switch changes (no inline handler).
-  document.addEventListener('change', function (event) {
-    var input = event.target;
-    if (input && input.matches && input.matches('.qb-switch input[data-autosubmit]')) {
-      var form = input.closest('form');
-      if (form) {
-        form.requestSubmit ? form.requestSubmit() : form.submit();
-      }
+  function chapterOptions(subjectId) {
+    var all = window.QbChaptersBySubject || {};
+    var list = subjectId ? (all[String(subjectId)] || []) : [];
+    return list;
+  }
+
+  function populateChapterSelect(subjectSelect, chapterSelect, selectedChapterId) {
+    if (!subjectSelect || !chapterSelect) {
+      return;
     }
-  });
+    var emptyLabel = chapterSelect.getAttribute('data-empty-label') || '— Không chọn chương —';
+    chapterSelect.innerHTML = '';
+    var empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = emptyLabel;
+    chapterSelect.appendChild(empty);
+    chapterOptions(subjectSelect.value).forEach(function (chapter) {
+      var option = document.createElement('option');
+      option.value = String(chapter.id);
+      option.textContent = chapter.title;
+      chapterSelect.appendChild(option);
+    });
+    if (selectedChapterId) {
+      chapterSelect.value = String(selectedChapterId);
+    }
+  }
 
-  /* ── Create/edit category modal ─────────────────────────────────── */
-  var categoryModal = document.getElementById('qbCategoryModal');
-  if (categoryModal) {
-    var openCategoryModal = function () {
-      categoryModal.hidden = false;
-      document.body.classList.add('qb-modal-open');
-      var firstInput = categoryModal.querySelector('input[type="text"], textarea');
-      if (firstInput) {
-        firstInput.focus();
-      }
-    };
-    var closeCategoryModal = function () {
-      categoryModal.hidden = true;
-      document.body.classList.remove('qb-modal-open');
-    };
-
-    document.addEventListener('click', function (event) {
-      if (event.target.closest('[data-qb-category-open]')) {
-        openCategoryModal();
+  function bindSubjectChapter() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-qb-subject-select]'), function (subjectSelect) {
+      var form = subjectSelect.closest('form');
+      var chapterSelect = form ? form.querySelector('[data-qb-chapter-select]') : null;
+      if (!chapterSelect) {
         return;
       }
-      // Overlay / X / cancel close it; edit-mode "Huỷ sửa" is a real link, left alone.
-      if (event.target.closest('[data-qb-category-close]')) {
-        closeCategoryModal();
-      }
+      var selectedChapterId = chapterSelect.getAttribute('data-selected-chapter-id');
+      populateChapterSelect(subjectSelect, chapterSelect, selectedChapterId);
+      subjectSelect.addEventListener('change', function () {
+        // Clear the chapter when the subject changes (a chapter is subject-scoped).
+        populateChapterSelect(subjectSelect, chapterSelect, null);
+      });
     });
+  }
 
-    document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && !categoryModal.hidden) {
-        closeCategoryModal();
-      }
-    });
-
-    // Server rendered edit mode or a validation error: open on load.
-    if (categoryModal.hasAttribute('data-qb-category-autoopen')) {
-      openCategoryModal();
-    }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindSubjectChapter);
+  } else {
+    bindSubjectChapter();
   }
 })();

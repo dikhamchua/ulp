@@ -2,6 +2,7 @@ package com.ulp.features.questionbank.controller;
 
 import com.ulp.features.questionbank.dto.QuestionBankItemForm;
 import com.ulp.features.questionbank.service.QuestionBankItemService;
+import com.ulp.features.questionbank.service.QuestionBankReviewService;
 import com.ulp.features.questionbank.service.QuestionBankValidationException;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
@@ -22,58 +23,67 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
 
+import static com.ulp.common.IConstant.ATTR_CANCEL_URL;
+import static com.ulp.common.IConstant.ATTR_FLASH_ERROR;
+import static com.ulp.common.IConstant.ATTR_FLASH_SUCCESS;
 import static com.ulp.common.IConstant.ATTR_FORM;
+import static com.ulp.common.IConstant.ATTR_FORM_ACTION;
 import static com.ulp.common.IConstant.ATTR_MODE;
-import static com.ulp.common.IConstant.ATTR_QB_CATEGORIES;
+import static com.ulp.common.IConstant.ATTR_QB_CHAPTERS_JSON;
 import static com.ulp.common.IConstant.ATTR_QB_DETAIL;
 import static com.ulp.common.IConstant.ATTR_QB_EMPTY_DEPARTMENT;
 import static com.ulp.common.IConstant.ATTR_QB_ITEMS;
 import static com.ulp.common.IConstant.ATTR_QB_QUERY;
-import static com.ulp.common.IConstant.ATTR_QB_SELECTED_CATEGORY_ID;
-import static com.ulp.common.IConstant.ATTR_QB_SELECTED_STATUS;
+import static com.ulp.common.IConstant.ATTR_QB_SELECTED_CHAPTER_ID;
+import static com.ulp.common.IConstant.ATTR_QB_SELECTED_SUBJECT_ID;
+import static com.ulp.common.IConstant.ATTR_QB_SUBJECT_OPTIONS;
 import static com.ulp.common.IConstant.BASE_LECTURER_QUESTION_BANK;
 import static com.ulp.common.IConstant.MODE_CREATE;
 import static com.ulp.common.IConstant.MODE_EDIT;
-import static com.ulp.common.IConstant.MSG_QB_DRAFT_SAVED;
-import static com.ulp.common.IConstant.MSG_QB_RESUBMITTED;
-import static com.ulp.common.IConstant.MSG_QB_SUBMITTED;
+import static com.ulp.common.IConstant.MSG_QB_ARCHIVED;
+import static com.ulp.common.IConstant.MSG_QB_CREATED;
+import static com.ulp.common.IConstant.MSG_QB_UNARCHIVED;
 import static com.ulp.common.IConstant.MSG_QB_UPDATED;
 import static com.ulp.common.IConstant.URL_LECTURER_QUESTION_BANK;
 import static com.ulp.common.IConstant.VIEW_QB_DETAIL;
 import static com.ulp.common.IConstant.VIEW_QB_FORM;
 import static com.ulp.common.IConstant.VIEW_QB_LIST;
 
-/** Lecturer contribution screens for the department-scoped shared question bank. */
+/**
+ * Lecturer screens for the private question bank: list only the actor's own
+ * items (owner_id = actor.id), filter by subject/chapter/query, and create /
+ * edit / archive those items. Everything is owner-only; the access policy
+ * rejects items owned by someone else.
+ */
 @Controller
 @RequestMapping(BASE_LECTURER_QUESTION_BANK)
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
 public class LecturerQuestionBankController {
 
     private final QuestionBankItemService itemService;
+    private final QuestionBankReviewService reviewService;
 
-    public LecturerQuestionBankController(QuestionBankItemService itemService) {
+    public LecturerQuestionBankController(QuestionBankItemService itemService,
+                                          QuestionBankReviewService reviewService) {
         this.itemService = itemService;
+        this.reviewService = reviewService;
     }
 
     @GetMapping
-    public String list(@RequestParam(name = "status", required = false) String status,
-                       @RequestParam(name = "categoryId", required = false) Long categoryId,
+    public String list(@RequestParam(name = "subjectId", required = false) Long subjectId,
+                       @RequestParam(name = "chapterId", required = false) Long chapterId,
                        @RequestParam(name = "q", required = false) String q,
                        @AuthenticationPrincipal UlpUserDetails user,
                        Model model) {
-        // Department-less callers (typically ADMIN, which has no department_id)
-        // must not reach the item lookups: those require a department and would
-        // otherwise surface as a 500. The view already renders an empty state.
         boolean hasDepartment = itemService.hasDepartment(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !hasDepartment);
-        model.addAttribute(ATTR_QB_ITEMS, hasDepartment
-                ? itemService.list(user.getId(), user.getRole(), status, categoryId, null, q)
+        model.addAttribute(ATTR_QB_ITEMS, itemService.list(user.getId(), user.getRole(), subjectId, chapterId, q));
+        model.addAttribute(ATTR_QB_SUBJECT_OPTIONS, hasDepartment
+                ? itemService.subjectsFor(user.getId(), user.getRole())
                 : List.of());
-        model.addAttribute(ATTR_QB_CATEGORIES, hasDepartment
-                ? itemService.categoriesFor(user.getId(), user.getRole())
-                : List.of());
-        model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
-        model.addAttribute(ATTR_QB_SELECTED_CATEGORY_ID, categoryId);
+        addChaptersJson(model, user);
+        model.addAttribute(ATTR_QB_SELECTED_SUBJECT_ID, subjectId);
+        model.addAttribute(ATTR_QB_SELECTED_CHAPTER_ID, chapterId);
         model.addAttribute(ATTR_QB_QUERY, q);
         return VIEW_QB_LIST;
     }
@@ -100,13 +110,10 @@ public class LecturerQuestionBankController {
         }
         try {
             Long id = itemService.save(user.getId(), user.getRole(), form);
-            ra.addFlashAttribute("flashSuccess",
-                    "REVIEW".equalsIgnoreCase(form.getWorkflowAction())
-                            ? MSG_QB_SUBMITTED
-                            : MSG_QB_DRAFT_SAVED);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_QB_CREATED);
             return redirectDetail(id);
-        } catch (QuestionBankValidationException ex) {
-            model.addAttribute("flashError", ex.getMessage());
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
+            model.addAttribute(ATTR_FLASH_ERROR, ex.getMessage());
             populateForm(model, user, MODE_CREATE);
             return VIEW_QB_FORM;
         }
@@ -121,7 +128,7 @@ public class LecturerQuestionBankController {
             model.addAttribute(ATTR_QB_DETAIL, itemService.detail(user.getId(), user.getRole(), id));
             return VIEW_QB_DETAIL;
         } catch (QuestionBankValidationException | AccessDeniedException ex) {
-            ra.addFlashAttribute("flashError", ex.getMessage());
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
             return redirectList();
         }
     }
@@ -138,7 +145,7 @@ public class LecturerQuestionBankController {
             populateForm(model, user, MODE_EDIT);
             return VIEW_QB_FORM;
         } catch (QuestionBankValidationException | AccessDeniedException ex) {
-            ra.addFlashAttribute("flashError", ex.getMessage());
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
             return redirectList();
         }
     }
@@ -158,27 +165,59 @@ public class LecturerQuestionBankController {
         }
         try {
             itemService.save(user.getId(), user.getRole(), form);
-            ra.addFlashAttribute("flashSuccess",
-                    "REVIEW".equalsIgnoreCase(form.getWorkflowAction())
-                            ? MSG_QB_RESUBMITTED
-                            : MSG_QB_UPDATED);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_QB_UPDATED);
             return redirectDetail(id);
         } catch (QuestionBankValidationException | AccessDeniedException ex) {
-            model.addAttribute("flashError", ex.getMessage());
+            model.addAttribute(ATTR_FLASH_ERROR, ex.getMessage());
             populateForm(model, user, MODE_EDIT);
             return VIEW_QB_FORM;
         }
     }
 
+    @PostMapping("/{id}/archive")
+    public String archive(@PathVariable Long id,
+                          @AuthenticationPrincipal UlpUserDetails user,
+                          RedirectAttributes ra) {
+        try {
+            reviewService.archive(user.getId(), id);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_QB_ARCHIVED);
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+        }
+        return redirectList();
+    }
+
+    @PostMapping("/{id}/unarchive")
+    public String unarchive(@PathVariable Long id,
+                            @AuthenticationPrincipal UlpUserDetails user,
+                            RedirectAttributes ra) {
+        try {
+            reviewService.unarchive(user.getId(), id);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_QB_UNARCHIVED);
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+        }
+        return redirectList();
+    }
+
     private void populateForm(Model model, UlpUserDetails user, String mode) {
-        // Same department guard as list(): skip the category lookup when the
-        // caller has no department so the form renders its empty state.
         boolean hasDepartment = itemService.hasDepartment(user.getId(), user.getRole());
         model.addAttribute(ATTR_MODE, mode);
-        model.addAttribute(ATTR_QB_CATEGORIES, hasDepartment
-                ? itemService.categoriesFor(user.getId(), user.getRole())
+        model.addAttribute(ATTR_FORM_ACTION, URL_LECTURER_QUESTION_BANK);
+        model.addAttribute(ATTR_CANCEL_URL, URL_LECTURER_QUESTION_BANK);
+        model.addAttribute(ATTR_QB_SUBJECT_OPTIONS, hasDepartment
+                ? itemService.subjectsFor(user.getId(), user.getRole())
                 : List.of());
+        addChaptersJson(model, user);
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !hasDepartment);
+    }
+
+    private void addChaptersJson(Model model, UlpUserDetails user) {
+        // Pass the Map object, not a pre-serialized String: Thymeleaf inline-JS
+        // serializes it via Jackson. A pre-serialized String is escaped a second
+        // time into a JS string literal, breaking the dependent chapter dropdown.
+        model.addAttribute(ATTR_QB_CHAPTERS_JSON,
+                itemService.chaptersBySubjectFor(user.getId(), user.getRole()));
     }
 
     private static String redirectList() {

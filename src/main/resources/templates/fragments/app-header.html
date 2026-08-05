@@ -36,12 +36,14 @@
          gets an empty page instead of an exception. -->
     <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
        th:href="@{/lecturer/tests}" th:classappend="${active == 'tests'} ? 'active'">Bài test</a>
-    <!-- Lecturer contribution entry to the department-scoped shared question bank.
-         ADMIN is excluded on purpose: the bank is scoped to a department and the
-         admin account belongs to none, so the link would only ever lead to an
-         empty state. -->
-    <a sec:authorize="hasAnyRole('LECTURER','HEAD')"
+    <!-- Question bank entry, routed by role: a LECTURER manages their private
+         bank, a HEAD manages the department bank. ADMIN is excluded on purpose:
+         the bank is scoped to a department and the admin account belongs to
+         none, so the link would only ever lead to an empty state. -->
+    <a sec:authorize="hasRole('LECTURER')"
        th:href="@{/lecturer/question-bank}" th:classappend="${active == 'question-bank'} ? 'active'">Ngân hàng câu hỏi</a>
+    <a sec:authorize="hasRole('HEAD')"
+       th:href="@{/head/question-bank}" th:classappend="${active == 'question-bank'} ? 'active'">Ngân hàng câu hỏi</a>
     <a sec:authorize="hasRole('HEAD')"
        th:href="@{/head}" th:classappend="${active == 'head'} ? 'active'">Bộ môn</a>
     <a sec:authorize="hasRole('ADMIN')"

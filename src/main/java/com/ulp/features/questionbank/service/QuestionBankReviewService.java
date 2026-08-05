@@ -8,17 +8,20 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-/** HEAD review actions for department-scoped shared workflow transitions. */
+/**
+ * Archive / unarchive for both bank scopes: a HEAD (or ADMIN with a department)
+ * may archive HEAD-bank items, and an owner may archive their own private-bank
+ * items. The dispatch happens on {@code item.ownerId}.
+ */
 @Service
 public class QuestionBankReviewService {
 
     private static final String MSG_FORBIDDEN =
-            "Bạn không có quyền duyệt câu hỏi cộng tác của bộ môn này";
+            "Bạn không có quyền thao tác với câu hỏi này";
     private static final String MSG_INVALID_STATE =
             "Không thể thực hiện thao tác ở trạng thái hiện tại";
 
@@ -34,77 +37,46 @@ public class QuestionBankReviewService {
         this.itemRepository = itemRepository;
     }
 
+    /** Archives an ACTIVE item the actor may manage (own private or HEAD bank). */
     @Transactional
-    public void approve(Long userId, Long itemId) {
-        User actor = requireCurator(userId);
-        QuestionBankItem item = requireCuratedItem(itemId, actor);
-        if (!QuestionBankItem.STATUS_REVIEW.equals(item.getWorkflowStatus())) {
-            throw new QuestionBankValidationException(MSG_INVALID_STATE);
-        }
-        LocalDateTime now = LocalDateTime.now();
-        item.transitionWorkflow(QuestionBankItem.STATUS_APPROVED, actor.getId(), null, now, now);
-        itemRepository.save(item);
-    }
-
-    @Transactional
-    public void reject(Long userId, Long itemId, String note) {
-        User actor = requireCurator(userId);
-        QuestionBankItem item = requireCuratedItem(itemId, actor);
-        if (!QuestionBankItem.STATUS_REVIEW.equals(item.getWorkflowStatus())) {
-            throw new QuestionBankValidationException(MSG_INVALID_STATE);
-        }
-        item.transitionWorkflow(
-                QuestionBankItem.STATUS_REJECTED,
-                actor.getId(),
-                blankToNull(note),
-                LocalDateTime.now(),
-                null);
-        itemRepository.save(item);
-    }
-
-    @Transactional
-    public void archive(Long userId, Long itemId, String note) {
-        User actor = requireCurator(userId);
-        QuestionBankItem item = requireCuratedItem(itemId, actor);
-        if (QuestionBankItem.STATUS_ARCHIVED.equals(item.getWorkflowStatus())) {
+    public void archive(Long userId, Long itemId) {
+        User actor = requireActor(userId);
+        QuestionBankItem item = requireManageableItem(itemId, actor);
+        if (QuestionBankItem.STATUS_ARCHIVED.equals(item.getStatus())) {
             throw new QuestionBankValidationException(MSG_INVALID_STATE);
         }
         // Remembers the pre-archive status so unarchive can restore it exactly.
-        item.archive(actor.getId(), blankToNull(note), LocalDateTime.now());
+        item.archive();
         itemRepository.save(item);
     }
 
-    /**
-     * Restores an archived item to the workflow status it held before archiving
-     * (APPROVED→APPROVED, REVIEW→REVIEW, ...). Legacy rows with no remembered
-     * status fall back to REVIEW. Stamps the restoring reviewer for audit.
-     */
+    /** Restores an ARCHIVED item the actor may manage to its prior ACTIVE status. */
     @Transactional
     public void unarchive(Long userId, Long itemId) {
-        User actor = requireCurator(userId);
-        QuestionBankItem item = requireCuratedItem(itemId, actor);
-        if (!QuestionBankItem.STATUS_ARCHIVED.equals(item.getWorkflowStatus())) {
+        User actor = requireActor(userId);
+        QuestionBankItem item = requireManageableItem(itemId, actor);
+        if (!QuestionBankItem.STATUS_ARCHIVED.equals(item.getStatus())) {
             throw new QuestionBankValidationException(MSG_INVALID_STATE);
         }
-        item.unarchive(actor.getId(), LocalDateTime.now());
+        item.unarchive();
         itemRepository.save(item);
     }
 
-    /** Outcome of a bulk review action: how many transitioned vs were skipped. */
+    /** Outcome of a bulk archive action: how many transitioned vs were skipped. */
     public record BulkResult(int succeeded, int skipped) {
     }
 
     /**
-     * Approves each item, skipping any that are in an invalid state, cross-department,
-     * or missing. Not {@code @Transactional}: each single call runs in its own tx so
-     * one failing item never rolls back items already committed (partial success).
+     * Archives each item, skipping any that are unmanageable, already archived,
+     * or missing. Not {@code @Transactional}: each single call runs in its own tx
+     * so one failing item never rolls back items already committed (partial success).
      */
-    public BulkResult approveAll(Long userId, List<Long> itemIds) {
+    public BulkResult archiveAll(Long userId, List<Long> itemIds) {
         int ok = 0;
         int skip = 0;
         for (Long id : dedupe(itemIds)) {
             try {
-                approve(userId, id);
+                archive(userId, id);
                 ok++;
             } catch (RuntimeException ex) {
                 skip++;
@@ -113,37 +85,7 @@ public class QuestionBankReviewService {
         return new BulkResult(ok, skip);
     }
 
-    /** Bulk reject; see {@link #approveAll} for the skip/partial-success contract. */
-    public BulkResult rejectAll(Long userId, List<Long> itemIds, String note) {
-        int ok = 0;
-        int skip = 0;
-        for (Long id : dedupe(itemIds)) {
-            try {
-                reject(userId, id, note);
-                ok++;
-            } catch (RuntimeException ex) {
-                skip++;
-            }
-        }
-        return new BulkResult(ok, skip);
-    }
-
-    /** Bulk archive; see {@link #approveAll} for the skip/partial-success contract. */
-    public BulkResult archiveAll(Long userId, List<Long> itemIds, String note) {
-        int ok = 0;
-        int skip = 0;
-        for (Long id : dedupe(itemIds)) {
-            try {
-                archive(userId, id, note);
-                ok++;
-            } catch (RuntimeException ex) {
-                skip++;
-            }
-        }
-        return new BulkResult(ok, skip);
-    }
-
-    /** Bulk unarchive; see {@link #approveAll} for the skip/partial-success contract. */
+    /** Bulk unarchive; see {@link #archiveAll} for the skip/partial-success contract. */
     public BulkResult unarchiveAll(Long userId, List<Long> itemIds) {
         int ok = 0;
         int skip = 0;
@@ -172,28 +114,17 @@ public class QuestionBankReviewService {
         return new ArrayList<>(unique);
     }
 
-    private User requireCurator(Long userId) {
-        User actor = userRepository.findById(userId)
+    private User requireActor(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
-        Long departmentId = accessPolicy.resolveDepartmentId(actor);
-        if (departmentId == null || !accessPolicy.canCurateDepartment(actor, departmentId)) {
+    }
+
+    private QuestionBankItem requireManageableItem(Long itemId, User actor) {
+        QuestionBankItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
+        if (!accessPolicy.canManageItem(item, actor)) {
             throw new AccessDeniedException(MSG_FORBIDDEN);
         }
-        return actor;
-    }
-
-    private QuestionBankItem requireCuratedItem(Long itemId, User actor) {
-        Long departmentId = accessPolicy.resolveDepartmentId(actor);
-        return itemRepository.findByIdAndDepartmentId(itemId, departmentId)
-                .filter(item -> accessPolicy.canCurateDepartment(actor, item.getDepartmentId()))
-                .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
-    }
-
-    private static String blankToNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        return item;
     }
 }

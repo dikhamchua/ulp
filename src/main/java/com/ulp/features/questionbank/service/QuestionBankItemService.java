@@ -4,19 +4,19 @@ import com.ulp.common.HtmlSanitizer;
 import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.questionbank.dto.QuestionBankItemForm;
-import com.ulp.features.questionbank.dto.QuestionBankViews.CategoryDetailView;
-import com.ulp.features.questionbank.dto.QuestionBankViews.CategoryOption;
-import com.ulp.features.questionbank.dto.QuestionBankViews.ContributorOption;
+import com.ulp.features.questionbank.dto.QuestionBankViews.ChapterOption;
 import com.ulp.features.questionbank.dto.QuestionBankViews.ItemDetail;
 import com.ulp.features.questionbank.dto.QuestionBankViews.ItemRow;
 import com.ulp.features.questionbank.dto.QuestionBankViews.OptionView;
-import com.ulp.features.questionbank.dto.QuestionBankViews.StatusCounts;
-import com.ulp.features.questionbank.entity.QuestionBankCategory;
+import com.ulp.features.questionbank.dto.QuestionBankViews.SubjectOption;
 import com.ulp.features.questionbank.entity.QuestionBankItem;
 import com.ulp.features.questionbank.entity.QuestionBankOption;
-import com.ulp.features.questionbank.repository.QuestionBankCategoryRepository;
 import com.ulp.features.questionbank.repository.QuestionBankItemRepository;
 import com.ulp.features.questionbank.repository.QuestionBankOptionRepository;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.entity.SubjectChapter;
+import com.ulp.features.subjects.repository.SubjectChapterRepository;
+import com.ulp.features.subjects.repository.SubjectRepository;
 import com.ulp.security.Role;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -28,236 +28,176 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-/** Lecturer and HEAD authoring flow for department-scoped shared questions. */
+/**
+ * Authoring flow for the subject → chapter organised question bank across both
+ * ownership scopes: lecturer-private items ({@code ownerId = actor.id}) and
+ * HEAD-bank items ({@code ownerId = null}, department-owned). Items are created
+ * ACTIVE; only ARCHIVED hides them.
+ */
 @Service
 public class QuestionBankItemService {
 
     private static final String MSG_EMPTY_DEPARTMENT =
-            "Bạn chưa được gán bộ môn để cộng tác soạn câu hỏi";
-    private static final String MSG_NOT_FOUND = "Không tìm thấy câu hỏi cộng tác";
-    private static final String MSG_FORBIDDEN = "Bạn không có quyền thao tác với câu hỏi cộng tác này";
+            "Bạn chưa được gán bộ môn để soạn câu hỏi";
+    private static final String MSG_NOT_FOUND = "Không tìm thấy câu hỏi";
+    private static final String MSG_FORBIDDEN = "Bạn không có quyền thao tác với câu hỏi này";
+    private static final String MSG_SUBJECT_REQUIRED = "Vui lòng chọn môn học";
+    private static final String MSG_SUBJECT_INVALID = "Môn học không tồn tại hoặc không thuộc bộ môn của bạn";
+    private static final String MSG_CHAPTER_INVALID = "Chương không thuộc môn học đã chọn";
 
     private final UserRepository userRepository;
     private final QuestionBankAccessPolicy accessPolicy;
-    private final QuestionBankCategoryService categoryService;
-    private final QuestionBankCategoryRepository categoryRepository;
     private final QuestionBankItemRepository itemRepository;
     private final QuestionBankOptionRepository optionRepository;
+    private final SubjectRepository subjectRepository;
+    private final SubjectChapterRepository chapterRepository;
 
     public QuestionBankItemService(UserRepository userRepository,
                                    QuestionBankAccessPolicy accessPolicy,
-                                   QuestionBankCategoryService categoryService,
-                                   QuestionBankCategoryRepository categoryRepository,
                                    QuestionBankItemRepository itemRepository,
-                                   QuestionBankOptionRepository optionRepository) {
+                                   QuestionBankOptionRepository optionRepository,
+                                   SubjectRepository subjectRepository,
+                                   SubjectChapterRepository chapterRepository) {
         this.userRepository = userRepository;
         this.accessPolicy = accessPolicy;
-        this.categoryService = categoryService;
-        this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
+        this.subjectRepository = subjectRepository;
+        this.chapterRepository = chapterRepository;
     }
 
+    /** The caller's own private-bank items, filtered by subject/chapter/query. */
     @Transactional(readOnly = true)
-    public List<ItemRow> list(Long userId, Role role, String status, Long categoryId,
-                              Long contributorId, String query) {
+    public List<ItemRow> list(Long userId, Role role, Long subjectId, Long chapterId, String query) {
         User actor = requireActor(userId, role);
-        Long departmentId = requireDepartment(actor);
-        Map<Long, QuestionBankCategory> categories = categoriesById(departmentId);
-        List<QuestionBankItem> items = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId);
-        Map<Long, String> userNames = userNames(items);
-        String normalizedQuery = normalizeQuery(query);
-        return items.stream()
-                .filter(item -> matchesStatus(item, status))
-                .filter(item -> categoryId == null || categoryId.equals(item.getCategoryId()))
-                .filter(item -> contributorId == null || contributorId.equals(item.getContributorId()))
-                .filter(item -> matchesQuery(item, categories, userNames, normalizedQuery))
-                .map(item -> new ItemRow(
-                        item.getId(),
-                        preview(item.getContent()),
-                        item.getQuestionType(),
-                        item.getWorkflowStatus(),
-                        item.getCategoryId(),
-                        categoryLabel(categories.get(item.getCategoryId())),
-                        userNames.getOrDefault(item.getContributorId(), "—"),
-                        item.getUpdatedAt(),
-                        canEdit(actor, item),
-                        canReview(actor, item)))
-                .toList();
+        List<QuestionBankItem> items = itemRepository.findByOwnerIdOrderByUpdatedAtDescIdDesc(actor.getId());
+        return toRows(actor, items, subjectId, chapterId, query);
     }
 
-    /**
-     * Master→detail payload for one category: its header plus the questions it
-     * contains, filtered by the given status/contributor/query. The status tallies
-     * and contributor options are scoped to the category and computed ignoring the
-     * status filter so the chips always show the full breakdown.
-     */
+    /** HEAD-bank items of the caller's department, filtered by subject/chapter/query. */
     @Transactional(readOnly = true)
-    public CategoryDetailView categoryDetail(Long userId, Role role, Long categoryId,
-                                             String status, Long contributorId, String query) {
+    public List<ItemRow> listHead(Long userId, Role role, Long subjectId, Long chapterId, String query) {
         User actor = requireActor(userId, role);
-        // Ownership: throws NOT_FOUND when the category is outside the actor's department.
-        QuestionBankCategory category = categoryService.requireVisibleCategory(categoryId, actor);
-        // Full detail per row so the detail screen can render a client-side view modal.
-        List<ItemDetail> items = detailedItems(actor, status, categoryId, contributorId, query);
-        // Tallies ignore the status filter to keep every chip count visible.
-        List<ItemRow> unfilteredByStatus = list(userId, role, null, categoryId, null, null);
-        StatusCounts counts = tallyStatus(unfilteredByStatus);
-        List<ContributorOption> contributors = scopedContributors(actor, categoryId, unfilteredByStatus);
-        return new CategoryDetailView(category.getId(), category.getName(), category.getDescription(),
-                category.isActive(), items, counts, contributors);
+        Long departmentId = requireHeadDepartment(actor);
+        List<QuestionBankItem> items = itemRepository
+                .findByOwnerIdIsNullAndDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId);
+        return toRows(actor, items, subjectId, chapterId, query);
     }
 
-    /**
-     * Materializes filtered category questions as full {@link ItemDetail} rows,
-     * batch-loading options and contributor names once to avoid per-row queries.
-     */
-    private List<ItemDetail> detailedItems(User actor, String status, Long categoryId,
-                                           Long contributorId, String query) {
-        Long departmentId = requireDepartment(actor);
-        Map<Long, QuestionBankCategory> categories = categoriesById(departmentId);
-        List<QuestionBankItem> all = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId);
-        Map<Long, String> userNames = userNames(all);
-        String normalizedQuery = normalizeQuery(query);
-        List<QuestionBankItem> filtered = all.stream()
-                .filter(item -> matchesStatus(item, status))
-                .filter(item -> categoryId == null || categoryId.equals(item.getCategoryId()))
-                .filter(item -> contributorId == null || contributorId.equals(item.getContributorId()))
-                .filter(item -> matchesQuery(item, categories, userNames, normalizedQuery))
-                .toList();
-        Map<Long, List<OptionView>> optionsByItem = optionsByItemId(filtered);
-        return filtered.stream()
-                .map(item -> new ItemDetail(
-                        item.getId(),
-                        item.getQuestionType(),
-                        item.getWorkflowStatus(),
-                        item.getContent(),
-                        item.getExplanation(),
-                        item.getReviewNote(),
-                        categoryLabel(categories.get(item.getCategoryId())),
-                        userNames.getOrDefault(item.getContributorId(), "—"),
-                        userNames.get(item.getReviewedBy()),
-                        item.getReviewedAt(),
-                        item.getApprovedAt(),
-                        item.getUpdatedAt(),
-                        optionsByItem.getOrDefault(item.getId(), List.of()),
-                        canEdit(actor, item),
-                        canReview(actor, item),
-                        canArchive(actor, item),
-                        canUnarchive(actor, item)))
-                .toList();
-    }
-
-    /** Batch-loads options for the given items, grouped by item id (sort order preserved). */
-    private Map<Long, List<OptionView>> optionsByItemId(List<QuestionBankItem> items) {
-        if (items.isEmpty()) {
-            return Map.of();
-        }
-        List<Long> ids = items.stream().map(QuestionBankItem::getId).toList();
-        Map<Long, List<OptionView>> byItem = new LinkedHashMap<>();
-        for (QuestionBankOption option : optionRepository.findByItemIdInOrderBySortOrderAscIdAsc(ids)) {
-            byItem.computeIfAbsent(option.getItemId(), id -> new ArrayList<>())
-                    .add(new OptionView(option.getContent(), option.isCorrect()));
-        }
-        return byItem;
-    }
-
-    /** Status tallies over an already-materialized item list (scoped, in-memory). */
-    private static StatusCounts tallyStatus(List<ItemRow> items) {
-        long review = countRowStatus(items, QuestionBankItem.STATUS_REVIEW);
-        long approved = countRowStatus(items, QuestionBankItem.STATUS_APPROVED);
-        long rejected = countRowStatus(items, QuestionBankItem.STATUS_REJECTED);
-        long archived = countRowStatus(items, QuestionBankItem.STATUS_ARCHIVED);
-        return new StatusCounts(review, approved, rejected, archived, items.size());
-    }
-
-    private static long countRowStatus(List<ItemRow> items, String status) {
-        return items.stream()
-                .filter(item -> status.equalsIgnoreCase(item.workflowStatus()))
-                .count();
-    }
-
-    /**
-     * Contributors with real ids scoped to a single category: intersect the raw
-     * category items with the department's user names so the filter option carries
-     * a usable contributorId (ItemRow only exposes the display name).
-     */
-    private List<ContributorOption> scopedContributors(User actor, Long categoryId, List<ItemRow> categoryRows) {
-        if (categoryRows.isEmpty()) {
+    /** Department subjects with in-scope item counts for the subject selector. */
+    @Transactional(readOnly = true)
+    public List<SubjectOption> subjectsFor(Long userId, Role role) {
+        User actor = requireActor(userId, role);
+        Long departmentId = accessPolicy.resolveDepartmentId(actor);
+        if (departmentId == null) {
             return List.of();
         }
-        Long departmentId = requireDepartment(actor);
-        List<QuestionBankItem> items = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId);
-        Map<Long, String> userNames = userNames(items);
-        // Preserve first-seen order (newest-first) while de-duplicating by contributor id.
-        Map<Long, ContributorOption> distinct = new LinkedHashMap<>();
-        for (QuestionBankItem item : items) {
-            if (!categoryId.equals(item.getCategoryId())) {
-                continue;
-            }
-            Long contributorId = item.getContributorId();
-            distinct.computeIfAbsent(contributorId,
-                    id -> new ContributorOption(id, userNames.getOrDefault(id, "—")));
+        List<Subject> subjects = subjectRepository.findAllByDepartmentIdOrderByCodeAsc(departmentId);
+        List<SubjectOption> options = new ArrayList<>(subjects.size());
+        for (Subject s : subjects) {
+            long count = role == Role.LECTURER
+                    ? itemRepository.countByOwnerIdAndSubjectId(actor.getId(), s.getId())
+                    : itemRepository.countByOwnerIdIsNullAndDepartmentIdAndSubjectId(departmentId, s.getId());
+            options.add(new SubjectOption(s.getId(), s.getCode(), s.getTitle(),
+                    subjectLabel(s), count, s.isActive()));
         }
-        return new ArrayList<>(distinct.values());
+        return options;
     }
 
-    /** Workflow-status tallies for the department, feeding the HEAD stat header. */
+    /** Chapters of a subject with in-scope item counts (HEAD manage chapter chips). */
     @Transactional(readOnly = true)
-    public StatusCounts countByStatus(Long userId, Role role) {
+    public List<ChapterOption> chaptersFor(Long userId, Role role, Long subjectId) {
         User actor = requireActor(userId, role);
-        Long departmentId = requireDepartment(actor);
-        List<QuestionBankItem> items = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId);
-        long review = countStatus(items, QuestionBankItem.STATUS_REVIEW);
-        long approved = countStatus(items, QuestionBankItem.STATUS_APPROVED);
-        long rejected = countStatus(items, QuestionBankItem.STATUS_REJECTED);
-        long archived = countStatus(items, QuestionBankItem.STATUS_ARCHIVED);
-        return new StatusCounts(review, approved, rejected, archived, items.size());
-    }
-
-    private static long countStatus(List<QuestionBankItem> items, String status) {
-        return items.stream()
-                .filter(item -> status.equalsIgnoreCase(item.getWorkflowStatus()))
-                .count();
-    }
-
-    @Transactional(readOnly = true)
-    public List<CategoryOption> categoriesFor(Long userId, Role role) {
-        return categoryService.activeOptionsFor(requireActor(userId, role));
-    }
-
-    /** Distinct contributors of the department's bank items, for the HEAD filter. */
-    @Transactional(readOnly = true)
-    public List<ContributorOption> contributorsFor(Long userId, Role role) {
-        User actor = requireActor(userId, role);
-        Long departmentId = requireDepartment(actor);
-        List<QuestionBankItem> items = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId);
-        Map<Long, String> userNames = userNames(items);
-        // Preserve first-seen order (list is already newest-first) while de-duplicating.
-        Map<Long, ContributorOption> distinct = new LinkedHashMap<>();
-        for (QuestionBankItem item : items) {
-            Long contributorId = item.getContributorId();
-            distinct.computeIfAbsent(contributorId,
-                    id -> new ContributorOption(id, userNames.getOrDefault(id, "—")));
+        Long departmentId = accessPolicy.resolveDepartmentId(actor);
+        if (departmentId == null || subjectId == null) {
+            return List.of();
         }
-        return new ArrayList<>(distinct.values());
+        List<QuestionBankItem> subjectItems = role == Role.LECTURER
+                ? itemRepository.findByOwnerIdAndSubjectIdOrderByUpdatedAtDescIdDesc(actor.getId(), subjectId)
+                : itemRepository.findByOwnerIdIsNullAndDepartmentIdAndSubjectIdOrderByUpdatedAtDescIdDesc(
+                        departmentId, subjectId);
+        Map<Long, Long> counts = new HashMap<>();
+        for (QuestionBankItem item : subjectItems) {
+            counts.merge(item.getChapterId(), 1L, Long::sum);
+        }
+        List<SubjectChapter> chapters = chapterRepository.findBySubjectIdOrderByDisplayOrderAsc(subjectId);
+        List<ChapterOption> options = new ArrayList<>(chapters.size());
+        for (SubjectChapter c : chapters) {
+            options.add(new ChapterOption(c.getId(), c.getTitle(), counts.getOrDefault(c.getId(), 0L)));
+        }
+        return options;
     }
 
+    /**
+     * All chapters of every department subject, keyed by subject id. Used by the
+     * authoring form's dependent subject → chapter dropdown (embedded as JSON).
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<ChapterOption>> chaptersBySubjectFor(Long userId, Role role) {
+        User actor = requireActor(userId, role);
+        Long departmentId = accessPolicy.resolveDepartmentId(actor);
+        if (departmentId == null) {
+            return Map.of();
+        }
+        List<Subject> subjects = subjectRepository.findAllByDepartmentIdOrderByCodeAsc(departmentId);
+        Map<Long, List<ChapterOption>> map = new LinkedHashMap<>();
+        for (Subject s : subjects) {
+            List<ChapterOption> chapters = chapterRepository.findBySubjectIdOrderByDisplayOrderAsc(s.getId())
+                    .stream()
+                    .map(c -> new ChapterOption(c.getId(), c.getTitle(), 0L))
+                    .toList();
+            map.put(s.getId(), chapters);
+        }
+        return map;
+    }
+
+    /** Full item payload for the detail screen (both scopes, dispatch on ownerId). */
+    @Transactional(readOnly = true)
+    public ItemDetail detail(Long userId, Role role, Long itemId) {
+        User actor = requireActor(userId, role);
+        QuestionBankItem item = requireVisibleItem(itemId, actor);
+        Subject subject = subjectRepository.findById(item.getSubjectId()).orElse(null);
+        SubjectChapter chapter = item.getChapterId() == null
+                ? null
+                : chapterRepository.findById(item.getChapterId()).orElse(null);
+        String contributorName = userRepository.findById(item.getContributorId())
+                .map(User::getFullName)
+                .orElse("—");
+        List<OptionView> options = optionRepository.findByItemIdInOrderBySortOrderAscIdAsc(List.of(item.getId()))
+                .stream()
+                .map(option -> new OptionView(option.getContent(), option.isCorrect()))
+                .toList();
+        return new ItemDetail(
+                item.getId(),
+                item.getQuestionType(),
+                item.getStatus(),
+                item.getContent(),
+                item.getExplanation(),
+                item.getSubjectId(),
+                subjectLabel(subject),
+                item.getChapterId(),
+                chapterLabel(chapter),
+                contributorName,
+                item.getUpdatedAt(),
+                options,
+                canEdit(actor, item),
+                canArchive(actor, item),
+                canUnarchive(actor, item));
+    }
+
+    /** Loads an item into the authoring form (owner-only edits enforced). */
     @Transactional(readOnly = true)
     public QuestionBankItemForm loadForm(Long userId, Role role, Long itemId) {
         User actor = requireActor(userId, role);
         QuestionBankItem item = requireVisibleItem(itemId, actor);
-        if (!canEdit(actor, item)) {
+        if (!accessPolicy.canManageItem(item, actor)) {
             throw new AccessDeniedException(MSG_FORBIDDEN);
         }
         QuestionBankItemForm form = new QuestionBankItemForm();
         form.setId(item.getId());
-        form.setCategoryId(item.getCategoryId());
-        form.setQuestionType(item.getQuestionType());
+        form.setSubjectId(item.getSubjectId());
+        form.setChapterId(item.getChapterId());
         form.setContent(item.getContent());
         form.setExplanation(item.getExplanation());
         List<QuestionBankItemForm.OptionField> optionFields = new ArrayList<>();
@@ -269,70 +209,52 @@ public class QuestionBankItemService {
         }
         form.setOptions(optionFields);
         form.ensureMinOptions(4);
-        form.setWorkflowAction(QuestionBankItem.STATUS_DRAFT);
         return form;
     }
 
-    @Transactional(readOnly = true)
-    public ItemDetail detail(Long userId, Role role, Long itemId) {
-        User actor = requireActor(userId, role);
-        QuestionBankItem item = requireVisibleItem(itemId, actor);
-        QuestionBankCategory category = categoryRepository.findById(item.getCategoryId()).orElse(null);
-        Map<Long, String> userNames = loadNames(Stream.of(item.getContributorId(), item.getReviewedBy())
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
-        List<OptionView> options = optionRepository.findByItemIdInOrderBySortOrderAscIdAsc(List.of(item.getId())).stream()
-                .map(option -> new OptionView(option.getContent(), option.isCorrect()))
-                .toList();
-        return new ItemDetail(
-                item.getId(),
-                item.getQuestionType(),
-                item.getWorkflowStatus(),
-                item.getContent(),
-                item.getExplanation(),
-                item.getReviewNote(),
-                categoryLabel(category),
-                userNames.getOrDefault(item.getContributorId(), "—"),
-                userNames.get(item.getReviewedBy()),
-                item.getReviewedAt(),
-                item.getApprovedAt(),
-                item.getUpdatedAt(),
-                options,
-                canEdit(actor, item),
-                canReview(actor, item),
-                canArchive(actor, item),
-                canUnarchive(actor, item));
-    }
-
+    /**
+     * Creates or updates an item. The target bank follows the actor's role:
+     * LECTURER → own private bank (ownerId = actor.id), HEAD/ADMIN → HEAD bank
+     * (ownerId = null). New items are created ACTIVE. The chapter must belong to
+     * the item's subject.
+     */
     @Transactional
     public Long save(Long userId, Role role, QuestionBankItemForm form) {
         User actor = requireActor(userId, role);
         Long departmentId = requireDepartment(actor);
-        QuestionBankCategory category = categoryService.requireVisibleCategory(form.getCategoryId(), actor);
+        Subject subject = requireSubject(departmentId, form.getSubjectId());
+        SubjectChapter chapter = requireChapter(subject.getId(), form.getChapterId());
         List<QuestionBankOption> options = validatedOptions(form);
-        String workflowStatus = resolveWorkflowAction(form.getWorkflowAction());
+        Long ownerId = role == Role.LECTURER ? actor.getId() : null;
+        Long chapterId = chapter == null ? null : chapter.getId();
 
         QuestionBankItem item;
         if (form.getId() == null) {
             item = new QuestionBankItem(
                     departmentId,
-                    category.getId(),
+                    subject.getId(),
+                    ownerId,
+                    chapterId,
                     actor.getId(),
-                    normalizedQuestionType(form.getQuestionType()),
-                    workflowStatus,
+                    deriveQuestionType(options),
+                    QuestionBankItem.STATUS_ACTIVE,
                     sanitizeRequired(form.getContent(), "Nội dung câu hỏi không được để trống"),
                     sanitizeOptional(form.getExplanation()));
         } else {
             item = requireVisibleItem(form.getId(), actor);
-            if (!canEdit(actor, item)) {
+            if (!accessPolicy.canManageItem(item, actor)) {
                 throw new AccessDeniedException(MSG_FORBIDDEN);
             }
+            // An archived item is hidden and no longer editable; mirror canEdit().
+            if (QuestionBankItem.STATUS_ARCHIVED.equals(item.getStatus())) {
+                throw new QuestionBankValidationException(MSG_FORBIDDEN);
+            }
             item.updateAuthoring(
-                    category.getId(),
-                    normalizedQuestionType(form.getQuestionType()),
+                    subject.getId(),
+                    chapterId,
+                    deriveQuestionType(options),
                     sanitizeRequired(form.getContent(), "Nội dung câu hỏi không được để trống"),
                     sanitizeOptional(form.getExplanation()));
-            item.transitionWorkflow(workflowStatus, null, null, null, null);
         }
         QuestionBankItem saved = itemRepository.save(item);
         optionRepository.deleteByItemIdIn(List.of(saved.getId()));
@@ -350,88 +272,87 @@ public class QuestionBankItemService {
         return accessPolicy.resolveDepartmentId(actor) != null;
     }
 
+    /** Loads an item the actor may read, dispatching on ownerId (private vs HEAD). */
     QuestionBankItem requireVisibleItem(Long itemId, User actor) {
-        Long departmentId = requireDepartment(actor);
-        if (!accessPolicy.canAccessDepartment(actor, departmentId)) {
-            throw new AccessDeniedException(MSG_FORBIDDEN);
-        }
-        return itemRepository.findByIdAndDepartmentId(itemId, departmentId)
+        QuestionBankItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new QuestionBankValidationException(MSG_NOT_FOUND));
-    }
-
-    boolean canReview(User actor, QuestionBankItem item) {
-        return accessPolicy.canCurateDepartment(actor, item.getDepartmentId())
-                && QuestionBankItem.STATUS_REVIEW.equals(item.getWorkflowStatus());
+        if (!accessPolicy.canReadItem(item, actor)) {
+            throw new QuestionBankValidationException(MSG_FORBIDDEN);
+        }
+        return item;
     }
 
     boolean canArchive(User actor, QuestionBankItem item) {
-        return accessPolicy.canCurateDepartment(actor, item.getDepartmentId())
-                && !QuestionBankItem.STATUS_ARCHIVED.equals(item.getWorkflowStatus());
+        return accessPolicy.canManageItem(item, actor)
+                && !QuestionBankItem.STATUS_ARCHIVED.equals(item.getStatus());
     }
 
     boolean canUnarchive(User actor, QuestionBankItem item) {
-        return accessPolicy.canCurateDepartment(actor, item.getDepartmentId())
-                && QuestionBankItem.STATUS_ARCHIVED.equals(item.getWorkflowStatus());
+        return accessPolicy.canManageItem(item, actor)
+                && QuestionBankItem.STATUS_ARCHIVED.equals(item.getStatus());
     }
 
     private boolean canEdit(User actor, QuestionBankItem item) {
-        if (!accessPolicy.canAccessDepartment(actor, item.getDepartmentId())) {
-            return false;
-        }
-        if (QuestionBankItem.STATUS_ARCHIVED.equals(item.getWorkflowStatus())) {
-            return false;
-        }
-        if (accessPolicy.canCurateDepartment(actor, item.getDepartmentId())) {
-            return !QuestionBankItem.STATUS_APPROVED.equals(item.getWorkflowStatus());
-        }
-        if (!actor.getId().equals(item.getContributorId())) {
-            return false;
-        }
-        return !QuestionBankItem.STATUS_APPROVED.equals(item.getWorkflowStatus());
+        return accessPolicy.canManageItem(item, actor)
+                && !QuestionBankItem.STATUS_ARCHIVED.equals(item.getStatus());
     }
 
-    private User requireActor(Long userId, Role role) {
-        User actor = userRepository.findById(userId)
-                .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
-        if (actor.getRole() != role) {
-            throw new AccessDeniedException(MSG_FORBIDDEN);
-        }
-        return actor;
+    private List<ItemRow> toRows(User actor, List<QuestionBankItem> items,
+                                 Long subjectId, Long chapterId, String query) {
+        Map<Long, Subject> subjects = subjectsById(items);
+        Map<Long, SubjectChapter> chapters = chaptersById(items);
+        String normalizedQuery = normalizeQuery(query);
+        return items.stream()
+                .filter(item -> subjectId == null || subjectId.equals(item.getSubjectId()))
+                .filter(item -> chapterId == null || chapterId.equals(item.getChapterId()))
+                .filter(item -> matchesQuery(item, subjects, chapters, normalizedQuery))
+                .map(item -> new ItemRow(
+                        item.getId(),
+                        preview(item.getContent()),
+                        item.getQuestionType(),
+                        item.getStatus(),
+                        item.getSubjectId(),
+                        subjectLabel(subjects.get(item.getSubjectId())),
+                        item.getChapterId(),
+                        chapterLabel(chapters.get(item.getChapterId())),
+                        item.getUpdatedAt(),
+                        canEdit(actor, item),
+                        canArchive(actor, item),
+                        canUnarchive(actor, item)))
+                .toList();
     }
 
-    private Long requireDepartment(User actor) {
-        Long departmentId = accessPolicy.resolveDepartmentId(actor);
-        if (departmentId == null) {
-            throw new QuestionBankValidationException(MSG_EMPTY_DEPARTMENT);
+    private static boolean matchesQuery(QuestionBankItem item,
+                                        Map<Long, Subject> subjects,
+                                        Map<Long, SubjectChapter> chapters,
+                                        String query) {
+        if (query == null) {
+            return true;
         }
-        return departmentId;
+        String subject = subjectLabel(subjects.get(item.getSubjectId())).toLowerCase();
+        String chapter = chapterLabel(chapters.get(item.getChapterId())).toLowerCase();
+        String content = preview(item.getContent()).toLowerCase();
+        return subject.contains(query) || chapter.contains(query) || content.contains(query);
     }
 
-    private Map<Long, QuestionBankCategory> categoriesById(Long departmentId) {
-        Map<Long, QuestionBankCategory> categories = new HashMap<>();
-        for (QuestionBankCategory category : categoryRepository.findByDepartmentIdOrderByNameAsc(departmentId)) {
-            categories.put(category.getId(), category);
+    private Map<Long, Subject> subjectsById(List<QuestionBankItem> items) {
+        Map<Long, Subject> map = new HashMap<>();
+        for (QuestionBankItem item : items) {
+            if (item.getSubjectId() != null && !map.containsKey(item.getSubjectId())) {
+                subjectRepository.findById(item.getSubjectId()).ifPresent(s -> map.put(s.getId(), s));
+            }
         }
-        return categories;
+        return map;
     }
 
-    private Map<Long, String> userNames(List<QuestionBankItem> items) {
-        Set<Long> ids = items.stream()
-                .flatMap(item -> Stream.of(item.getContributorId(), item.getReviewedBy()))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        return loadNames(ids);
-    }
-
-    private Map<Long, String> loadNames(Set<Long> ids) {
-        Map<Long, String> names = new LinkedHashMap<>();
-        if (ids == null || ids.isEmpty()) {
-            return names;
+    private Map<Long, SubjectChapter> chaptersById(List<QuestionBankItem> items) {
+        Map<Long, SubjectChapter> map = new HashMap<>();
+        for (QuestionBankItem item : items) {
+            if (item.getChapterId() != null && !map.containsKey(item.getChapterId())) {
+                chapterRepository.findById(item.getChapterId()).ifPresent(c -> map.put(c.getId(), c));
+            }
         }
-        for (User user : userRepository.findAllById(ids)) {
-            names.put(user.getId(), user.getFullName());
-        }
-        return names;
+        return map;
     }
 
     private List<QuestionBankOption> validatedOptions(QuestionBankItemForm form) {
@@ -454,28 +375,60 @@ public class QuestionBankItemService {
         if (correctCount == 0) {
             throw new QuestionBankValidationException("Mỗi câu hỏi phải có ít nhất một đáp án đúng");
         }
-        String type = normalizedQuestionType(form.getQuestionType());
-        if (QuestionBankItem.TYPE_MCQ.equals(type) && correctCount != 1) {
-            throw new QuestionBankValidationException("Câu hỏi MCQ phải có đúng một đáp án đúng");
-        }
         return options;
     }
 
-    private static boolean matchesStatus(QuestionBankItem item, String status) {
-        return status == null || status.isBlank() || status.equalsIgnoreCase(item.getWorkflowStatus());
+    /**
+     * Derives the question type from the number of correct options: exactly one
+     * correct answer means MCQ, two or more means MR. The authoring form no longer
+     * asks the author to pick a type — the ticked answers decide it.
+     */
+    private static String deriveQuestionType(List<QuestionBankOption> options) {
+        long correctCount = options.stream().filter(QuestionBankOption::isCorrect).count();
+        return correctCount == 1 ? QuestionBankItem.TYPE_MCQ : QuestionBankItem.TYPE_MR;
     }
 
-    private static boolean matchesQuery(QuestionBankItem item,
-                                        Map<Long, QuestionBankCategory> categories,
-                                        Map<Long, String> userNames,
-                                        String query) {
-        if (query == null) {
-            return true;
+    private Subject requireSubject(Long departmentId, Long subjectId) {
+        if (subjectId == null) {
+            throw new QuestionBankValidationException(MSG_SUBJECT_REQUIRED);
         }
-        String category = categoryLabel(categories.get(item.getCategoryId())).toLowerCase();
-        String contributor = userNames.getOrDefault(item.getContributorId(), "").toLowerCase();
-        String content = preview(item.getContent()).toLowerCase();
-        return category.contains(query) || contributor.contains(query) || content.contains(query);
+        return subjectRepository.findById(subjectId)
+                .filter(Subject::isActive)
+                .filter(s -> departmentId.equals(s.getDepartmentId()))
+                .orElseThrow(() -> new QuestionBankValidationException(MSG_SUBJECT_INVALID));
+    }
+
+    private SubjectChapter requireChapter(Long subjectId, Long chapterId) {
+        if (chapterId == null) {
+            return null;
+        }
+        return chapterRepository.findByIdAndSubjectId(chapterId, subjectId)
+                .orElseThrow(() -> new QuestionBankValidationException(MSG_CHAPTER_INVALID));
+    }
+
+    private User requireActor(Long userId, Role role) {
+        User actor = userRepository.findById(userId)
+                .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
+        if (actor.getRole() != role) {
+            throw new AccessDeniedException(MSG_FORBIDDEN);
+        }
+        return actor;
+    }
+
+    private Long requireDepartment(User actor) {
+        Long departmentId = accessPolicy.resolveDepartmentId(actor);
+        if (departmentId == null) {
+            throw new QuestionBankValidationException(MSG_EMPTY_DEPARTMENT);
+        }
+        return departmentId;
+    }
+
+    private Long requireHeadDepartment(User actor) {
+        Long departmentId = requireDepartment(actor);
+        if (!accessPolicy.canManageHeadBank(actor, departmentId)) {
+            throw new AccessDeniedException(MSG_FORBIDDEN);
+        }
+        return departmentId;
     }
 
     private static String preview(String html) {
@@ -483,8 +436,12 @@ public class QuestionBankItemService {
         return plain.length() > 120 ? plain.substring(0, 117) + "..." : plain;
     }
 
-    private static String categoryLabel(QuestionBankCategory category) {
-        return category == null ? "—" : category.getName();
+    private static String subjectLabel(Subject subject) {
+        return subject == null ? "—" : subject.getCode() + " — " + subject.getTitle();
+    }
+
+    private static String chapterLabel(SubjectChapter chapter) {
+        return chapter == null ? "—" : chapter.getTitle();
     }
 
     private static String normalizeQuery(String query) {
@@ -492,18 +449,6 @@ public class QuestionBankItemService {
             return null;
         }
         return query.trim().toLowerCase();
-    }
-
-    private static String resolveWorkflowAction(String action) {
-        return QuestionBankItem.STATUS_REVIEW.equalsIgnoreCase(action)
-                ? QuestionBankItem.STATUS_REVIEW
-                : QuestionBankItem.STATUS_DRAFT;
-    }
-
-    private static String normalizedQuestionType(String value) {
-        return QuestionBankItem.TYPE_MR.equalsIgnoreCase(value)
-                ? QuestionBankItem.TYPE_MR
-                : QuestionBankItem.TYPE_MCQ;
     }
 
     private static String sanitizeRequired(String value, String message) {

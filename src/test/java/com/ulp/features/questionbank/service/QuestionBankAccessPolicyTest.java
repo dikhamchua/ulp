@@ -3,6 +3,7 @@ package com.ulp.features.questionbank.service;
 import com.ulp.entities.Department;
 import com.ulp.entities.User;
 import com.ulp.features.head.service.HeadDepartmentResolver;
+import com.ulp.features.questionbank.entity.QuestionBankItem;
 import com.ulp.security.Role;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +16,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for department-scoped question bank access.
+ * Unit tests for question bank access across the two ownership scopes: the HEAD
+ * bank ({@code ownerId null}) and lecturer-private banks ({@code ownerId}).
  */
 class QuestionBankAccessPolicyTest {
 
@@ -23,34 +25,75 @@ class QuestionBankAccessPolicyTest {
     private final QuestionBankAccessPolicy policy = new QuestionBankAccessPolicy(headDepartmentResolver);
 
     @Test
-    void lecturer_can_access_own_department_but_cannot_curate() {
+    void lecturer_can_read_own_department_head_bank_but_cannot_manage() {
         User lecturer = user(Role.LECTURER, 10L, 5L);
 
         assertThat(policy.resolveDepartmentId(lecturer)).isEqualTo(5L);
-        assertThat(policy.canAccessDepartment(lecturer, 5L)).isTrue();
-        assertThat(policy.canAccessDepartment(lecturer, 7L)).isFalse();
-        assertThat(policy.canCurateDepartment(lecturer, 5L)).isFalse();
+        assertThat(policy.canReadHeadBank(lecturer, 5L)).isTrue();
+        assertThat(policy.canReadHeadBank(lecturer, 7L)).isFalse();
+        assertThat(policy.canManageHeadBank(lecturer, 5L)).isFalse();
     }
 
     @Test
-    void head_uses_resolved_working_department_for_access_and_curation() {
+    void head_uses_resolved_department_for_read_and_manage() {
         User head = user(Role.HEAD, 11L, 99L);
         Department department = department(5L, head.getId());
         when(headDepartmentResolver.resolve(head.getId())).thenReturn(Optional.of(department));
 
         assertThat(policy.resolveDepartmentId(head)).isEqualTo(5L);
-        assertThat(policy.canAccessDepartment(head, 5L)).isTrue();
-        assertThat(policy.canCurateDepartment(head, 5L)).isTrue();
-        assertThat(policy.canAccessDepartment(head, 6L)).isFalse();
+        assertThat(policy.canReadHeadBank(head, 5L)).isTrue();
+        assertThat(policy.canManageHeadBank(head, 5L)).isTrue();
+        assertThat(policy.canReadHeadBank(head, 6L)).isFalse();
     }
 
     @Test
     void admin_is_scoped_by_department_assignment() {
         User admin = user(Role.ADMIN, 12L, 8L);
 
-        assertThat(policy.canAccessDepartment(admin, 8L)).isTrue();
-        assertThat(policy.canCurateDepartment(admin, 8L)).isTrue();
-        assertThat(policy.canAccessDepartment(admin, 9L)).isFalse();
+        assertThat(policy.canReadHeadBank(admin, 8L)).isTrue();
+        assertThat(policy.canManageHeadBank(admin, 8L)).isTrue();
+        assertThat(policy.canReadHeadBank(admin, 9L)).isFalse();
+    }
+
+    @Test
+    void private_bank_item_is_owner_only_for_read_and_manage() {
+        User owner = user(Role.LECTURER, 20L, 5L);
+        User other = user(Role.LECTURER, 21L, 5L);
+        QuestionBankItem item = headOrPrivateItem(5L, owner.getId(), 50L);
+
+        assertThat(policy.canAccessLecturerBank(item, owner)).isTrue();
+        assertThat(policy.canAccessLecturerBank(item, other)).isFalse();
+        assertThat(policy.canReadItem(item, owner)).isTrue();
+        assertThat(policy.canReadItem(item, other)).isFalse();
+        assertThat(policy.canManageItem(item, other)).isFalse();
+    }
+
+    @Test
+    void head_bank_item_is_readable_by_department_but_managed_only_by_curator() {
+        User head = user(Role.HEAD, 11L, 99L);
+        Department department = department(5L, head.getId());
+        when(headDepartmentResolver.resolve(head.getId())).thenReturn(Optional.of(department));
+        User lecturer = user(Role.LECTURER, 10L, 5L);
+        QuestionBankItem item = headOrPrivateItem(5L, null, 51L);
+
+        assertThat(policy.canReadItem(item, head)).isTrue();
+        assertThat(policy.canManageItem(item, head)).isTrue();
+        assertThat(policy.canReadItem(item, lecturer)).isTrue();
+        assertThat(policy.canManageItem(item, lecturer)).isFalse();
+    }
+
+    private static QuestionBankItem headOrPrivateItem(Long departmentId, Long ownerId, Long id) {
+        QuestionBankItem item = new QuestionBankItem(
+                departmentId, 1L, ownerId, null, 10L,
+                QuestionBankItem.TYPE_MCQ, QuestionBankItem.STATUS_ACTIVE, "<p>Q</p>", null);
+        try {
+            Field idField = QuestionBankItem.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(item, id);
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException(ex);
+        }
+        return item;
     }
 
     private static User user(Role role, Long id, Long departmentId) {

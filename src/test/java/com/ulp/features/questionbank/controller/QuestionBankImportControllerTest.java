@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
-import com.ulp.features.questionbank.entity.QuestionBankCategory;
 import com.ulp.features.questionbank.entity.QuestionBankItem;
-import com.ulp.features.questionbank.repository.QuestionBankCategoryRepository;
 import com.ulp.features.questionbank.repository.QuestionBankItemRepository;
 import com.ulp.features.questionbank.repository.QuestionBankOptionRepository;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.entity.SubjectChapter;
+import com.ulp.features.subjects.repository.SubjectChapterRepository;
+import com.ulp.features.subjects.repository.SubjectRepository;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -46,23 +49,35 @@ class QuestionBankImportControllerTest {
     private static final String XLSX_MIME =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+    private static final String[] HEADERS = {
+            "Mã môn học", "Chương (tuỳ chọn)", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
+            "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"
+    };
+
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private UserRepository userRepository;
-    @Autowired private QuestionBankCategoryRepository categoryRepository;
+    @Autowired private SubjectRepository subjectRepository;
+    @Autowired private SubjectChapterRepository chapterRepository;
     @Autowired private QuestionBankItemRepository itemRepository;
     @Autowired private QuestionBankOptionRepository optionRepository;
 
     private Long lecturerId;
     private Long departmentId;
+    private String subjectCode;
+    private String chapterTitle;
 
     @BeforeEach
     void setUp() {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
         lecturerId = lecturer.getId();
         departmentId = lecturer.getDepartmentId();
-        categoryRepository.save(new QuestionBankCategory(
-                departmentId, "Giải tích import", "Import category", true, lecturerId));
+        Subject subject = subjectRepository.findAllByDepartmentIdOrderByCodeAsc(departmentId).stream()
+                .filter(Subject::isActive)
+                .findFirst().orElseThrow();
+        subjectCode = subject.getCode();
+        chapterTitle = "Chương import";
+        chapterRepository.save(new SubjectChapter(subject.getId(), chapterTitle, (short) 1, lecturerId));
     }
 
     @Test
@@ -75,12 +90,11 @@ class QuestionBankImportControllerTest {
 
     @Test
     @WithUserDetails("lecturer@ulp.edu.vn")
-    void preview_and_confirm_persist_valid_rows() throws Exception {
-        long before = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId).size();
+    void preview_and_confirm_persist_valid_rows_into_own_bank_active() throws Exception {
+        long before = itemRepository.count();
         MockMultipartFile file = new MockMultipartFile("file", "bank.xlsx", XLSX_MIME, buildWorkbook(new String[][]{
-                {"Danh mục", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
-                        "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"},
-                {"Giải tích import", "MCQ", "Đạo hàm của x^2 là gì?", "Áp dụng quy tắc lũy thừa",
+                HEADERS,
+                {subjectCode, chapterTitle, "MCQ", "Derivative of x^2", "Power rule",
                         "2x", "x", "x^2", "2", "A"}
         }));
 
@@ -102,24 +116,26 @@ class QuestionBankImportControllerTest {
                         .content("{\"sessionId\":\"" + sessionId + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.createdCount").value(1))
-                .andExpect(jsonPath("$.workflowStatus").value("REVIEW"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
 
-        var items = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId);
-        assertThat(items).hasSize((int) before + 1);
-        QuestionBankItem imported = items.get(0);
-        assertThat(imported.getContributorId()).isEqualTo(lecturerId);
-        assertThat(imported.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REVIEW);
+        assertThat(itemRepository.count()).isEqualTo(before + 1);
+        QuestionBankItem imported = itemRepository.findAll().stream()
+                .filter(i -> i.getSubjectId() != null)
+                .filter(i -> "<p>Derivative of x^2</p>".equals(i.getContent()))
+                .findFirst().orElseThrow();
+        assertThat(imported.getOwnerId()).isEqualTo(lecturerId);
+        assertThat(imported.getStatus()).isEqualTo(QuestionBankItem.STATUS_ACTIVE);
+        assertThat(imported.getChapterId()).isNotNull();
         assertThat(optionRepository.findByItemIdOrderBySortOrderAscIdAsc(imported.getId())).hasSize(4);
     }
 
     @Test
     @WithUserDetails("lecturer@ulp.edu.vn")
     void confirm_is_blocked_when_preview_has_errors() throws Exception {
-        long before = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId).size();
+        long before = itemRepository.count();
         MockMultipartFile file = new MockMultipartFile("file", "bank.xlsx", XLSX_MIME, buildWorkbook(new String[][]{
-                {"Danh mục", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
-                        "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"},
-                {"Danh mục không tồn tại", "MCQ", "Câu lỗi", "", "A", "B", "", "", "A,B"}
+                HEADERS,
+                {"MÃ KHÔNG TỒN TẠI", "", "MCQ", "Câu lỗi", "", "A", "B", "", "", "A"}
         }));
 
         MvcResult previewResult = mockMvc.perform(multipart("/lecturer/question-bank/import/preview")
@@ -141,7 +157,7 @@ class QuestionBankImportControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").exists());
 
-        assertThat(itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId)).hasSize((int) before);
+        assertThat(itemRepository.count()).isEqualTo(before);
     }
 
     private static byte[] buildWorkbook(String[][] grid) throws IOException {

@@ -196,19 +196,21 @@
             if (!host || !state) return;
             if (!items || !items.length) {
                 host.innerHTML = '';
-                state.textContent = 'Không tìm thấy câu hỏi đã duyệt phù hợp bộ lọc.';
+                state.textContent = 'Không tìm thấy câu hỏi hoạt động phù hợp bộ lọc.';
                 return;
             }
-            state.textContent = 'Chọn câu hỏi đã được HEAD duyệt để chèn snapshot vào bài test hiện tại.';
+            state.textContent = 'Chọn câu hỏi hoạt động (ngân hàng cá nhân hoặc ngân hàng bộ môn) để chèn snapshot vào bài test hiện tại.';
             host.innerHTML = items.map(function (item) {
                 var preview = escapeHtml(plainPreview(item.content));
                 var optionHtml = (item.options || []).map(function (opt) {
                     return '<li class="lf-bank-option' + (opt.correct ? ' is-correct' : '') + '">'
                         + escapeHtml(plainPreview(opt.content)) + (opt.correct ? ' (Đúng)' : '') + '</li>';
                 }).join('');
+                var sourceLabel = item.source === 'HEAD_BANK' ? 'Ngân hàng bộ môn' : 'Ngân hàng cá nhân';
                 return '<article class="lf-bank-item">'
                     + '<div class="lf-bank-item-head">'
-                    + '<div><div class="lf-bank-meta"><span>' + escapeHtml(item.categoryName || '—') + '</span>'
+                    + '<div><div class="lf-bank-meta"><span>' + escapeHtml(item.subjectLabel || '—') + '</span>'
+                    + '<span>' + escapeHtml(sourceLabel) + '</span>'
                     + '<span>' + escapeHtml(item.questionType || 'MCQ') + '</span></div>'
                     + '<div class="lf-bank-preview">' + preview + '</div></div>'
                     + '<button type="button" class="tst-btn lf-bank-add" data-bank-id="' + escapeHtml(String(item.id)) + '">Chèn vào đề</button>'
@@ -250,12 +252,12 @@
         function runBankSearch() {
             var state = document.getElementById('lfBankState');
             var host = document.getElementById('lfBankResults');
-            if (state) state.textContent = 'Đang tải câu hỏi cộng tác đã duyệt...';
+            if (state) state.textContent = 'Đang tải câu hỏi ngân hàng hoạt động...';
             if (host) host.innerHTML = '';
             var url = new URL(readBankSearchUrl(), window.location.origin);
-            var categoryId = val('lfBankCategory');
+            var chapterId = val('lfBankChapter');
             var query = val('lfBankQuery');
-            if (categoryId) url.searchParams.set('categoryId', categoryId);
+            if (chapterId) url.searchParams.set('chapterId', chapterId);
             if (query) url.searchParams.set('q', query);
             fetch(url.toString(), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
                 .then(function (res) {

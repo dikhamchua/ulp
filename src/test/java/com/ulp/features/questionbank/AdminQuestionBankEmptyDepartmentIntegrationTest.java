@@ -74,7 +74,7 @@ class AdminQuestionBankEmptyDepartmentIntegrationTest {
                 .andExpect(view().name("questionbank/list"))
                 .andExpect(model().attribute("emptyDepartment", true))
                 .andExpect(model().attributeExists("items"))
-                .andExpect(model().attributeExists("categories"));
+                .andExpect(model().attributeExists("subjectOptions"));
     }
 
     @Test
@@ -84,12 +84,12 @@ class AdminQuestionBankEmptyDepartmentIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("questionbank/form"))
                 .andExpect(model().attribute("emptyDepartment", true))
-                .andExpect(model().attributeExists("categories"));
+                .andExpect(model().attributeExists("subjectOptions"));
     }
 
     /**
      * The write path must stay closed: a department-less caller cannot persist a
-     * question even by posting the form directly, since every item is owned by a
+     * question even by posting the form directly, since every item needs a
      * department. The form is re-rendered with an explanatory message instead.
      */
     @Test
@@ -99,13 +99,12 @@ class AdminQuestionBankEmptyDepartmentIntegrationTest {
 
         mockMvc.perform(post("/lecturer/question-bank")
                         .with(csrf())
-                        .param("categoryId", "1")
+                        .param("subjectId", "1")
                         .param("questionType", "MCQ")
                         .param("content", "Question authored without a department")
                         .param("options[0].content", "A")
                         .param("options[0].correct", "true")
-                        .param("options[1].content", "B")
-                        .param("workflowAction", "DRAFT"))
+                        .param("options[1].content", "B"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("questionbank/form"))
                 .andExpect(model().attributeExists("flashError"));

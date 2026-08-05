@@ -3,14 +3,14 @@ package com.ulp.features.questionbank.controller;
 import com.ulp.entities.Department;
 import com.ulp.features.head.dto.HeadDtos.DepartmentSummary;
 import com.ulp.features.head.service.HeadDepartmentResolver;
-import com.ulp.features.questionbank.dto.QuestionBankCategoryForm;
-import com.ulp.features.questionbank.service.QuestionBankCategoryService;
+import com.ulp.features.questionbank.dto.QuestionBankItemForm;
 import com.ulp.features.questionbank.service.QuestionBankItemService;
 import com.ulp.features.questionbank.service.QuestionBankReviewService;
 import com.ulp.features.questionbank.service.QuestionBankValidationException;
 import com.ulp.security.Roles;
 import com.ulp.security.UlpUserDetails;
 import jakarta.validation.Valid;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -27,37 +27,37 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.util.List;
 
 import static com.ulp.common.IConstant.ATTR_ACTIVE_TAB;
+import static com.ulp.common.IConstant.ATTR_CANCEL_URL;
+import static com.ulp.common.IConstant.ATTR_FLASH_ERROR;
+import static com.ulp.common.IConstant.ATTR_FLASH_SUCCESS;
+import static com.ulp.common.IConstant.ATTR_FORM;
+import static com.ulp.common.IConstant.ATTR_FORM_ACTION;
 import static com.ulp.common.IConstant.ATTR_HEAD_DEPARTMENT;
-import static com.ulp.common.IConstant.ATTR_QB_CATEGORIES;
-import static com.ulp.common.IConstant.ATTR_QB_CATEGORY_DETAIL;
-import static com.ulp.common.IConstant.ATTR_QB_CATEGORY_FORM;
-import static com.ulp.common.IConstant.ATTR_QB_CATEGORY_ID;
-import static com.ulp.common.IConstant.ATTR_QB_EDIT_CATEGORY_ID;
+import static com.ulp.common.IConstant.ATTR_MODE;
+import static com.ulp.common.IConstant.ATTR_QB_CHAPTERS;
+import static com.ulp.common.IConstant.ATTR_QB_CHAPTERS_JSON;
 import static com.ulp.common.IConstant.ATTR_QB_EMPTY_DEPARTMENT;
+import static com.ulp.common.IConstant.ATTR_QB_ITEMS;
 import static com.ulp.common.IConstant.ATTR_QB_QUERY;
-import static com.ulp.common.IConstant.ATTR_QB_SELECTED_CONTRIBUTOR_ID;
-import static com.ulp.common.IConstant.ATTR_QB_SELECTED_ITEM;
-import static com.ulp.common.IConstant.ATTR_QB_SELECTED_ITEM_ID;
-import static com.ulp.common.IConstant.ATTR_QB_SELECTED_STATUS;
+import static com.ulp.common.IConstant.ATTR_QB_SELECTED_CHAPTER_ID;
+import static com.ulp.common.IConstant.ATTR_QB_SELECTED_SUBJECT_ID;
+import static com.ulp.common.IConstant.ATTR_QB_SUBJECT_OPTIONS;
+import static com.ulp.common.IConstant.ATTR_QB_SUBJECTS;
 import static com.ulp.common.IConstant.BASE_HEAD_QUESTION_BANK;
-import static com.ulp.common.IConstant.MSG_QB_APPROVED;
+import static com.ulp.common.IConstant.MODE_CREATE;
+import static com.ulp.common.IConstant.MODE_EDIT;
 import static com.ulp.common.IConstant.MSG_QB_ARCHIVED;
-import static com.ulp.common.IConstant.MSG_QB_CATEGORY_CREATED;
-import static com.ulp.common.IConstant.MSG_QB_CATEGORY_DELETED;
-import static com.ulp.common.IConstant.MSG_QB_CATEGORY_TOGGLED;
-import static com.ulp.common.IConstant.MSG_QB_CATEGORY_UPDATED;
-import static com.ulp.common.IConstant.MSG_QB_REJECTED;
+import static com.ulp.common.IConstant.MSG_QB_CREATED;
 import static com.ulp.common.IConstant.MSG_QB_UNARCHIVED;
-import static com.ulp.common.IConstant.PARAM_QB_SELECTED;
+import static com.ulp.common.IConstant.MSG_QB_UPDATED;
 import static com.ulp.common.IConstant.URL_HEAD_QUESTION_BANK_MANAGE;
-import static com.ulp.common.IConstant.VIEW_QB_CATEGORY_DETAIL;
+import static com.ulp.common.IConstant.VIEW_QB_FORM;
 import static com.ulp.common.IConstant.VIEW_QB_MANAGE;
 
 /**
- * HEAD management screen for the department-scoped shared question bank as a
- * master-detail flow: the master lists categories (with an open/close toggle
- * and CRUD), while the detail of one category lists its questions with
- * per-item review and bulk approve/reject/archive actions.
+ * HEAD management screen for the department question bank, organised by subject:
+ * pick a subject → view its chapters and ACTIVE/ARCHIVED items → create/edit/
+ * archive questions (created ACTIVE). No category CRUD, no approve/reject.
  */
 @Controller
 @RequestMapping(BASE_HEAD_QUESTION_BANK)
@@ -68,22 +68,21 @@ public class HeadQuestionBankController {
 
     private final QuestionBankItemService itemService;
     private final QuestionBankReviewService reviewService;
-    private final QuestionBankCategoryService categoryService;
     private final HeadDepartmentResolver departmentResolver;
 
     public HeadQuestionBankController(QuestionBankItemService itemService,
                                       QuestionBankReviewService reviewService,
-                                      QuestionBankCategoryService categoryService,
                                       HeadDepartmentResolver departmentResolver) {
         this.itemService = itemService;
         this.reviewService = reviewService;
-        this.categoryService = categoryService;
         this.departmentResolver = departmentResolver;
     }
 
-    /** Master screen: category list + create/edit form. No question inbox here. */
+    /** Manage screen: filterable table of HEAD-bank items (subject/chapter/query). */
     @GetMapping
-    public String manage(@RequestParam(name = ATTR_QB_EDIT_CATEGORY_ID, required = false) Long editCategoryId,
+    public String manage(@RequestParam(name = "subjectId", required = false) Long subjectId,
+                         @RequestParam(name = "chapterId", required = false) Long chapterId,
+                         @RequestParam(name = "q", required = false) String q,
                          @AuthenticationPrincipal UlpUserDetails user,
                          Model model) {
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_QUESTION_BANK);
@@ -91,52 +90,119 @@ public class HeadQuestionBankController {
         boolean empty = !itemService.hasDepartment(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, empty);
         if (empty) {
-            // No resolved department: render the empty state without querying categories.
-            if (!model.containsAttribute(ATTR_QB_CATEGORY_FORM)) {
-                model.addAttribute(ATTR_QB_CATEGORY_FORM, QuestionBankCategoryForm.empty());
-            }
             return VIEW_QB_MANAGE;
         }
-        model.addAttribute(ATTR_QB_CATEGORIES, categoryService.rowsForCurator(user.getId()));
-        if (!model.containsAttribute(ATTR_QB_CATEGORY_FORM)) {
-            model.addAttribute(ATTR_QB_CATEGORY_FORM,
-                    editCategoryId == null
-                            ? QuestionBankCategoryForm.empty()
-                            : categoryService.loadForm(user.getId(), editCategoryId));
-        }
-        model.addAttribute(ATTR_QB_EDIT_CATEGORY_ID, editCategoryId);
+        model.addAttribute(ATTR_QB_SUBJECT_OPTIONS, itemService.subjectsFor(user.getId(), user.getRole()));
+        model.addAttribute(ATTR_QB_SELECTED_SUBJECT_ID, subjectId);
+        model.addAttribute(ATTR_QB_SELECTED_CHAPTER_ID, chapterId);
+        model.addAttribute(ATTR_QB_QUERY, q);
+        model.addAttribute(ATTR_QB_ITEMS, itemService.listHead(user.getId(), user.getRole(), subjectId, chapterId, q));
+        addChaptersJson(model, user);
         return VIEW_QB_MANAGE;
     }
 
-    /** Detail screen: the questions of one category, with filters and bulk actions. */
-    @GetMapping("/categories/{categoryId}")
-    public String categoryDetail(@PathVariable Long categoryId,
-                                 @RequestParam(name = "status", required = false) String status,
-                                 @RequestParam(name = "contributorId", required = false) Long contributorId,
-                                 @RequestParam(name = "q", required = false) String q,
-                                 @RequestParam(name = PARAM_QB_SELECTED, required = false) Long selected,
-                                 @AuthenticationPrincipal UlpUserDetails user,
-                                 Model model,
-                                 RedirectAttributes ra) {
-        try {
-            model.addAttribute(ATTR_ACTIVE_TAB, TAB_QUESTION_BANK);
-            addDepartmentChrome(user, model);
-            model.addAttribute(ATTR_QB_CATEGORY_ID, categoryId);
-            model.addAttribute(ATTR_QB_CATEGORY_DETAIL,
-                    itemService.categoryDetail(user.getId(), user.getRole(), categoryId, status, contributorId, q));
-            model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
-            model.addAttribute(ATTR_QB_SELECTED_CONTRIBUTOR_ID, contributorId);
-            model.addAttribute(ATTR_QB_QUERY, q);
-            model.addAttribute(ATTR_QB_SELECTED_ITEM_ID, selected);
-            model.addAttribute(ATTR_QB_SELECTED_ITEM, selected == null
-                    ? null
-                    : itemService.detail(user.getId(), user.getRole(), selected));
-            return VIEW_QB_CATEGORY_DETAIL;
-        } catch (QuestionBankValidationException ex) {
-            // Cross-department or missing category: never expose the payload.
-            ra.addFlashAttribute("flashError", ex.getMessage());
-            return redirectMaster();
+    @GetMapping("/new")
+    public String createForm(@RequestParam(name = "subjectId", required = false) Long subjectId,
+                             @AuthenticationPrincipal UlpUserDetails user,
+                             Model model) {
+        if (!model.containsAttribute(ATTR_FORM)) {
+            QuestionBankItemForm form = QuestionBankItemForm.empty();
+            form.setSubjectId(subjectId);
+            model.addAttribute(ATTR_FORM, form);
         }
+        populateForm(model, user, MODE_CREATE);
+        return VIEW_QB_FORM;
+    }
+
+    @PostMapping
+    public String create(@Valid @ModelAttribute(ATTR_FORM) QuestionBankItemForm form,
+                         BindingResult result,
+                         @AuthenticationPrincipal UlpUserDetails user,
+                         Model model,
+                         RedirectAttributes ra) {
+        form.ensureMinOptions(4);
+        if (result.hasErrors()) {
+            populateForm(model, user, MODE_CREATE);
+            return VIEW_QB_FORM;
+        }
+        try {
+            Long id = itemService.save(user.getId(), user.getRole(), form);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_QB_CREATED);
+            return redirectManage(new SubjectFilters(form.getSubjectId(), null, null), ra);
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
+            model.addAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            populateForm(model, user, MODE_CREATE);
+            return VIEW_QB_FORM;
+        }
+    }
+
+    @GetMapping("/{id}/edit")
+    public String editForm(@PathVariable Long id,
+                           @AuthenticationPrincipal UlpUserDetails user,
+                           Model model,
+                           RedirectAttributes ra) {
+        try {
+            if (!model.containsAttribute(ATTR_FORM)) {
+                model.addAttribute(ATTR_FORM, itemService.loadForm(user.getId(), user.getRole(), id));
+            }
+            populateForm(model, user, MODE_EDIT);
+            return VIEW_QB_FORM;
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return redirectManage(new SubjectFilters(null, null, null), ra);
+        }
+    }
+
+    @PostMapping("/{id}/edit")
+    public String update(@PathVariable Long id,
+                         @Valid @ModelAttribute(ATTR_FORM) QuestionBankItemForm form,
+                         BindingResult result,
+                         @AuthenticationPrincipal UlpUserDetails user,
+                         Model model,
+                         RedirectAttributes ra) {
+        form.setId(id);
+        form.ensureMinOptions(4);
+        if (result.hasErrors()) {
+            populateForm(model, user, MODE_EDIT);
+            return VIEW_QB_FORM;
+        }
+        try {
+            itemService.save(user.getId(), user.getRole(), form);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_QB_UPDATED);
+            return redirectManage(new SubjectFilters(form.getSubjectId(), null, null), ra);
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
+            model.addAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            populateForm(model, user, MODE_EDIT);
+            return VIEW_QB_FORM;
+        }
+    }
+
+    @PostMapping("/{id}/archive")
+    public String archive(@PathVariable Long id,
+                          SubjectFilters filters,
+                          @AuthenticationPrincipal UlpUserDetails user,
+                          RedirectAttributes ra) {
+        try {
+            reviewService.archive(user.getId(), id);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_QB_ARCHIVED);
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+        }
+        return redirectManage(filters, ra);
+    }
+
+    @PostMapping("/{id}/unarchive")
+    public String unarchive(@PathVariable Long id,
+                            SubjectFilters filters,
+                            @AuthenticationPrincipal UlpUserDetails user,
+                            RedirectAttributes ra) {
+        try {
+            reviewService.unarchive(user.getId(), id);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_QB_UNARCHIVED);
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+        }
+        return redirectManage(filters, ra);
     }
 
     /** Head sidebar chrome: resolved department label (null renders "Chưa gán bộ môn"). */
@@ -147,143 +213,44 @@ public class HeadQuestionBankController {
                 : new DepartmentSummary(department.getId(), department.getCode(), department.getName()));
     }
 
-    @PostMapping("/categories")
-    public String createCategory(@Valid @ModelAttribute(ATTR_QB_CATEGORY_FORM) QuestionBankCategoryForm form,
-                                 BindingResult result,
-                                 @AuthenticationPrincipal UlpUserDetails user,
-                                 Model model,
-                                 RedirectAttributes ra) {
-        if (result.hasErrors()) {
-            return manage(null, user, model);
-        }
-        try {
-            categoryService.create(user.getId(), form);
-            ra.addFlashAttribute("flashSuccess", MSG_QB_CATEGORY_CREATED);
-            return redirectMaster();
-        } catch (QuestionBankValidationException ex) {
-            model.addAttribute("flashError", ex.getMessage());
-            return manage(null, user, model);
-        }
+    private void populateForm(Model model, UlpUserDetails user, String mode) {
+        boolean hasDepartment = itemService.hasDepartment(user.getId(), user.getRole());
+        model.addAttribute(ATTR_MODE, mode);
+        model.addAttribute(ATTR_FORM_ACTION, URL_HEAD_QUESTION_BANK_MANAGE);
+        model.addAttribute(ATTR_CANCEL_URL, URL_HEAD_QUESTION_BANK_MANAGE);
+        model.addAttribute(ATTR_QB_SUBJECT_OPTIONS, hasDepartment
+                ? itemService.subjectsFor(user.getId(), user.getRole())
+                : List.of());
+        addChaptersJson(model, user);
+        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !hasDepartment);
     }
 
-    @PostMapping("/categories/{id}/edit")
-    public String updateCategory(@PathVariable Long id,
-                                 @Valid @ModelAttribute(ATTR_QB_CATEGORY_FORM) QuestionBankCategoryForm form,
-                                 BindingResult result,
-                                 @AuthenticationPrincipal UlpUserDetails user,
-                                 Model model,
-                                 RedirectAttributes ra) {
-        if (result.hasErrors()) {
-            model.addAttribute(ATTR_QB_EDIT_CATEGORY_ID, id);
-            return manage(id, user, model);
-        }
-        try {
-            categoryService.update(user.getId(), id, form);
-            ra.addFlashAttribute("flashSuccess", MSG_QB_CATEGORY_UPDATED);
-            return redirectMaster();
-        } catch (QuestionBankValidationException ex) {
-            model.addAttribute("flashError", ex.getMessage());
-            model.addAttribute(ATTR_QB_EDIT_CATEGORY_ID, id);
-            return manage(id, user, model);
-        }
+    private void addChaptersJson(Model model, UlpUserDetails user) {
+        // Pass the Map object, not a pre-serialized String: Thymeleaf inline-JS
+        // serializes it via Jackson. A pre-serialized String is escaped a second
+        // time into a JS string literal, breaking the dependent chapter dropdown.
+        model.addAttribute(ATTR_QB_CHAPTERS_JSON,
+                itemService.chaptersBySubjectFor(user.getId(), user.getRole()));
     }
 
-    @PostMapping("/categories/{id}/toggle")
-    public String toggleCategory(@PathVariable Long id,
-                                 @AuthenticationPrincipal UlpUserDetails user,
-                                 RedirectAttributes ra) {
-        try {
-            categoryService.toggle(user.getId(), id);
-            ra.addFlashAttribute("flashSuccess", MSG_QB_CATEGORY_TOGGLED);
-        } catch (QuestionBankValidationException ex) {
-            ra.addFlashAttribute("flashError", ex.getMessage());
-        }
-        return redirectMaster();
-    }
-
-    @PostMapping("/categories/{id}/delete")
-    public String deleteCategory(@PathVariable Long id,
-                                 @AuthenticationPrincipal UlpUserDetails user,
-                                 RedirectAttributes ra) {
-        try {
-            categoryService.delete(user.getId(), id);
-            ra.addFlashAttribute("flashSuccess", MSG_QB_CATEGORY_DELETED);
-        } catch (QuestionBankValidationException ex) {
-            ra.addFlashAttribute("flashError", ex.getMessage());
-        }
-        return redirectMaster();
-    }
-
-    @PostMapping("/{id}/approve")
-    public String approve(@PathVariable Long id,
-                          ReviewFilters filters,
-                          @AuthenticationPrincipal UlpUserDetails user,
-                          RedirectAttributes ra) {
-        reviewService.approve(user.getId(), id);
-        ra.addFlashAttribute("flashSuccess", MSG_QB_APPROVED);
-        return redirectDetail(filters, ra);
-    }
-
-    @PostMapping("/{id}/reject")
-    public String reject(@PathVariable Long id,
-                         @RequestParam(name = "note", required = false) String note,
-                         ReviewFilters filters,
-                         @AuthenticationPrincipal UlpUserDetails user,
-                         RedirectAttributes ra) {
-        reviewService.reject(user.getId(), id, note);
-        ra.addFlashAttribute("flashSuccess", MSG_QB_REJECTED);
-        return redirectDetail(filters, ra);
-    }
-
-    @PostMapping("/{id}/archive")
-    public String archive(@PathVariable Long id,
-                          @RequestParam(name = "note", required = false) String note,
-                          ReviewFilters filters,
-                          @AuthenticationPrincipal UlpUserDetails user,
-                          RedirectAttributes ra) {
-        reviewService.archive(user.getId(), id, note);
-        ra.addFlashAttribute("flashSuccess", MSG_QB_ARCHIVED);
-        return redirectDetail(filters, ra);
-    }
-
-    @PostMapping("/{id}/unarchive")
-    public String unarchive(@PathVariable Long id,
-                            ReviewFilters filters,
-                            @AuthenticationPrincipal UlpUserDetails user,
-                            RedirectAttributes ra) {
-        reviewService.unarchive(user.getId(), id);
-        ra.addFlashAttribute("flashSuccess", MSG_QB_UNARCHIVED);
-        return redirectDetail(filters, ra);
-    }
-
-    /** Filter state carried through a review POST so the redirect keeps context. */
-    public record ReviewFilters(String status, Long categoryId, Long contributorId, String q) {
+    /** Filter state carried through HEAD single/bulk posts so the redirect keeps context. */
+    public record SubjectFilters(Long subjectId, Long chapterId, String q) {
     }
 
     /**
-     * Redirects back onto the category detail preserving the active filters. Uses
-     * {@code filters.categoryId()} as the target category (single-review POSTs
-     * carry the category through the filter form). Shared with the bulk controller.
+     * Redirects back onto the manage screen preserving the active filters. Shared
+     * with the bulk controller.
      */
-    static String redirectDetail(ReviewFilters filters, RedirectAttributes ra) {
-        return redirectDetail(filters.categoryId(), filters, ra);
-    }
-
-    static String redirectDetail(Long categoryId, ReviewFilters filters, RedirectAttributes ra) {
-        if (filters.status() != null && !filters.status().isBlank()) {
-            ra.addAttribute("status", filters.status());
+    static String redirectManage(SubjectFilters filters, RedirectAttributes ra) {
+        if (filters != null && filters.subjectId() != null) {
+            ra.addAttribute("subjectId", filters.subjectId());
         }
-        if (filters.contributorId() != null) {
-            ra.addAttribute("contributorId", filters.contributorId());
+        if (filters != null && filters.chapterId() != null) {
+            ra.addAttribute("chapterId", filters.chapterId());
         }
-        if (filters.q() != null && !filters.q().isBlank()) {
+        if (filters != null && filters.q() != null && !filters.q().isBlank()) {
             ra.addAttribute("q", filters.q());
         }
-        return "redirect:" + URL_HEAD_QUESTION_BANK_MANAGE + "/categories/" + categoryId;
-    }
-
-    /** Redirect back onto the master category list after a category action. */
-    private static String redirectMaster() {
         return "redirect:" + URL_HEAD_QUESTION_BANK_MANAGE;
     }
 }

@@ -10,7 +10,8 @@ public final class QuestionBankImportDtos {
     }
 
     public record PreviewRow(int rowNumber,
-                             String categoryName,
+                             String subjectName,
+                             String chapterName,
                              String questionType,
                              String contentPreview,
                              String status,
@@ -31,7 +32,7 @@ public final class QuestionBankImportDtos {
 
     public record ConfirmResult(int createdCount,
                                 int totalRows,
-                                String workflowStatus,
+                                String status,
                                 List<Long> itemIds) {
     }
 

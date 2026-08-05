@@ -62,7 +62,7 @@ public class ExamQuestionBankWriter {
     /**
      * Appends the submitted questions as exam-owned snapshot rows after the
      * existing set, without touching current questions/options. Used by
-     * insert-from-bank so approved shared questions are copied (not live-linked)
+     * insert-from-bank so ACTIVE bank questions are copied (not live-linked)
      * into the test. Returns the number of questions appended.
      */
     public int appendQuestions(Long testId, List<QuestionForm> questions) {

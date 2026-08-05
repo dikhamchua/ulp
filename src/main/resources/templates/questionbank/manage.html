@@ -19,109 +19,174 @@
           th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
           style="display:none;"></span>
 
-    <h1 class="detail-title">Quản lý ngân hàng câu hỏi</h1>
-    <p class="detail-sub">Ngân hàng câu hỏi dùng chung của bộ môn: mở/đóng danh mục cho giảng viên đóng góp, bấm "Chi tiết" để xem và duyệt câu hỏi trong danh mục. Câu đã duyệt có thể được chèn snapshot vào bài test.</p>
+    <div class="qb-toolbar">
+      <div>
+        <h1 class="detail-title">Quản lý ngân hàng câu hỏi</h1>
+        <p class="detail-sub">Ngân hàng chung của bộ môn, sắp xếp theo môn học và chương. Chọn môn học để xem chương và câu hỏi; tạo, sửa và lưu trữ trực tiếp.</p>
+      </div>
+      <div class="qb-toolbar-actions">
+        <a class="create-btn" th:href="@{/head/question-bank/new(subjectId=${selectedSubjectId})}">＋ Thêm câu hỏi</a>
+        <a class="toolbar-secondary" th:href="@{/lecturer/question-bank/import/template}" download>Tải file mẫu</a>
+        <label class="toolbar-secondary qb-import-trigger" for="qb-import-file">Import Excel</label>
+      </div>
+    </div>
 
     <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
       Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
     </div>
 
     <th:block th:if="${!emptyDepartment}">
-      <!-- Category master table: toggle open/close + drill into detail. The
-           create/edit form lives in #qbCategoryModal (opened via the toolbar
-           button, or auto-opened by JS in edit/error mode). -->
-      <section class="detail-card">
-        <div class="qb-card-head">
-          <h2 class="detail-card-title">Danh mục bộ môn</h2>
-          <button type="button" class="btn-primary" id="qbAddCategoryBtn"
-                  data-qb-category-open>＋ Thêm danh mục</button>
+      <input id="qb-import-file" type="file" accept=".xlsx,.xls" hidden>
+      <section class="admin-list-panel qb-import-panel" id="qb-import-panel" hidden>
+        <div class="qb-import-head">
+          <div>
+            <h2 class="detail-card-title">Xem trước import Excel</h2>
+            <p class="detail-sub">Dữ liệu chỉ được lưu vào ngân hàng bộ môn sau khi bạn xác nhận bản xem trước hợp lệ.</p>
+          </div>
+          <div class="qb-row-actions">
+            <button type="button" class="btn-ghost btn-sm" id="qb-import-reset">Chọn file khác</button>
+            <button type="button" class="btn-primary btn-sm" id="qb-import-confirm" disabled>Xác nhận import</button>
+          </div>
         </div>
-
-        <div class="detail-empty" th:if="${categories == null or categories.isEmpty()}">
-          Chưa có danh mục nào. Thêm danh mục để phân loại câu hỏi.
-        </div>
-
-        <div class="admin-list-table-scroll" th:if="${categories != null and !categories.isEmpty()}">
-          <table class="detail-table">
+        <div class="qb-import-summary" id="qb-import-summary"></div>
+        <div class="qb-import-empty" id="qb-import-loading" hidden>Đang đọc file Excel...</div>
+        <div class="qb-import-empty" id="qb-import-error" hidden></div>
+        <div class="qb-import-table-wrap" id="qb-import-table-wrap" hidden>
+          <table class="admin-list-table qb-table qb-import-table">
             <thead>
-            <tr><th>Tên &amp; mô tả</th><th>Số câu</th><th>Trạng thái</th><th>Thao tác</th></tr>
-            </thead>
-            <tbody>
-            <tr th:each="category : ${categories}">
-              <td>
-                <div><strong th:text="${category.name()}">Danh mục</strong></div>
-                <div class="muted" th:text="${category.description() != null ? category.description() : '—'}">—</div>
-              </td>
-              <td th:text="${category.itemCount()}">0</td>
-              <td>
-                <!-- Auto-submit switch: toggle open/close for lecturer contribution. -->
-                <form th:action="@{'/head/question-bank/categories/' + ${category.id()} + '/toggle'}" method="post" class="qb-inline-form">
-                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                  <label class="qb-switch">
-                    <input type="checkbox" data-autosubmit th:checked="${category.active()}">
-                    <span class="qb-switch-slider" aria-hidden="true"></span>
-                    <span class="sr-only" th:text="${category.active()} ? 'Đang mở cho giảng viên' : 'Đang đóng'">Trạng thái</span>
-                  </label>
-                </form>
-              </td>
-              <td class="qb-row-actions">
-                <a class="btn-primary btn-sm" th:href="@{'/head/question-bank/categories/' + ${category.id()}}">Chi tiết</a>
-                <a th:href="@{/head/question-bank(editCategoryId=${category.id()})}">Sửa</a>
-                <form th:action="@{'/head/question-bank/categories/' + ${category.id()} + '/delete'}" method="post" class="qb-inline-form">
-                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                  <button type="submit" class="link-button danger">Xoá</button>
-                </form>
-              </td>
+            <tr>
+              <th>Dòng</th>
+              <th>Môn học</th>
+              <th>Chương</th>
+              <th>Loại</th>
+              <th>Nội dung</th>
+              <th>Đáp án</th>
+              <th>Đúng</th>
+              <th>Kết quả</th>
             </tr>
-            </tbody>
+            </thead>
+            <tbody id="qb-import-rows"></tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- Filter bar: subject → dependent chapter + query. -->
+      <section class="admin-list-panel qb-filter-panel">
+        <form method="get" th:action="@{/head/question-bank}" class="qb-filter-grid">
+          <select class="qb-input" name="subjectId" data-qb-subject-select>
+            <option value="">Tất cả môn học</option>
+            <option th:each="subject : ${subjectOptions}"
+                    th:value="${subject.id()}"
+                    th:selected="${selectedSubjectId == subject.id()}"
+                    th:text="${subject.label()}">Môn học</option>
+          </select>
+          <select class="qb-input" name="chapterId" data-qb-chapter-select
+                  th:attr="data-selected-chapter-id=${selectedChapterId}">
+            <option value="">Tất cả chương</option>
+          </select>
+          <input class="qb-input" type="text" name="q" th:value="${query}"
+                 placeholder="Tìm theo nội dung, môn hoặc chương">
+          <div class="qb-filter-actions">
+            <button type="submit" class="btn-primary btn-sm">Lọc</button>
+            <a th:href="@{/head/question-bank}" class="btn-ghost btn-sm">Xoá lọc</a>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-list-panel">
+        <div th:if="${items == null or items.isEmpty()}" class="admin-list-empty">
+          Chưa có câu hỏi phù hợp bộ lọc.
+        </div>
+
+        <div th:if="${items != null and !items.isEmpty()}">
+          <!-- BULK: one form wraps the table; buttons target bulk endpoints via formaction. -->
+          <form method="post" th:action="@{/head/question-bank/bulk/archive}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
+            <input type="hidden" name="chapterId" th:value="${selectedChapterId}">
+            <input type="hidden" name="q" th:value="${query}">
+
+            <div class="qb-bulk-toolbar" hidden>
+              <span class="qb-bulk-count">Đã chọn <strong data-bulk-count>0</strong> câu</span>
+              <div class="qb-toolbar-actions">
+                <button type="submit" class="btn-ghost btn-sm"
+                        th:formaction="@{/head/question-bank/bulk/archive}">Lưu trữ</button>
+                <button type="submit" class="btn-primary btn-sm"
+                        th:formaction="@{/head/question-bank/bulk/unarchive}">Bỏ lưu trữ</button>
+              </div>
+            </div>
+
+            <div class="admin-list-table-scroll">
+              <table class="detail-table qb-inbox-table" data-bulk-table>
+                <thead>
+                <tr>
+                  <th class="qb-check-col">
+                    <input type="checkbox" data-bulk-select-all aria-label="Chọn tất cả">
+                  </th>
+                  <th>Câu hỏi</th>
+                  <th>Môn học</th>
+                  <th>Chương</th>
+                  <th>Loại</th>
+                  <th>Trạng thái</th>
+                  <th class="qb-actions-col">Thao tác</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${items}">
+                  <td class="qb-check-col">
+                    <input type="checkbox" class="qb-row-check" name="itemIds" th:value="${item.id()}" aria-label="Chọn câu hỏi">
+                  </td>
+                  <td>
+                    <!-- Title is the edit entry point (no separate Sửa button). -->
+                    <a class="qb-title-link" th:href="@{'/head/question-bank/' + ${item.id()} + '/edit'}"
+                       th:text="${item.contentPreview()}">Nội dung</a>
+                  </td>
+                  <td th:text="${item.subjectLabel()}">Môn học</td>
+                  <td th:text="${item.chapterLabel()}">Chương</td>
+                  <td><span class="status-pill" th:text="${item.questionType()}">MCQ</span></td>
+                  <td>
+                    <span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(item.status())}"
+                          th:text="${item.status()}">ACTIVE</span>
+                  </td>
+                  <td class="qb-actions-col">
+                    <div class="qb-row-actions">
+                      <form th:if="${item.archivable()}" th:action="@{'/head/question-bank/' + ${item.id()} + '/archive'}"
+                            method="post" class="qb-inline-form">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
+                        <input type="hidden" name="chapterId" th:value="${selectedChapterId}">
+                        <input type="hidden" name="q" th:value="${query}">
+                        <button type="submit" class="btn-ghost btn-sm">Lưu trữ</button>
+                      </form>
+                      <form th:if="${item.unarchivable()}" th:action="@{'/head/question-bank/' + ${item.id()} + '/unarchive'}"
+                            method="post" class="qb-inline-form">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
+                        <input type="hidden" name="chapterId" th:value="${selectedChapterId}">
+                        <input type="hidden" name="q" th:value="${query}">
+                        <button type="submit" class="btn-ghost btn-sm">Bỏ lưu trữ</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </form>
         </div>
       </section>
     </th:block>
   </main>
 </div>
 
-<!-- Create/edit category modal. Auto-opens (data-qb-category-autoopen) when the
-     server rendered edit mode (editCategoryId != null) or a validation error so
-     the user sees the pre-filled form / inline field errors. -->
-<div th:if="${!emptyDepartment}" class="qb-modal" id="qbCategoryModal" hidden
-     th:attr="data-qb-category-autoopen=${editCategoryId != null or #fields.hasErrors('categoryForm.*')} ? 'true' : null">
-  <div class="qb-modal-overlay" data-qb-category-close></div>
-  <div class="qb-modal-card" role="dialog" aria-modal="true" aria-labelledby="qbCategoryModalTitle">
-    <button type="button" class="qb-modal-close" data-qb-category-close aria-label="Đóng">&times;</button>
-    <h2 class="qb-modal-title" id="qbCategoryModalTitle"
-        th:text="${editCategoryId == null} ? 'Thêm danh mục' : 'Chỉnh sửa danh mục'">Thêm danh mục</h2>
-    <form class="detail-form-grid qb-category-form" method="post"
-          th:object="${categoryForm}"
-          th:action="${editCategoryId == null} ? @{/head/question-bank/categories} : @{'/head/question-bank/categories/' + ${editCategoryId} + '/edit'}">
-      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-      <div class="form-row">
-        <label for="qbCategoryName">Tên danh mục</label>
-        <input id="qbCategoryName" type="text" th:field="*{name}" placeholder="Tên danh mục">
-        <span class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">Lỗi</span>
-      </div>
-      <div class="form-row span-3">
-        <label for="qbCategoryDesc">Mô tả ngắn</label>
-        <textarea id="qbCategoryDesc" rows="3" th:field="*{description}" placeholder="Mô tả ngắn (tuỳ chọn)"></textarea>
-        <span class="field-error" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">Lỗi</span>
-      </div>
-      <div class="form-row">
-        <label class="form-checkbox-label" for="qbCategoryActive">
-          <input id="qbCategoryActive" type="checkbox" th:field="*{active}">
-          <span>Mở cho giảng viên đóng góp</span>
-        </label>
-      </div>
-      <div class="form-actions">
-        <a th:if="${editCategoryId != null}" class="btn-ghost" th:href="@{/head/question-bank}">Huỷ sửa</a>
-        <button type="button" th:if="${editCategoryId == null}" class="btn-ghost" data-qb-category-close>Huỷ</button>
-        <button type="submit" class="btn-primary" th:text="${editCategoryId == null} ? 'Lưu danh mục' : 'Cập nhật danh mục'">Lưu</button>
-      </div>
-    </form>
-  </div>
-</div>
-
+<script th:inline="javascript">
+  // Subject → chapter options used by the dependent chapter filter dropdown.
+  var QbChaptersBySubject = /*[[${chaptersBySubjectJson}]]*/ {};
+</script>
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/head-department.js}"></script>
 <script th:src="@{/js/question-bank.js}"></script>
+<script th:src="@{/js/question-bank-detail.js}"></script>
+<script th:src="@{/js/question-bank-import.js}"></script>
 </body>
 </html>

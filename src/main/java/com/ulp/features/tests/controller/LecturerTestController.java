@@ -48,7 +48,7 @@ import java.util.Set;
 import static com.ulp.common.IConstant.ATTR_ACTIVE_DETAIL_TAB;
 import static com.ulp.common.IConstant.ATTR_CLASS_ID;
 import static com.ulp.common.IConstant.ATTR_EXAMS_PAGE;
-import static com.ulp.common.IConstant.ATTR_EXAM_BANK_CATEGORIES;
+import static com.ulp.common.IConstant.ATTR_EXAM_BANK_CHAPTERS;
 import static com.ulp.common.IConstant.ATTR_EXAM_CLASS_OPTIONS;
 import static com.ulp.common.IConstant.ATTR_EXAM_FILTER;
 import static com.ulp.common.IConstant.ATTR_EXAM_FORM;
@@ -189,7 +189,7 @@ public class LecturerTestController {
         model.addAttribute(ATTR_EXAM_FORM, null);
         model.addAttribute(ATTR_LED_CLASSES, ledClasses);
         model.addAttribute(ATTR_CLASS_ID, preselectableClassId(classId, ledClasses));
-        model.addAttribute(ATTR_EXAM_BANK_CATEGORIES, java.util.List.of());
+        model.addAttribute(ATTR_EXAM_BANK_CHAPTERS, java.util.List.of());
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         return VIEW_TEST_LECTURER_FORM;
     }
@@ -232,8 +232,8 @@ public class LecturerTestController {
         ExamForm form = examService.getForEdit(id, userId);
         model.addAttribute(ATTR_EXAM_FORM, form);
         model.addAttribute(ATTR_LED_CLASSES, examQueryService.ledClasses(userId));
-        model.addAttribute(ATTR_EXAM_BANK_CATEGORIES,
-                questionBankPickerService.categoriesFor(userId, user.getRole(), id));
+        model.addAttribute(ATTR_EXAM_BANK_CHAPTERS,
+                questionBankPickerService.chaptersFor(userId, user.getRole(), id));
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         // Drives the post-save redirect back to this exam's class tests tab.
         model.addAttribute(ATTR_CLASS_ID, form.classId());
