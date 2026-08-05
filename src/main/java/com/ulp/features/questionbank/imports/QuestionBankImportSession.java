@@ -17,7 +17,6 @@ public final class QuestionBankImportSession {
     private final Long departmentId;
     private final Instant uploadedAt;
     private final String fileName;
-    private final String workflowStatus;
     private final List<ImportedItem> items;
     private final List<PreviewRow> rows;
 
@@ -26,7 +25,6 @@ public final class QuestionBankImportSession {
                                      Long departmentId,
                                      Instant uploadedAt,
                                      String fileName,
-                                     String workflowStatus,
                                      List<ImportedItem> items,
                                      List<PreviewRow> rows) {
         this.id = id;
@@ -34,7 +32,6 @@ public final class QuestionBankImportSession {
         this.departmentId = departmentId;
         this.uploadedAt = uploadedAt;
         this.fileName = fileName;
-        this.workflowStatus = workflowStatus;
         this.items = List.copyOf(items);
         this.rows = List.copyOf(rows);
     }
@@ -51,10 +48,6 @@ public final class QuestionBankImportSession {
         return departmentId;
     }
 
-    public String getWorkflowStatus() {
-        return workflowStatus;
-    }
-
     public List<ImportedItem> getItems() {
         return items;
     }
@@ -69,7 +62,8 @@ public final class QuestionBankImportSession {
         return uploadedAt.plusSeconds(TTL_MINUTES * 60).isBefore(now);
     }
 
-    public record ImportedItem(Long categoryId,
+    public record ImportedItem(Long subjectId,
+                               Long chapterId,
                                String questionType,
                                String contentHtml,
                                String explanationHtml,

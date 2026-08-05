@@ -263,7 +263,7 @@ class LecturerExamServiceTest {
         assertThatThrownBy(() -> service.insertFromBank(USER_ID, Role.LECTURER, TEST_ID, null))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verify(questionBankPicker, never()).approvedSnapshotsByIds(any(), any(), any(), anyList());
+        verify(questionBankPicker, never()).activeSnapshotsByIds(any(), any(), any(), anyList());
     }
 
     @org.junit.jupiter.api.Test
@@ -277,14 +277,14 @@ class LecturerExamServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(questionBankWriter, never()).appendQuestions(any(), anyList());
-        verify(questionBankPicker, never()).approvedSnapshotsByIds(any(), any(), any(), anyList());
+        verify(questionBankPicker, never()).activeSnapshotsByIds(any(), any(), any(), anyList());
     }
 
     @org.junit.jupiter.api.Test
     void insertFromBankRejectsIdsThatResolveToNoApprovedItem() {
         Test test = persistedTest(TEST_ID, Test.STATUS_DRAFT);
         when(accessResolver.requireManageable(TEST_ID, USER_ID)).thenReturn(test);
-        when(questionBankPicker.approvedSnapshotsByIds(USER_ID, Role.LECTURER, TEST_ID, List.of(1L)))
+        when(questionBankPicker.activeSnapshotsByIds(USER_ID, Role.LECTURER, TEST_ID, List.of(1L)))
                 .thenReturn(List.of());
 
         assertThatThrownBy(() -> service.insertFromBank(USER_ID, Role.LECTURER, TEST_ID, List.of(1L)))
@@ -297,9 +297,9 @@ class LecturerExamServiceTest {
     void insertFromBankCopiesTheSnapshotContentInsteadOfLinkingToTheBank() {
         Test test = persistedTest(TEST_ID, Test.STATUS_DRAFT);
         when(accessResolver.requireManageable(TEST_ID, USER_ID)).thenReturn(test);
-        when(questionBankPicker.approvedSnapshotsByIds(USER_ID, Role.LECTURER, TEST_ID, List.of(9L)))
-                .thenReturn(List.of(new BankItemSnapshot(9L, "Chương 1", Question.TYPE_MR,
-                        "Nội dung câu hỏi", "Giải thích",
+        when(questionBankPicker.activeSnapshotsByIds(USER_ID, Role.LECTURER, TEST_ID, List.of(9L)))
+                .thenReturn(List.of(new BankItemSnapshot(9L, "HEAD_BANK", "PRJ301 — Môn",
+                        Question.TYPE_MR, "Nội dung câu hỏi", "Giải thích",
                         List.of(new BankOptionSnapshot("A", true),
                                 new BankOptionSnapshot("B", true),
                                 new BankOptionSnapshot("C", false)))));
@@ -332,9 +332,9 @@ class LecturerExamServiceTest {
         // re-read rather than added to a stale value.
         Test test = persistedTest(TEST_ID, Test.STATUS_DRAFT);
         when(accessResolver.requireManageable(TEST_ID, USER_ID)).thenReturn(test);
-        when(questionBankPicker.approvedSnapshotsByIds(any(), any(), any(), anyList()))
-                .thenReturn(List.of(new BankItemSnapshot(9L, "Chương 1", Question.TYPE_MCQ,
-                        "Q", null, List.of(new BankOptionSnapshot("A", true)))));
+        when(questionBankPicker.activeSnapshotsByIds(any(), any(), any(), anyList()))
+                .thenReturn(List.of(new BankItemSnapshot(9L, "LECTURER_BANK", "PRJ301 — Môn",
+                        Question.TYPE_MCQ, "Q", null, List.of(new BankOptionSnapshot("A", true)))));
         when(questionBankWriter.appendQuestions(eq(TEST_ID), anyList())).thenReturn(1);
         when(questionRepository.findByTestIdOrderBySortOrderAscIdAsc(TEST_ID))
                 .thenReturn(List.of(mock(Question.class), mock(Question.class),

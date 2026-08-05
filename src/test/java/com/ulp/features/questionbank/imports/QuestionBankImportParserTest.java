@@ -16,40 +16,58 @@ import java.io.IOException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Unit tests for question bank Excel parsing. */
+/** Unit tests for question bank Excel parsing (subject code + optional chapter). */
 class QuestionBankImportParserTest {
 
     private static final String XLSX_MIME =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    private static final String[] HEADERS = {
+            "Mã môn học", "Chương (tuỳ chọn)", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
+            "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"
+    };
 
     private final QuestionBankImportParser parser = new QuestionBankImportParser();
 
     @Test
     void parse_returns_rows_when_file_matches_template() throws IOException {
         MultipartFile file = build(new String[][]{
-                {"Danh mục", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
-                        "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"},
-                {"Giải tích 1", "MCQ", "Đạo hàm của x^2 là gì?", "Áp dụng quy tắc lũy thừa",
+                HEADERS,
+                {"PRJ301", "Chương 1", "MCQ", "Đạo hàm của x^2 là gì?", "Áp dụng quy tắc lũy thừa",
                         "2x", "x", "x^2", "2", "A"}
         });
 
         ParsedFile parsed = parser.parse(file);
 
         assertThat(parsed.rows()).hasSize(1);
-        assertThat(parsed.rows().get(0).categoryName()).isEqualTo("Giải tích 1");
+        assertThat(parsed.rows().get(0).subjectCode()).isEqualTo("PRJ301");
+        assertThat(parsed.rows().get(0).chapterName()).isEqualTo("Chương 1");
         assertThat(parsed.rows().get(0).questionType()).isEqualTo("MCQ");
         assertThat(parsed.rows().get(0).optionValues()).containsExactly("2x", "x", "x^2", "2");
         assertThat(parsed.rows().get(0).correctAnswers()).isEqualTo("A");
     }
 
     @Test
+    void parse_accepts_blank_chapter() throws IOException {
+        MultipartFile file = build(new String[][]{
+                HEADERS,
+                {"PRJ301", "", "MCQ", "Câu 1", "", "A", "B", "", "", "A"}
+        });
+
+        ParsedFile parsed = parser.parse(file);
+
+        assertThat(parsed.rows()).hasSize(1);
+        assertThat(parsed.rows().get(0).subjectCode()).isEqualTo("PRJ301");
+        assertThat(parsed.rows().get(0).chapterName()).isEmpty();
+    }
+
+    @Test
     void parse_skips_wholly_blank_rows() throws IOException {
         MultipartFile file = build(new String[][]{
-                {"Danh mục", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
-                        "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"},
-                {"Giải tích 1", "MCQ", "Câu 1", "", "A", "B", "", "", "A"},
-                {"", "", "", "", "", "", "", "", ""},
-                {"Giải tích 1", "MR", "Câu 2", "", "A", "B", "C", "", "A,C"}
+                HEADERS,
+                {"PRJ301", "", "MCQ", "Câu 1", "", "A", "B", "", "", "A"},
+                {"", "", "", "", "", "", "", "", "", ""},
+                {"PRJ301", "", "MR", "Câu 2", "", "A", "B", "C", "", "A,C"}
         });
 
         ParsedFile parsed = parser.parse(file);
@@ -71,8 +89,8 @@ class QuestionBankImportParserTest {
     @Test
     void parse_rejects_missing_required_headers() throws IOException {
         MultipartFile file = build(new String[][]{
-                {"Danh mục", "Nội dung câu hỏi", "Đáp án A", "Đáp án đúng"},
-                {"Giải tích 1", "Câu 1", "A", "A"}
+                {"Mã môn học", "Nội dung câu hỏi", "Đáp án A", "Đáp án đúng"},
+                {"PRJ301", "Câu 1", "A", "A"}
         });
 
         assertThatThrownBy(() -> parser.parse(file))

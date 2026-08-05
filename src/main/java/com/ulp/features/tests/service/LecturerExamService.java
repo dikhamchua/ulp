@@ -133,8 +133,9 @@ public class LecturerExamService {
     }
 
     /**
-     * Inserts approved shared-bank questions into an owned test as exam-owned
-     * snapshot rows. The bank content/options are copied (not live-linked) via
+     * Inserts ACTIVE bank questions (own private bank + HEAD bank, scoped to the
+     * class subject) into an owned test as exam-owned snapshot rows. The bank
+     * content/options are copied (not live-linked) via
      * {@link ExamQuestionBankPickerService}, so later bank edits never mutate the
      * inserted questions. Rejected when student responses already exist (locked
      * shape). Returns the number of questions actually inserted.
@@ -150,7 +151,7 @@ public class LecturerExamService {
             throw new IllegalArgumentException(MSG_QB_INSERT_LOCKED);
         }
         List<BankItemSnapshot> snapshots =
-                questionBankPicker.approvedSnapshotsByIds(userId, role, testId, itemIds);
+                questionBankPicker.activeSnapshotsByIds(userId, role, testId, itemIds);
         if (snapshots.isEmpty()) {
             throw new IllegalArgumentException(MSG_QB_INSERT_EMPTY);
         }

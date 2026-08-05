@@ -27,9 +27,9 @@ import static com.ulp.features.lessons.controller.support.AjaxResponses.notFound
 import static com.ulp.features.lessons.dto.SectionDtos.AjaxResult;
 
 /**
- * JSON endpoints that expose approved shared-bank questions for one test and
- * insert chosen ones as exam-owned snapshots. The bank itself is
- * department-scoped; the {@code testId} only resolves the working department.
+ * JSON endpoints that expose ACTIVE bank questions (own private bank + HEAD
+ * bank, scoped to the class subject) for one test and insert chosen ones as
+ * exam-owned snapshots. The {@code testId} only resolves the working scope.
  */
 @RestController
 @RequestMapping(BASE_LECTURER_TESTS + "/{testId}/question-bank")
@@ -45,22 +45,22 @@ public class LecturerTestQuestionBankController {
         this.examService = examService;
     }
 
-    /** Searches approved shared-bank questions the current actor may snapshot into this exam. */
+    /** Searches ACTIVE bank questions (own + HEAD bank) the actor may snapshot into this exam. */
     @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> search(@PathVariable Long testId,
-                                    @RequestParam(name = "categoryId", required = false) Long categoryId,
+                                    @RequestParam(name = "chapterId", required = false) Long chapterId,
                                     @RequestParam(name = "q", required = false) String q,
                                     @AuthenticationPrincipal UlpUserDetails user) {
         try {
             return ResponseEntity.ok(AjaxResult.success(
-                    pickerService.searchApproved(user.getId(), user.getRole(), testId, categoryId, q)));
+                    pickerService.searchActive(user.getId(), user.getRole(), testId, chapterId, q)));
         } catch (AccessDeniedException ex) {
             return forbidden();
         }
     }
 
     /**
-     * Inserts the chosen approved bank items into this test as exam-owned
+     * Inserts the chosen ACTIVE bank items into this test as exam-owned
      * snapshot rows. Snapshot copy only: later bank edits do not mutate the
      * inserted questions.
      */

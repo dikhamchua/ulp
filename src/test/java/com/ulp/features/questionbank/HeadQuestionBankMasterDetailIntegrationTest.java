@@ -4,11 +4,12 @@ import com.ulp.entities.Department;
 import com.ulp.entities.User;
 import com.ulp.features.admin.departments.repository.DepartmentRepository;
 import com.ulp.features.auth.repository.UserRepository;
-import com.ulp.features.questionbank.dto.QuestionBankViews.CategoryDetailView;
-import com.ulp.features.questionbank.entity.QuestionBankCategory;
 import com.ulp.features.questionbank.entity.QuestionBankItem;
-import com.ulp.features.questionbank.repository.QuestionBankCategoryRepository;
 import com.ulp.features.questionbank.repository.QuestionBankItemRepository;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.entity.SubjectChapter;
+import com.ulp.features.subjects.repository.SubjectChapterRepository;
+import com.ulp.features.subjects.repository.SubjectRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,9 +30,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 /**
- * Integration tests for the HEAD question-bank master-detail redesign: category
- * master, category detail, bulk review actions, cross-department isolation and
- * the single-review redirect.
+ * Integration tests for the HEAD question-bank manage screen: subject selector →
+ * chapters + items, create/edit/archive, bulk archive/unarchive, cross-department
+ * isolation, chapter-belongs-to-subject rejection and the HEAD empty state.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -41,16 +42,17 @@ class HeadQuestionBankMasterDetailIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private UserRepository userRepository;
-    @Autowired private QuestionBankCategoryRepository categoryRepository;
+    @Autowired private SubjectRepository subjectRepository;
+    @Autowired private SubjectChapterRepository chapterRepository;
     @Autowired private QuestionBankItemRepository itemRepository;
 
     private Department cntt;
     private User head;
     private User lecturer;
-    private Long categoryId;
-    private Long reviewItemId;
-    private Long reviewItemId2;
-    private Long approvedItemId;
+    private Long subjectId;
+    private Long chapterId;
+    private Long activeItemId;
+    private Long archivedItemId;
 
     @BeforeEach
     void setUp() {
@@ -60,7 +62,6 @@ class HeadQuestionBankMasterDetailIntegrationTest {
                 .filter(d -> "CNTT".equals(d.getCode()))
                 .findFirst().orElseThrow();
 
-        // Resolve HEAD's department via head_user_id (see HeadDepartmentResolver).
         cntt.assignHead(head.getId());
         departmentRepository.save(cntt);
         head.promoteToHead(cntt.getId());
@@ -68,74 +69,167 @@ class HeadQuestionBankMasterDetailIntegrationTest {
         lecturer.setDepartmentId(cntt.getId());
         userRepository.save(lecturer);
 
-        QuestionBankCategory category = categoryRepository.save(new QuestionBankCategory(
-                cntt.getId(), "Master-detail cat", "Mô tả", true, head.getId()));
-        categoryId = category.getId();
+        Subject subject = subjectRepository.findAllByDepartmentIdOrderByCodeAsc(cntt.getId()).stream()
+                .filter(Subject::isActive)
+                .findFirst().orElseThrow();
+        subjectId = subject.getId();
+        chapterId = chapterRepository.save(new SubjectChapter(subjectId, "Chương 1", (short) 1, head.getId())).getId();
 
-        reviewItemId = saveItem(category.getId(), QuestionBankItem.STATUS_REVIEW, "Câu chờ duyệt 1");
-        reviewItemId2 = saveItem(category.getId(), QuestionBankItem.STATUS_REVIEW, "Câu chờ duyệt 2");
-        approvedItemId = saveItem(category.getId(), QuestionBankItem.STATUS_APPROVED, "Câu đã duyệt");
+        activeItemId = saveHeadItem(null, QuestionBankItem.STATUS_ACTIVE, "Câu hoạt động");
+        archivedItemId = saveHeadItem(null, QuestionBankItem.STATUS_ARCHIVED, "Câu lưu trữ");
     }
 
-    private Long saveItem(Long catId, String status, String content) {
+    private Long saveHeadItem(Long chapter, String status, String content) {
         QuestionBankItem item = new QuestionBankItem(
-                cntt.getId(), catId, lecturer.getId(),
+                cntt.getId(), subjectId, null, chapter, lecturer.getId(),
                 QuestionBankItem.TYPE_MCQ, status, "<p>" + content + "</p>", null);
         return itemRepository.save(item).getId();
     }
 
     @Test
     @WithUserDetails("head@ulp.edu.vn")
-    void master_renders_category_list() throws Exception {
+    void manage_renders_subject_selector() throws Exception {
         mockMvc.perform(get("/head/question-bank"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("questionbank/manage"))
-                .andExpect(model().attributeExists("categories"));
+                .andExpect(model().attributeExists("subjectOptions"))
+                .andExpect(model().attribute("emptyDepartment", false));
     }
 
     @Test
     @WithUserDetails("head@ulp.edu.vn")
-    void detail_lists_category_questions() throws Exception {
-        mockMvc.perform(get("/head/question-bank/categories/" + categoryId))
+    void manage_with_subject_lists_items() throws Exception {
+        mockMvc.perform(get("/head/question-bank").param("subjectId", String.valueOf(subjectId)))
                 .andExpect(status().isOk())
-                .andExpect(view().name("questionbank/category-detail"))
-                .andExpect(model().attribute("categoryDetail",
-                        org.hamcrest.Matchers.instanceOf(CategoryDetailView.class)));
+                .andExpect(view().name("questionbank/manage"))
+                .andExpect(model().attributeExists("items"))
+                .andExpect(model().attribute("selectedSubjectId", subjectId));
     }
 
     @Test
     @WithUserDetails("head@ulp.edu.vn")
-    void bulk_approve_transitions_all_review_items() throws Exception {
-        mockMvc.perform(post("/head/question-bank/categories/" + categoryId + "/bulk/approve")
-                        .param("itemIds", String.valueOf(reviewItemId), String.valueOf(reviewItemId2))
+    void create_item_is_active_and_owned_by_head_bank() throws Exception {
+        long before = itemRepository.count();
+        mockMvc.perform(post("/head/question-bank")
+                        .with(csrf())
+                        .param("subjectId", String.valueOf(subjectId))
+                        .param("chapterId", String.valueOf(chapterId))
+                        .param("questionType", "MCQ")
+                        .param("content", "<p>Câu mới của HEAD</p>")
+                        .param("options[0].content", "A")
+                        .param("options[0].correct", "true")
+                        .param("options[1].content", "B"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashSuccess"))
+                .andExpect(redirectedUrl("/head/question-bank?subjectId=" + subjectId));
+
+        assertThat(itemRepository.count()).isEqualTo(before + 1);
+        QuestionBankItem created = itemRepository.findAll().stream()
+                .filter(i -> "<p>Câu mới của HEAD</p>".equals(i.getContent()))
+                .findFirst().orElseThrow();
+        assertThat(created.getStatus()).isEqualTo(QuestionBankItem.STATUS_ACTIVE);
+        assertThat(created.getOwnerId()).isNull();
+        assertThat(created.getSubjectId()).isEqualTo(subjectId);
+        assertThat(created.getChapterId()).isEqualTo(chapterId);
+    }
+
+    @Test
+    @WithUserDetails("head@ulp.edu.vn")
+    void create_rejects_inactive_subject_without_writing() throws Exception {
+        Subject inactive = subjectRepository.findAllByDepartmentIdOrderByCodeAsc(cntt.getId()).stream()
+                .filter(s -> !s.isActive())
+                .findFirst().orElseThrow();
+        long before = itemRepository.count();
+
+        mockMvc.perform(post("/head/question-bank")
+                        .with(csrf())
+                        .param("subjectId", String.valueOf(inactive.getId()))
+                        .param("questionType", "MCQ")
+                        .param("content", "<p>Không được tạo</p>")
+                        .param("options[0].content", "A")
+                        .param("options[0].correct", "true")
+                        .param("options[1].content", "B"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("questionbank/form"))
+                .andExpect(model().attributeExists("flashError"));
+
+        assertThat(itemRepository.count()).isEqualTo(before);
+    }
+
+    @Test
+    @WithUserDetails("head@ulp.edu.vn")
+    void create_rejects_chapter_of_another_subject_without_writing() throws Exception {
+        // A chapter belonging to a different department's subject.
+        Department other = departmentRepository.findAll().stream()
+                .filter(d -> !"CNTT".equals(d.getCode()))
+                .findFirst().orElse(null);
+        org.junit.jupiter.api.Assumptions.assumeTrue(other != null, "needs a second department");
+        Subject otherSubject = subjectRepository.findAllByDepartmentIdOrderByCodeAsc(other.getId()).stream()
+                .filter(Subject::isActive)
+                .findFirst().orElse(null);
+        org.junit.jupiter.api.Assumptions.assumeTrue(otherSubject != null, "needs a subject in the second department");
+        SubjectChapter foreignChapter = chapterRepository.save(
+                new SubjectChapter(otherSubject.getId(), "Chương lạ", (short) 1, head.getId()));
+
+        long before = itemRepository.count();
+        mockMvc.perform(post("/head/question-bank")
+                        .with(csrf())
+                        .param("subjectId", String.valueOf(subjectId))
+                        .param("chapterId", String.valueOf(foreignChapter.getId()))
+                        .param("questionType", "MCQ")
+                        .param("content", "<p>Chương sai môn</p>")
+                        .param("options[0].content", "A")
+                        .param("options[0].correct", "true")
+                        .param("options[1].content", "B"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("questionbank/form"))
+                .andExpect(model().attributeExists("flashError"));
+
+        assertThat(itemRepository.count()).isEqualTo(before);
+    }
+
+    @Test
+    @WithUserDetails("head@ulp.edu.vn")
+    void archive_and_unarchive_head_item() throws Exception {
+        mockMvc.perform(post("/head/question-bank/" + activeItemId + "/archive")
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("flashSuccess"));
+        assertThat(itemRepository.findById(activeItemId).orElseThrow().getStatus())
+                .isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
 
-        assertThat(itemRepository.findById(reviewItemId).orElseThrow().getWorkflowStatus())
-                .isEqualTo(QuestionBankItem.STATUS_APPROVED);
-        assertThat(itemRepository.findById(reviewItemId2).orElseThrow().getWorkflowStatus())
-                .isEqualTo(QuestionBankItem.STATUS_APPROVED);
-    }
-
-    @Test
-    @WithUserDetails("head@ulp.edu.vn")
-    void bulk_approve_partial_skips_non_review() throws Exception {
-        // One REVIEW (approvable) + one APPROVED (skipped): only the REVIEW transitions.
-        mockMvc.perform(post("/head/question-bank/categories/" + categoryId + "/bulk/approve")
-                        .param("itemIds", String.valueOf(reviewItemId), String.valueOf(approvedItemId))
+        mockMvc.perform(post("/head/question-bank/" + activeItemId + "/unarchive")
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("flashSuccess"));
-
-        assertThat(itemRepository.findById(reviewItemId).orElseThrow().getWorkflowStatus())
-                .isEqualTo(QuestionBankItem.STATUS_APPROVED);
+        assertThat(itemRepository.findById(activeItemId).orElseThrow().getStatus())
+                .isEqualTo(QuestionBankItem.STATUS_ACTIVE);
     }
 
     @Test
     @WithUserDetails("head@ulp.edu.vn")
-    void bulk_approve_empty_selection_flashes_error() throws Exception {
-        mockMvc.perform(post("/head/question-bank/categories/" + categoryId + "/bulk/approve")
+    void bulk_archive_and_unarchive() throws Exception {
+        mockMvc.perform(post("/head/question-bank/bulk/archive")
+                        .with(csrf())
+                        .param("itemIds", String.valueOf(activeItemId)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashSuccess"));
+        assertThat(itemRepository.findById(activeItemId).orElseThrow().getStatus())
+                .isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
+
+        mockMvc.perform(post("/head/question-bank/bulk/unarchive")
+                        .with(csrf())
+                        .param("itemIds", String.valueOf(activeItemId)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashSuccess"));
+        assertThat(itemRepository.findById(activeItemId).orElseThrow().getStatus())
+                .isEqualTo(QuestionBankItem.STATUS_ACTIVE);
+    }
+
+    @Test
+    @WithUserDetails("head@ulp.edu.vn")
+    void bulk_archive_empty_selection_flashes_error() throws Exception {
+        mockMvc.perform(post("/head/question-bank/bulk/archive")
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("flashError"));
@@ -143,101 +237,47 @@ class HeadQuestionBankMasterDetailIntegrationTest {
 
     @Test
     @WithUserDetails("lecturer@ulp.edu.vn")
-    void bulk_approve_forbidden_for_lecturer() throws Exception {
-        mockMvc.perform(post("/head/question-bank/categories/" + categoryId + "/bulk/approve")
-                        .param("itemIds", String.valueOf(reviewItemId))
-                        .with(csrf()))
+    void manage_forbidden_for_lecturer() throws Exception {
+        mockMvc.perform(get("/head/question-bank"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     @WithUserDetails("head@ulp.edu.vn")
-    void detail_cross_department_category_flashes_error() throws Exception {
+    void cross_department_head_item_not_manageable() throws Exception {
         Department other = departmentRepository.findAll().stream()
                 .filter(d -> !"CNTT".equals(d.getCode()))
                 .findFirst().orElse(null);
         org.junit.jupiter.api.Assumptions.assumeTrue(other != null, "needs a second department");
-        QuestionBankCategory otherCat = categoryRepository.save(new QuestionBankCategory(
-                other.getId(), "Danh mục khác bộ môn", null, true, head.getId()));
+        Subject otherSubject = subjectRepository.findAllByDepartmentIdOrderByCodeAsc(other.getId()).stream()
+                .filter(Subject::isActive)
+                .findFirst().orElse(null);
+        org.junit.jupiter.api.Assumptions.assumeTrue(otherSubject != null, "needs a subject in the second department");
+        Long foreignItemId = itemRepository.save(new QuestionBankItem(
+                other.getId(), otherSubject.getId(), null, null, head.getId(),
+                QuestionBankItem.TYPE_MCQ, QuestionBankItem.STATUS_ACTIVE, "<p>Bộ môn khác</p>", null)).getId();
 
-        // requireVisibleCategory throws → redirect to master with a flash error,
-        // never exposing the other department's payload.
-        mockMvc.perform(get("/head/question-bank/categories/" + otherCat.getId()))
+        mockMvc.perform(post("/head/question-bank/" + foreignItemId + "/archive")
+                        .with(csrf()))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/head/question-bank"))
-                .andExpect(flash().attributeExists("flashError"))
-                .andExpect(model().attributeDoesNotExist("categoryDetail"));
+                .andExpect(flash().attributeExists("flashError"));
+        assertThat(itemRepository.findById(foreignItemId).orElseThrow().getStatus())
+                .isEqualTo(QuestionBankItem.STATUS_ACTIVE);
     }
 
     @Test
     @WithUserDetails("head@ulp.edu.vn")
-    void single_approve_redirects_to_detail() throws Exception {
-        mockMvc.perform(post("/head/question-bank/" + reviewItemId + "/approve")
-                        .param("categoryId", String.valueOf(categoryId))
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/head/question-bank/categories/" + categoryId));
-    }
+    void head_without_department_renders_empty_state() throws Exception {
+        // Detach the seeded HEAD from every department so the resolver returns empty.
+        cntt.assignHead(null);
+        departmentRepository.save(cntt);
+        head.setDepartmentId(null);
+        userRepository.save(head);
 
-    @Test
-    @WithUserDetails("head@ulp.edu.vn")
-    void single_unarchive_restores_prior_status() throws Exception {
-        // Archive an APPROVED item first so status_before_archive remembers APPROVED.
-        mockMvc.perform(post("/head/question-bank/" + approvedItemId + "/archive")
-                        .param("categoryId", String.valueOf(categoryId))
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection());
-        assertThat(itemRepository.findById(approvedItemId).orElseThrow().getWorkflowStatus())
-                .isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
-
-        mockMvc.perform(post("/head/question-bank/" + approvedItemId + "/unarchive")
-                        .param("categoryId", String.valueOf(categoryId))
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/head/question-bank/categories/" + categoryId))
-                .andExpect(flash().attributeExists("flashSuccess"));
-
-        assertThat(itemRepository.findById(approvedItemId).orElseThrow().getWorkflowStatus())
-                .isEqualTo(QuestionBankItem.STATUS_APPROVED);
-    }
-
-    @Test
-    @WithUserDetails("head@ulp.edu.vn")
-    void bulk_unarchive_restores_archived_items() throws Exception {
-        // Archive two items first, then bulk-unarchive them back to their prior status.
-        mockMvc.perform(post("/head/question-bank/categories/" + categoryId + "/bulk/archive")
-                        .param("itemIds", String.valueOf(reviewItemId), String.valueOf(approvedItemId))
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection());
-
-        mockMvc.perform(post("/head/question-bank/categories/" + categoryId + "/bulk/unarchive")
-                        .param("itemIds", String.valueOf(reviewItemId), String.valueOf(approvedItemId))
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(flash().attributeExists("flashSuccess"));
-
-        assertThat(itemRepository.findById(reviewItemId).orElseThrow().getWorkflowStatus())
-                .isEqualTo(QuestionBankItem.STATUS_REVIEW);
-        assertThat(itemRepository.findById(approvedItemId).orElseThrow().getWorkflowStatus())
-                .isEqualTo(QuestionBankItem.STATUS_APPROVED);
-    }
-
-    @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
-    void unarchive_forbidden_for_lecturer() throws Exception {
-        mockMvc.perform(post("/head/question-bank/" + approvedItemId + "/unarchive")
-                        .param("categoryId", String.valueOf(categoryId))
-                        .with(csrf()))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @WithUserDetails("head@ulp.edu.vn")
-    void toggle_flips_active_flag() throws Exception {
-        boolean before = categoryRepository.findById(categoryId).orElseThrow().isActive();
-        mockMvc.perform(post("/head/question-bank/categories/" + categoryId + "/toggle")
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection());
-        assertThat(categoryRepository.findById(categoryId).orElseThrow().isActive()).isEqualTo(!before);
+        mockMvc.perform(get("/head/question-bank"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("questionbank/manage"))
+                .andExpect(model().attribute("emptyDepartment", true))
+                .andExpect(model().attributeDoesNotExist("subjects"));
     }
 }

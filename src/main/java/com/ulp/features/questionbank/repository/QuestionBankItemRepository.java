@@ -3,21 +3,29 @@ package com.ulp.features.questionbank.repository;
 import com.ulp.features.questionbank.entity.QuestionBankItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 /**
- * Repository for department-scoped shared question contributions.
+ * Repository for subject → chapter organised question-bank items across both
+ * ownership scopes: the HEAD bank ({@code ownerId IS NULL}) and per-lecturer
+ * private banks ({@code ownerId = user.id}).
  */
 public interface QuestionBankItemRepository extends JpaRepository<QuestionBankItem, Long> {
 
-    long countByCategoryId(Long categoryId);
+    long countByOwnerIdAndSubjectId(Long ownerId, Long subjectId);
 
-    List<QuestionBankItem> findByDepartmentIdOrderByUpdatedAtDescIdDesc(Long departmentId);
+    long countByOwnerIdIsNullAndDepartmentIdAndSubjectId(Long departmentId, Long subjectId);
 
-    List<QuestionBankItem> findByDepartmentIdAndWorkflowStatusInOrderByUpdatedAtDescIdDesc(
-            Long departmentId, Collection<String> workflowStatuses);
+    // ── Lecturer-private bank (ownerId = user.id) ────────────────────
 
-    Optional<QuestionBankItem> findByIdAndDepartmentId(Long id, Long departmentId);
+    List<QuestionBankItem> findByOwnerIdOrderByUpdatedAtDescIdDesc(Long ownerId);
+
+    List<QuestionBankItem> findByOwnerIdAndSubjectIdOrderByUpdatedAtDescIdDesc(Long ownerId, Long subjectId);
+
+    // ── HEAD bank (ownerId IS NULL, department-owned) ────────────────
+
+    List<QuestionBankItem> findByOwnerIdIsNullAndDepartmentIdOrderByUpdatedAtDescIdDesc(Long departmentId);
+
+    List<QuestionBankItem> findByOwnerIdIsNullAndDepartmentIdAndSubjectIdOrderByUpdatedAtDescIdDesc(
+            Long departmentId, Long subjectId);
 }

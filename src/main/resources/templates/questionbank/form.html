@@ -19,19 +19,19 @@
         style="display:none;"></span>
 
   <div class="qb-toolbar">
-    <a class="toolbar-back" th:href="@{/lecturer/question-bank}">← Quay lại ngân hàng câu hỏi</a>
+    <a class="toolbar-back" th:href="${cancelUrl}">← Quay lại ngân hàng câu hỏi</a>
   </div>
 
   <h1 class="detail-page-title"
       th:text="${mode == 'create' ? 'Thêm câu hỏi' : 'Chỉnh sửa câu hỏi'}">Thêm câu hỏi</h1>
-  <p class="detail-sub">Soạn câu hỏi cho ngân hàng bộ môn, lưu nháp hoặc gửi HEAD duyệt trước khi có thể chèn vào bài test.</p>
+  <p class="detail-sub">Soạn câu hỏi cho ngân hàng theo môn học (bắt buộc) và chương (tuỳ chọn). Câu hỏi được lưu ở trạng thái hoạt động và sẵn sàng để chèn vào bài test của lớp cùng môn.</p>
 
   <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
-    Bạn chưa được gán bộ môn nên chưa thể tạo câu hỏi cho ngân hàng bộ môn.
+    Bạn chưa được gán bộ môn nên chưa thể tạo câu hỏi cho ngân hàng.
   </div>
 
   <form th:if="${!emptyDepartment}" class="detail-card qb-form"
-        th:action="${mode == 'create'} ? @{/lecturer/question-bank} : @{'/lecturer/question-bank/' + ${form.id} + '/edit'}"
+        th:action="${mode == 'create'} ? @{${formAction}} : @{${formAction} + '/' + ${form.id} + '/edit'}"
         method="post" th:object="${form}">
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
@@ -41,19 +41,25 @@
       </div>
       <div class="lf-grid">
         <div class="lf-field">
-          <label class="lf-label" for="categoryId">Danh mục</label>
-          <select class="lf-input" id="categoryId" th:field="*{categoryId}">
-            <option value="">— Chọn danh mục —</option>
-            <option th:each="category : ${categories}" th:value="${category.id()}" th:text="${category.name()}">Danh mục</option>
+          <label class="lf-label" for="subjectId">Môn học</label>
+          <select class="lf-input" id="subjectId" data-qb-subject-select th:field="*{subjectId}">
+            <option value="">— Chọn môn học —</option>
+            <!-- Inactive placeholders (e.g. UNASSIGNED) are hidden on create, but the
+                 subject currently bound to an edited item must stay visible so the
+                 author can keep it unchanged. -->
+            <option th:each="subject : ${subjectOptions}"
+                    th:if="${subject.active() or subject.id() == form.subjectId}"
+                    th:value="${subject.id()}" th:text="${subject.label()}">Môn học</option>
           </select>
-          <small class="lf-err" th:if="${#fields.hasErrors('categoryId')}" th:errors="*{categoryId}">Lỗi</small>
+          <small class="lf-err" th:if="${#fields.hasErrors('subjectId')}" th:errors="*{subjectId}">Lỗi</small>
         </div>
         <div class="lf-field">
-          <label class="lf-label" for="questionType">Loại câu hỏi</label>
-          <select class="lf-input" id="questionType" th:field="*{questionType}">
-            <option value="MCQ">Một đáp án (MCQ)</option>
-            <option value="MR">Nhiều đáp án (MR)</option>
+          <label class="lf-label" for="chapterId">Chương (tuỳ chọn)</label>
+          <select class="lf-input" id="chapterId" data-qb-chapter-select th:field="*{chapterId}"
+                  th:attr="data-selected-chapter-id=${form.chapterId}">
+            <option value="">— Không chọn chương —</option>
           </select>
+          <small class="lf-err" th:if="${#fields.hasErrors('chapterId')}" th:errors="*{chapterId}">Lỗi</small>
         </div>
       </div>
 
@@ -75,7 +81,7 @@
     <section class="lf-panel">
       <div class="lf-panel-head lf-panel-head-stack" style="flex-direction: column; align-items: flex-start; gap: 4px;">
         <h2 class="lf-panel-title">Đáp án</h2>
-        <p class="lf-media-hint">Tích vào ô vuông để đánh dấu đáp án đúng. MCQ cần đúng 1 đáp án đúng, MR cho phép nhiều đáp án.</p>
+        <p class="lf-media-hint">Tích vào ô vuông để đánh dấu đáp án đúng. Tích 1 đáp án để tạo câu hỏi một đáp án (MCQ), tích nhiều đáp án để tạo câu hỏi nhiều đáp án (MR).</p>
       </div>
       <div class="lf-options">
         <!-- Single-question form: A–H options are rendered by the server.
@@ -99,15 +105,18 @@
     </section>
 
     <div class="qb-submit-bar">
-      <button type="submit" class="tst-btn" name="workflowAction" value="DRAFT">Lưu nháp</button>
-      <button type="submit" class="tst-btn tst-btn-primary" name="workflowAction" value="REVIEW">Gửi HEAD duyệt</button>
+      <button type="submit" class="tst-btn tst-btn-primary"
+              th:text="${mode == 'create'} ? 'Tạo câu hỏi' : 'Lưu thay đổi'">Lưu</button>
     </div>
   </form>
 </div>
 
+<script th:inline="javascript">
+  // Subject → chapter options used by the dependent chapter dropdown.
+  var QbChaptersBySubject = /*[[${chaptersBySubjectJson}]]*/ {};
+</script>
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
 <script th:src="@{/js/app.js}"></script>
-<!-- question-bank.js drains #flash-data into a toast after save/submit. -->
 <script th:src="@{/js/question-bank.js}"></script>
 <script th:src="@{/js/question-bank-form.js}"></script>
 </body>

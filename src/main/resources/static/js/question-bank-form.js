@@ -40,12 +40,13 @@
   }
 
   function initOptions() {
-    var typeSelect = document.getElementById('questionType');
     var options = Array.prototype.slice.call(document.querySelectorAll('.lf-option'));
     if (!options.length) {
       return;
     }
 
+    // No question-type selector: the author ticks one or many correct answers and
+    // the server derives MCQ (one correct) vs MR (many correct) from them.
     options.forEach(function (option) {
       var checkbox = option.querySelector('.lf-o-correct');
       if (!checkbox) {
@@ -53,19 +54,6 @@
       }
       syncOption(option);
       checkbox.addEventListener('change', function () {
-        // MCQ allows a single correct answer: clear siblings when one is picked.
-        if (checkbox.checked && typeSelect && typeSelect.value === 'MCQ') {
-          options.forEach(function (other) {
-            if (other === option) {
-              return;
-            }
-            var otherBox = other.querySelector('.lf-o-correct');
-            if (otherBox && otherBox.checked) {
-              otherBox.checked = false;
-              syncOption(other);
-            }
-          });
-        }
         syncOption(option);
       });
     });

@@ -12,8 +12,12 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
- * Department-scoped shared question contribution curated by the department HEAD,
- * independent of any test.
+ * A question-bank item organised by subject (required) + chapter (optional) and
+ * owned by one of two scopes: the HEAD bank ({@code ownerId == null},
+ * department-owned) or a lecturer-private bank ({@code ownerId = user.id}).
+ *
+ * <p>There is no review workflow: items are created {@link #STATUS_ACTIVE} and
+ * only {@link #STATUS_ARCHIVED} hides them from the exam picker.
  */
 @Entity
 @Table(name = "question_bank_items")
@@ -22,10 +26,7 @@ public class QuestionBankItem {
     public static final String TYPE_MCQ = "MCQ";
     public static final String TYPE_MR = "MR";
 
-    public static final String STATUS_DRAFT = "DRAFT";
-    public static final String STATUS_REVIEW = "REVIEW";
-    public static final String STATUS_APPROVED = "APPROVED";
-    public static final String STATUS_REJECTED = "REJECTED";
+    public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_ARCHIVED = "ARCHIVED";
 
     @Id
@@ -35,20 +36,24 @@ public class QuestionBankItem {
     @Column(name = "department_id", nullable = false)
     private Long departmentId;
 
-    @Column(name = "category_id", nullable = false)
-    private Long categoryId;
+    /** Null = HEAD bank item; non-null = lecturer-private bank item. */
+    @Column(name = "owner_id")
+    private Long ownerId;
+
+    @Column(name = "subject_id", nullable = false)
+    private Long subjectId;
+
+    @Column(name = "chapter_id")
+    private Long chapterId;
 
     @Column(name = "contributor_id", nullable = false)
     private Long contributorId;
 
-    @Column(name = "reviewed_by")
-    private Long reviewedBy;
-
     @Column(name = "question_type", nullable = false, length = 20)
     private String questionType;
 
-    @Column(name = "workflow_status", nullable = false, length = 20)
-    private String workflowStatus = STATUS_DRAFT;
+    @Column(nullable = false, length = 20)
+    private String status = STATUS_ACTIVE;
 
     @Column(name = "status_before_archive", length = 20)
     private String statusBeforeArchive;
@@ -59,15 +64,6 @@ public class QuestionBankItem {
     @Column(columnDefinition = "TEXT")
     private String explanation;
 
-    @Column(name = "review_note", columnDefinition = "TEXT")
-    private String reviewNote;
-
-    @Column(name = "approved_at")
-    private LocalDateTime approvedAt;
-
-    @Column(name = "reviewed_at")
-    private LocalDateTime reviewedAt;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -77,14 +73,21 @@ public class QuestionBankItem {
     protected QuestionBankItem() {
     }
 
-    public QuestionBankItem(Long departmentId, Long categoryId, Long contributorId,
-                            String questionType, String workflowStatus,
+    /**
+     * Creates a bank item. {@code ownerId} is {@code null} for the HEAD bank and
+     * the owning lecturer's user id for a private bank; the item is created
+     * {@link #STATUS_ACTIVE}.
+     */
+    public QuestionBankItem(Long departmentId, Long subjectId, Long ownerId, Long chapterId,
+                            Long contributorId, String questionType, String status,
                             String content, String explanation) {
         this.departmentId = departmentId;
-        this.categoryId = categoryId;
+        this.subjectId = subjectId;
+        this.ownerId = ownerId;
+        this.chapterId = chapterId;
         this.contributorId = contributorId;
         this.questionType = questionType;
-        this.workflowStatus = workflowStatus;
+        this.status = status;
         this.content = content;
         this.explanation = explanation;
     }
@@ -101,24 +104,14 @@ public class QuestionBankItem {
         updatedAt = LocalDateTime.now();
     }
 
-    /** Updates author-editable content while keeping department ownership stable. */
-    public void updateAuthoring(Long categoryId, String questionType,
+    /** Updates author-editable content while keeping ownership stable. */
+    public void updateAuthoring(Long subjectId, Long chapterId, String questionType,
                                 String content, String explanation) {
-        this.categoryId = categoryId;
+        this.subjectId = subjectId;
+        this.chapterId = chapterId;
         this.questionType = questionType;
         this.content = content;
         this.explanation = explanation;
-    }
-
-    /** Moves the item into a new workflow state and records the reviewer metadata. */
-    public void transitionWorkflow(String workflowStatus, Long reviewedBy,
-                                   String reviewNote, LocalDateTime reviewedAt,
-                                   LocalDateTime approvedAt) {
-        this.workflowStatus = workflowStatus;
-        this.reviewedBy = reviewedBy;
-        this.reviewNote = reviewNote;
-        this.reviewedAt = reviewedAt;
-        this.approvedAt = approvedAt;
     }
 
     /**
@@ -126,28 +119,23 @@ public class QuestionBankItem {
      * can restore it exactly. Captures {@code statusBeforeArchive} only on the
      * first archive (guards against overwriting it if already ARCHIVED).
      */
-    public void archive(Long reviewedBy, String reviewNote, LocalDateTime reviewedAt) {
-        if (!STATUS_ARCHIVED.equals(this.workflowStatus)) {
-            this.statusBeforeArchive = this.workflowStatus;
+    public void archive() {
+        if (!STATUS_ARCHIVED.equals(this.status)) {
+            this.statusBeforeArchive = this.status;
         }
-        this.workflowStatus = STATUS_ARCHIVED;
-        this.reviewedBy = reviewedBy;
-        this.reviewNote = reviewNote;
-        this.reviewedAt = reviewedAt;
+        this.status = STATUS_ARCHIVED;
     }
 
     /**
      * Restores the item to the status it held before archiving. Falls back to
-     * REVIEW for legacy rows archived before {@code statusBeforeArchive} existed
-     * (NULL). Clears the remembered status and stamps the restoring reviewer.
+     * ACTIVE for legacy rows archived before {@code statusBeforeArchive} existed
+     * (NULL), then clears the remembered status.
      */
-    public void unarchive(Long reviewedBy, LocalDateTime reviewedAt) {
-        this.workflowStatus = this.statusBeforeArchive != null
+    public void unarchive() {
+        this.status = this.statusBeforeArchive != null
                 ? this.statusBeforeArchive
-                : STATUS_REVIEW;
+                : STATUS_ACTIVE;
         this.statusBeforeArchive = null;
-        this.reviewedBy = reviewedBy;
-        this.reviewedAt = reviewedAt;
     }
 
     public Long getId() {
@@ -158,24 +146,28 @@ public class QuestionBankItem {
         return departmentId;
     }
 
-    public Long getCategoryId() {
-        return categoryId;
+    public Long getOwnerId() {
+        return ownerId;
+    }
+
+    public Long getSubjectId() {
+        return subjectId;
+    }
+
+    public Long getChapterId() {
+        return chapterId;
     }
 
     public Long getContributorId() {
         return contributorId;
     }
 
-    public Long getReviewedBy() {
-        return reviewedBy;
-    }
-
     public String getQuestionType() {
         return questionType;
     }
 
-    public String getWorkflowStatus() {
-        return workflowStatus;
+    public String getStatus() {
+        return status;
     }
 
     public String getStatusBeforeArchive() {
@@ -188,18 +180,6 @@ public class QuestionBankItem {
 
     public String getExplanation() {
         return explanation;
-    }
-
-    public String getReviewNote() {
-        return reviewNote;
-    }
-
-    public LocalDateTime getApprovedAt() {
-        return approvedAt;
-    }
-
-    public LocalDateTime getReviewedAt() {
-        return reviewedAt;
     }
 
     public LocalDateTime getCreatedAt() {

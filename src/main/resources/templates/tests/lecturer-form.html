@@ -237,13 +237,13 @@
       <div class="lf-panel-head lf-panel-head-stack">
         <div>
           <h2 class="lf-panel-title">Câu hỏi</h2>
-          <p class="lf-media-hint">Giảng viên trong cùng bộ môn cộng tác câu hỏi vào ngân hàng chung của bộ môn, HEAD duyệt. Phần này chèn snapshot từ các câu đã được duyệt của bộ môn vào bài test.</p>
+          <p class="lf-media-hint">Phần này chèn snapshot từ ngân hàng câu hỏi của môn lớp này vào bài test: câu hoạt động từ ngân hàng bộ môn (HEAD) và từ ngân hàng cá nhân của bạn. Chỉnh sửa câu hỏi trong ngân hàng sau đó không ảnh hưởng tới câu đã chèn.</p>
         </div>
         <div class="lf-panel-actions">
           <!-- Hidden for ADMIN: the bank is department-scoped and admin has no department. -->
           <a th:if="${mode == 'edit'}" sec:authorize="hasAnyRole('LECTURER','HEAD')"
              class="tst-btn" th:href="@{/lecturer/question-bank}">Mở ngân hàng câu hỏi</a>
-          <button type="button" class="tst-btn" id="lfOpenBankPicker" th:if="${mode == 'edit'}">+ Chọn câu đã duyệt</button>
+          <button type="button" class="tst-btn" id="lfOpenBankPicker" th:if="${mode == 'edit'}">+ Chọn câu từ ngân hàng</button>
           <button type="button" class="tst-btn" id="lfOpenAiGen" th:if="${mode == 'edit'}">Sinh câu hỏi bằng AI</button>
           <button type="button" class="tst-btn" id="lfAddQuestion">+ Thêm câu hỏi</button>
         </div>
@@ -252,17 +252,17 @@
       <section class="lf-bank-picker" id="lfBankPicker" hidden>
         <div class="lf-bank-toolbar">
           <input class="lf-input" id="lfBankQuery" type="text"
-                 placeholder="Tìm theo nội dung hoặc danh mục câu hỏi">
-          <select class="lf-input" id="lfBankCategory">
-            <option value="">Tất cả danh mục</option>
-            <option th:each="category : ${examBankCategories}"
-                    th:value="${category.id()}"
-                    th:text="${category.name()}">Danh mục</option>
+                 placeholder="Tìm theo nội dung câu hỏi">
+          <select class="lf-input" id="lfBankChapter">
+            <option value="">Tất cả chương</option>
+            <option th:each="chapter : ${examBankChapters}"
+                    th:value="${chapter.id()}"
+                    th:text="${chapter.name()}">Chương</option>
           </select>
           <button type="button" class="tst-btn" id="lfBankSearch">Tìm</button>
           <button type="button" class="tst-btn" id="lfBankClose">Đóng</button>
         </div>
-        <div class="lf-bank-state" id="lfBankState">Nhập từ khoá hoặc chọn danh mục để tải các câu đã được duyệt của ngân hàng bộ môn.</div>
+        <div class="lf-bank-state" id="lfBankState">Nhập từ khoá hoặc chọn chương để tải câu hỏi hoạt động của môn lớp này từ ngân hàng bộ môn và ngân hàng cá nhân của bạn.</div>
         <div class="lf-bank-results" id="lfBankResults"></div>
       </section>
 

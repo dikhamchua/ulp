@@ -40,9 +40,9 @@ public class QuestionBankImportController {
     private static final Logger log = LoggerFactory.getLogger(QuestionBankImportController.class);
     private static final String XLSX_MIME =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    private static final String TEMPLATE_FILENAME = "mau-import-cau-hoi-cong-tac.xlsx";
+    private static final String TEMPLATE_FILENAME = "mau-import-cau-hoi.xlsx";
     private static final String JSON_KEY_ERROR = "error";
-    private static final String MSG_FORBIDDEN = "Bạn không có quyền import câu hỏi cộng tác cho bộ môn này";
+    private static final String MSG_FORBIDDEN = "Bạn không có quyền import câu hỏi cho bộ môn này";
     private static final String MSG_UNEXPECTED = "Có lỗi không mong muốn khi xử lý file import";
 
     private final QuestionBankImportService importService;
@@ -63,7 +63,7 @@ public class QuestionBankImportController {
             headers.setContentDispositionFormData("attachment", TEMPLATE_FILENAME);
             return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
         } catch (IOException ex) {
-            log.error("Failed to generate collaborative question import template", ex);
+            log.error("Failed to generate question bank import template", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -81,7 +81,7 @@ public class QuestionBankImportController {
         } catch (AccessDeniedException ex) {
             return forbidden();
         } catch (RuntimeException ex) {
-            log.error("Unexpected failure while previewing collaborative question import", ex);
+            log.error("Unexpected failure while previewing question bank import", ex);
             return internalError();
         }
     }
@@ -98,7 +98,7 @@ public class QuestionBankImportController {
         } catch (AccessDeniedException ex) {
             return forbidden();
         } catch (RuntimeException ex) {
-            log.error("Unexpected failure while confirming collaborative question import", ex);
+            log.error("Unexpected failure while confirming question bank import", ex);
             return internalError();
         }
     }

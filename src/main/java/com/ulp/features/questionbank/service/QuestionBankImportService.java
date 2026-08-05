@@ -4,7 +4,6 @@ import com.ulp.entities.User;
 import com.ulp.features.auth.repository.UserRepository;
 import com.ulp.features.questionbank.dto.QuestionBankImportDtos.ConfirmResult;
 import com.ulp.features.questionbank.dto.QuestionBankImportDtos.PreviewRow;
-import com.ulp.features.questionbank.entity.QuestionBankCategory;
 import com.ulp.features.questionbank.entity.QuestionBankItem;
 import com.ulp.features.questionbank.entity.QuestionBankOption;
 import com.ulp.features.questionbank.imports.QuestionBankImportParser;
@@ -14,9 +13,12 @@ import com.ulp.features.questionbank.imports.QuestionBankImportSession;
 import com.ulp.features.questionbank.imports.QuestionBankImportSession.ImportedItem;
 import com.ulp.features.questionbank.imports.QuestionBankImportSession.ImportedOption;
 import com.ulp.features.questionbank.imports.QuestionBankImportSessionStore;
-import com.ulp.features.questionbank.repository.QuestionBankCategoryRepository;
 import com.ulp.features.questionbank.repository.QuestionBankItemRepository;
 import com.ulp.features.questionbank.repository.QuestionBankOptionRepository;
+import com.ulp.features.subjects.entity.Subject;
+import com.ulp.features.subjects.entity.SubjectChapter;
+import com.ulp.features.subjects.repository.SubjectChapterRepository;
+import com.ulp.features.subjects.repository.SubjectRepository;
 import com.ulp.security.Role;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -34,39 +37,46 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Two-step preview and confirm flow for department-scoped Excel imports. */
+/**
+ * Two-step preview and confirm flow for Excel imports into the question bank.
+ * LECTURER imports land in the actor's own private bank; HEAD/ADMIN imports land
+ * in the HEAD bank of the resolved department. Imported items are always ACTIVE.
+ */
 @Service
 public class QuestionBankImportService {
 
-    private static final String MSG_FORBIDDEN = "Bạn không có quyền import câu hỏi cộng tác cho bộ môn này";
+    private static final String MSG_FORBIDDEN = "Bạn không có quyền import câu hỏi cho bộ môn này";
     private static final String MSG_SESSION_EXPIRED =
             "Phiên import đã hết hạn hoặc không tồn tại. Vui lòng tải file lên lại";
     private static final String MSG_BLOCKING_ERRORS =
             "Bản xem trước còn lỗi chặn nên chưa thể xác nhận import";
     private static final String MSG_EMPTY_DEPARTMENT =
-            "Bạn chưa được gán bộ môn để import câu hỏi cộng tác";
+            "Bạn chưa được gán bộ môn để import câu hỏi";
     private static final int MAX_PREVIEW_LENGTH = 80;
 
     private final UserRepository userRepository;
     private final QuestionBankAccessPolicy accessPolicy;
-    private final QuestionBankCategoryRepository categoryRepository;
     private final QuestionBankItemRepository itemRepository;
     private final QuestionBankOptionRepository optionRepository;
+    private final SubjectRepository subjectRepository;
+    private final SubjectChapterRepository chapterRepository;
     private final QuestionBankImportParser importParser;
     private final QuestionBankImportSessionStore sessionStore;
 
     public QuestionBankImportService(UserRepository userRepository,
                                      QuestionBankAccessPolicy accessPolicy,
-                                     QuestionBankCategoryRepository categoryRepository,
                                      QuestionBankItemRepository itemRepository,
                                      QuestionBankOptionRepository optionRepository,
+                                     SubjectRepository subjectRepository,
+                                     SubjectChapterRepository chapterRepository,
                                      QuestionBankImportParser importParser,
                                      QuestionBankImportSessionStore sessionStore) {
         this.userRepository = userRepository;
         this.accessPolicy = accessPolicy;
-        this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
+        this.subjectRepository = subjectRepository;
+        this.chapterRepository = chapterRepository;
         this.importParser = importParser;
         this.sessionStore = sessionStore;
     }
@@ -75,14 +85,14 @@ public class QuestionBankImportService {
     public QuestionBankImportSession previewUpload(Long userId, Role role, MultipartFile file) {
         User actor = requireActor(userId, role);
         Long departmentId = requireDepartment(actor);
-        Map<String, QuestionBankCategory> categories = activeCategoriesByName(departmentId);
-        String workflowStatus = importedWorkflowStatus(actor);
+        Map<String, Subject> subjectsByCode = subjectsByCode(departmentId);
+        Map<Long, Map<String, SubjectChapter>> chaptersBySubjectId = new HashMap<>();
         ParsedFile parsed = importParser.parse(file);
 
         List<ImportedItem> acceptedItems = new ArrayList<>();
         List<PreviewRow> previewRows = new ArrayList<>();
         for (RawRow raw : parsed.rows()) {
-            ValidationResult result = validateRow(raw, categories);
+            ValidationResult result = validateRow(raw, subjectsByCode, chaptersBySubjectId);
             previewRows.add(result.previewRow());
             if (!result.blocking()) {
                 acceptedItems.add(result.item());
@@ -95,7 +105,6 @@ public class QuestionBankImportService {
                 departmentId,
                 Instant.now(),
                 parsed.fileName(),
-                workflowStatus,
                 acceptedItems,
                 previewRows);
         sessionStore.save(session);
@@ -115,14 +124,17 @@ public class QuestionBankImportService {
             throw new QuestionBankValidationException(MSG_BLOCKING_ERRORS);
         }
 
+        Long ownerId = role == Role.LECTURER ? actor.getId() : null;
         List<Long> itemIds = new ArrayList<>();
         for (ImportedItem importedItem : session.getItems()) {
             QuestionBankItem item = itemRepository.save(new QuestionBankItem(
                     departmentId,
-                    importedItem.categoryId(),
+                    importedItem.subjectId(),
+                    ownerId,
+                    importedItem.chapterId(),
                     actor.getId(),
                     importedItem.questionType(),
-                    session.getWorkflowStatus(),
+                    QuestionBankItem.STATUS_ACTIVE,
                     importedItem.contentHtml(),
                     importedItem.explanationHtml()));
             int order = 1;
@@ -133,14 +145,28 @@ public class QuestionBankImportService {
             itemIds.add(item.getId());
         }
         sessionStore.delete(sessionId);
-        return new ConfirmResult(itemIds.size(), session.toPreview().totalRows(), session.getWorkflowStatus(), itemIds);
+        return new ConfirmResult(itemIds.size(), session.toPreview().totalRows(),
+                QuestionBankItem.STATUS_ACTIVE, itemIds);
     }
 
-    private ValidationResult validateRow(RawRow raw, Map<String, QuestionBankCategory> categories) {
+    private ValidationResult validateRow(RawRow raw, Map<String, Subject> subjectsByCode,
+                                         Map<Long, Map<String, SubjectChapter>> chaptersBySubjectId) {
         List<String> messages = new ArrayList<>();
-        QuestionBankCategory category = categories.get(normalizeKey(raw.categoryName()));
-        if (category == null) {
-            messages.add("Danh mục không tồn tại hoặc đang bị ẩn");
+        Subject subject = subjectsByCode.get(normalizeKey(raw.subjectCode()));
+        if (subject == null) {
+            messages.add("Mã môn học không tồn tại trong bộ môn");
+        } else if (!subject.isActive()) {
+            messages.add("Môn học đang bị ẩn, không thể import vào");
+        }
+
+        SubjectChapter chapter = null;
+        if (subject != null && raw.chapterName() != null && !raw.chapterName().isBlank()) {
+            chapter = chaptersBySubjectId
+                    .computeIfAbsent(subject.getId(), this::chaptersBySubject)
+                    .get(normalizeKey(raw.chapterName()));
+            if (chapter == null) {
+                messages.add("Chương không thuộc môn học đã khai");
+            }
         }
 
         String questionType = normalizeQuestionType(raw.questionType());
@@ -200,7 +226,8 @@ public class QuestionBankImportService {
         String message = blocking ? String.join("; ", messages) : "Sẵn sàng import";
         PreviewRow previewRow = new PreviewRow(
                 raw.rowNumber(),
-                raw.categoryName(),
+                blankToDash(raw.subjectCode()),
+                blankToDash(raw.chapterName()),
                 questionType == null ? blankToDash(raw.questionType()) : questionType,
                 preview(raw.content()),
                 blocking ? "ERROR" : "READY",
@@ -209,7 +236,8 @@ public class QuestionBankImportService {
                 correctCount,
                 blocking);
         ImportedItem item = blocking ? null : new ImportedItem(
-                category.getId(),
+                subject.getId(),
+                chapter == null ? null : chapter.getId(),
                 questionType,
                 contentHtml,
                 explanationHtml,
@@ -217,12 +245,20 @@ public class QuestionBankImportService {
         return new ValidationResult(previewRow, item, blocking);
     }
 
-    private Map<String, QuestionBankCategory> activeCategoriesByName(Long departmentId) {
-        Map<String, QuestionBankCategory> categories = new LinkedHashMap<>();
-        for (QuestionBankCategory category : categoryRepository.findByDepartmentIdAndActiveTrueOrderByNameAsc(departmentId)) {
-            categories.put(normalizeKey(category.getName()), category);
+    private Map<String, Subject> subjectsByCode(Long departmentId) {
+        Map<String, Subject> map = new LinkedHashMap<>();
+        for (Subject subject : subjectRepository.findAllByDepartmentIdOrderByCodeAsc(departmentId)) {
+            map.putIfAbsent(normalizeKey(subject.getCode()), subject);
         }
-        return categories;
+        return map;
+    }
+
+    private Map<String, SubjectChapter> chaptersBySubject(Long subjectId) {
+        Map<String, SubjectChapter> map = new LinkedHashMap<>();
+        for (SubjectChapter chapter : chapterRepository.findBySubjectIdOrderByDisplayOrderAsc(subjectId)) {
+            map.putIfAbsent(normalizeKey(chapter.getTitle()), chapter);
+        }
+        return map;
     }
 
     private User requireActor(Long userId, Role role) {
@@ -239,16 +275,10 @@ public class QuestionBankImportService {
 
     private Long requireDepartment(User actor) {
         Long departmentId = accessPolicy.resolveDepartmentId(actor);
-        if (departmentId == null || !accessPolicy.canAccessDepartment(actor, departmentId)) {
+        if (departmentId == null || !accessPolicy.canReadHeadBank(actor, departmentId)) {
             throw new QuestionBankValidationException(MSG_EMPTY_DEPARTMENT);
         }
         return departmentId;
-    }
-
-    private static String importedWorkflowStatus(User actor) {
-        return actor.getRole() == Role.LECTURER
-                ? QuestionBankItem.STATUS_REVIEW
-                : QuestionBankItem.STATUS_APPROVED;
     }
 
     private static String normalizeQuestionType(String value) {

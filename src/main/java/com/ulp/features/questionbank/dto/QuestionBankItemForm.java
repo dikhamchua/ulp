@@ -8,16 +8,16 @@ import jakarta.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Form-backing DTO for SSR question bank authoring. */
+/** Form-backing DTO for SSR question bank authoring (subject + optional chapter). */
 public class QuestionBankItemForm {
 
     private Long id;
 
-    @NotNull(message = "Vui lòng chọn danh mục")
-    private Long categoryId;
+    @NotNull(message = "Vui lòng chọn môn học")
+    private Long subjectId;
 
-    @NotBlank(message = "Loại câu hỏi không hợp lệ")
-    private String questionType = "MCQ";
+    /** Optional; validated server-side to belong to the item's subject. */
+    private Long chapterId;
 
     @NotBlank(message = "Nội dung câu hỏi không được để trống")
     private String content;
@@ -27,8 +27,6 @@ public class QuestionBankItemForm {
 
     @Valid
     private List<OptionField> options = new ArrayList<>();
-
-    private String workflowAction = "DRAFT";
 
     public static QuestionBankItemForm empty() {
         QuestionBankItemForm form = new QuestionBankItemForm();
@@ -52,20 +50,20 @@ public class QuestionBankItemForm {
         this.id = id;
     }
 
-    public Long getCategoryId() {
-        return categoryId;
+    public Long getSubjectId() {
+        return subjectId;
     }
 
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
+    public void setSubjectId(Long subjectId) {
+        this.subjectId = subjectId;
     }
 
-    public String getQuestionType() {
-        return questionType;
+    public Long getChapterId() {
+        return chapterId;
     }
 
-    public void setQuestionType(String questionType) {
-        this.questionType = questionType;
+    public void setChapterId(Long chapterId) {
+        this.chapterId = chapterId;
     }
 
     public String getContent() {
@@ -90,14 +88,6 @@ public class QuestionBankItemForm {
 
     public void setOptions(List<OptionField> options) {
         this.options = options == null ? new ArrayList<>() : options;
-    }
-
-    public String getWorkflowAction() {
-        return workflowAction;
-    }
-
-    public void setWorkflowAction(String workflowAction) {
-        this.workflowAction = workflowAction;
     }
 
     /** One editable option row in the SSR form. */

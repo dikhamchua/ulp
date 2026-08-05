@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Parses an uploaded Excel file into raw question-bank import rows. */
+/** Parses an uploaded Excel file into raw question-bank import rows (subject + chapter). */
 @Component
 public class QuestionBankImportParser {
 
@@ -34,7 +34,8 @@ public class QuestionBankImportParser {
             (byte) 0xD0, (byte) 0xCF, (byte) 0x11, (byte) 0xE0,
             (byte) 0xA1, (byte) 0xB1, (byte) 0x1A, (byte) 0xE1};
 
-    private static final String COL_CATEGORY = "category";
+    private static final String COL_SUBJECT = "subject";
+    private static final String COL_CHAPTER = "chapter";
     private static final String COL_TYPE = "questionType";
     private static final String COL_CONTENT = "content";
     private static final String COL_EXPLANATION = "explanation";
@@ -50,7 +51,8 @@ public class QuestionBankImportParser {
     }
 
     public record RawRow(int rowNumber,
-                         String categoryName,
+                         String subjectCode,
+                         String chapterName,
                          String questionType,
                          String content,
                          String explanation,
@@ -109,12 +111,12 @@ public class QuestionBankImportParser {
                 }
             }
         }
-        if (!headerByIndex.containsValue(COL_CATEGORY)
+        if (!headerByIndex.containsValue(COL_SUBJECT)
                 || !headerByIndex.containsValue(COL_TYPE)
                 || !headerByIndex.containsValue(COL_CONTENT)
                 || !headerByIndex.containsValue(COL_CORRECT)) {
             throw new QuestionBankValidationException(
-                    "File mẫu phải có đủ cột Danh mục, Loại câu hỏi, Nội dung câu hỏi và Đáp án đúng");
+                    "File mẫu phải có đủ cột Mã môn học, Loại câu hỏi, Nội dung câu hỏi và Đáp án đúng");
         }
 
         List<RawRow> rows = new ArrayList<>();
@@ -123,7 +125,8 @@ public class QuestionBankImportParser {
             if (row == null) {
                 continue;
             }
-            String category = "";
+            String subjectCode = "";
+            String chapterName = "";
             String type = "";
             String content = "";
             String explanation = "";
@@ -138,7 +141,8 @@ public class QuestionBankImportParser {
                 String value = cellValue(formatter, row.getCell(c));
                 anyValue = anyValue || !value.isEmpty();
                 switch (canonical) {
-                    case COL_CATEGORY -> category = value;
+                    case COL_SUBJECT -> subjectCode = value;
+                    case COL_CHAPTER -> chapterName = value;
                     case COL_TYPE -> type = value;
                     case COL_CONTENT -> content = value;
                     case COL_EXPLANATION -> explanation = value;
@@ -160,7 +164,7 @@ public class QuestionBankImportParser {
             while (optionValues.size() < optionLabels.size()) {
                 optionValues.add("");
             }
-            rows.add(new RawRow(r + 1, category, type, content, explanation, optionValues, correctAnswers));
+            rows.add(new RawRow(r + 1, subjectCode, chapterName, type, content, explanation, optionValues, correctAnswers));
         }
         return new ParsedFile(fileName, rows);
     }
@@ -192,8 +196,13 @@ public class QuestionBankImportParser {
 
     private static Map<String, String> buildAliases() {
         Map<String, String> map = new HashMap<>();
-        map.put("danh muc", COL_CATEGORY);
-        map.put("category", COL_CATEGORY);
+        map.put("ma mon hoc", COL_SUBJECT);
+        map.put("mon hoc", COL_SUBJECT);
+        map.put("subject", COL_SUBJECT);
+        map.put("subject code", COL_SUBJECT);
+        map.put("chuong", COL_CHAPTER);
+        map.put("chuong tuy chon", COL_CHAPTER);
+        map.put("chapter", COL_CHAPTER);
         map.put("loai cau hoi", COL_TYPE);
         map.put("question type", COL_TYPE);
         map.put("noi dung cau hoi", COL_CONTENT);

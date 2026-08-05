@@ -48,21 +48,26 @@ public final class LecturerTestDtos {
                            List<QuestionForm> questions, boolean questionBankLocked) {
     }
 
-    /** One active department category shown in the exam-side bank picker. */
-    public record BankCategoryOption(Long id, String name) {
+    /** One chapter of the class subject shown in the exam-side bank picker. */
+    public record BankChapterOption(Long id, String name) {
     }
 
-    /** One option copied from an approved bank item. */
+    /** One option copied from an ACTIVE bank item. */
     public record BankOptionSnapshot(String content, boolean correct) {
     }
 
-    /** Snapshot payload returned by the approved bank picker query. */
-    public record BankItemSnapshot(Long id, String categoryName, String questionType,
-                                   String content, String explanation,
+    /**
+     * Snapshot payload returned by the bank picker query.
+     *
+     * @param source one of {@code HEAD_BANK} (department-owned, ownerId null) or
+     *               {@code LECTURER_BANK} (the author's own private bank)
+     */
+    public record BankItemSnapshot(Long id, String source, String subjectLabel,
+                                   String questionType, String content, String explanation,
                                    List<BankOptionSnapshot> options) {
     }
 
-    /** Chosen approved bank item ids to snapshot into a test (insert-from-bank). */
+    /** Chosen ACTIVE bank item ids to snapshot into a test (insert-from-bank). */
     public record BankInsertRequest(List<Long> itemIds) {
     }
 

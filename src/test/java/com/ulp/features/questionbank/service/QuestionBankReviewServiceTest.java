@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** Unit tests for HEAD review transitions on the department-scoped shared bank. */
+/** Unit tests for archive/unarchive across both bank scopes (owner vs HEAD). */
 class QuestionBankReviewServiceTest {
 
     private final UserRepository userRepository = mock(UserRepository.class);
@@ -32,180 +32,154 @@ class QuestionBankReviewServiceTest {
             userRepository, accessPolicy, itemRepository);
 
     @Test
-    void lecturer_cannot_approve_question() {
+    void lecturer_can_archive_own_private_item() {
         User lecturer = user(Role.LECTURER, 20L, 5L);
+        QuestionBankItem item = item(5L, 1L, lecturer.getId(), 10L, QuestionBankItem.STATUS_ACTIVE);
         when(userRepository.findById(20L)).thenReturn(Optional.of(lecturer));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
 
-        assertThatThrownBy(() -> service.approve(20L, 1L))
+        service.archive(20L, 10L);
+
+        assertThat(item.getStatus()).isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
+        assertThat(item.getStatusBeforeArchive()).isEqualTo(QuestionBankItem.STATUS_ACTIVE);
+    }
+
+    @Test
+    void lecturer_cannot_archive_another_lecturers_item() {
+        User lecturer = user(Role.LECTURER, 20L, 5L);
+        QuestionBankItem item = item(5L, 1L, 21L, 10L, QuestionBankItem.STATUS_ACTIVE);
+        when(userRepository.findById(20L)).thenReturn(Optional.of(lecturer));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
+
+        assertThatThrownBy(() -> service.archive(20L, 10L))
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
     }
 
     @Test
-    void head_can_approve_review_item_in_own_department() {
+    void head_can_archive_head_bank_item_in_own_department() {
         User head = user(Role.HEAD, 30L, 99L);
         Department department = department(5L, head.getId());
-        QuestionBankItem item = new QuestionBankItem(5L, 1L, 20L,
-                QuestionBankItem.TYPE_MCQ, QuestionBankItem.STATUS_REVIEW,
-                "<p>Question</p>", null);
-        setId(item, 10L);
-
+        QuestionBankItem item = item(5L, 1L, null, 10L, QuestionBankItem.STATUS_ACTIVE);
         when(userRepository.findById(30L)).thenReturn(Optional.of(head));
         when(resolver.resolve(head.getId())).thenReturn(Optional.of(department));
-        when(itemRepository.findByIdAndDepartmentId(10L, 5L)).thenReturn(Optional.of(item));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
 
-        service.approve(30L, 10L);
+        service.archive(30L, 10L);
 
-        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_APPROVED);
-        assertThat(item.getReviewedBy()).isEqualTo(30L);
-        assertThat(item.getApprovedAt()).isNotNull();
+        assertThat(item.getStatus()).isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
     }
 
     @Test
-    void bulk_approve_counts_transitioned_and_skips_invalid() {
+    void head_cannot_archive_a_lecturers_private_item() {
         User head = user(Role.HEAD, 30L, 99L);
         Department department = department(5L, head.getId());
-        // Item 10 is in REVIEW → approvable; item 11 is APPROVED → skipped.
-        QuestionBankItem reviewItem = item(5L, QuestionBankItem.STATUS_REVIEW, 10L);
-        QuestionBankItem approvedItem = item(5L, QuestionBankItem.STATUS_APPROVED, 11L);
-
+        QuestionBankItem item = item(5L, 1L, 20L, 10L, QuestionBankItem.STATUS_ACTIVE);
         when(userRepository.findById(30L)).thenReturn(Optional.of(head));
         when(resolver.resolve(head.getId())).thenReturn(Optional.of(department));
-        when(itemRepository.findByIdAndDepartmentId(10L, 5L)).thenReturn(Optional.of(reviewItem));
-        when(itemRepository.findByIdAndDepartmentId(11L, 5L)).thenReturn(Optional.of(approvedItem));
-        // Item 12 does not exist in the department → skipped.
-        when(itemRepository.findByIdAndDepartmentId(12L, 5L)).thenReturn(Optional.empty());
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
 
-        BulkResult result = service.approveAll(30L, List.of(10L, 11L, 12L));
-
-        assertThat(result.succeeded()).isEqualTo(1);
-        assertThat(result.skipped()).isEqualTo(2);
-        assertThat(reviewItem.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_APPROVED);
-        assertThat(approvedItem.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_APPROVED);
+        assertThatThrownBy(() -> service.archive(30L, 10L))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
     }
 
     @Test
-    void bulk_reject_requires_review_state() {
+    void archive_requires_active_state() {
         User head = user(Role.HEAD, 30L, 99L);
         Department department = department(5L, head.getId());
-        QuestionBankItem reviewItem = item(5L, QuestionBankItem.STATUS_REVIEW, 10L);
-        QuestionBankItem archivedItem = item(5L, QuestionBankItem.STATUS_ARCHIVED, 11L);
-
+        QuestionBankItem item = item(5L, 1L, null, 10L, QuestionBankItem.STATUS_ARCHIVED);
         when(userRepository.findById(30L)).thenReturn(Optional.of(head));
         when(resolver.resolve(head.getId())).thenReturn(Optional.of(department));
-        when(itemRepository.findByIdAndDepartmentId(10L, 5L)).thenReturn(Optional.of(reviewItem));
-        when(itemRepository.findByIdAndDepartmentId(11L, 5L)).thenReturn(Optional.of(archivedItem));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
 
-        BulkResult result = service.rejectAll(30L, List.of(10L, 11L), "note");
-
-        assertThat(result.succeeded()).isEqualTo(1);
-        assertThat(result.skipped()).isEqualTo(1);
-        assertThat(reviewItem.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REJECTED);
-    }
-
-    @Test
-    void bulk_archive_skips_already_archived() {
-        User head = user(Role.HEAD, 30L, 99L);
-        Department department = department(5L, head.getId());
-        QuestionBankItem approvedItem = item(5L, QuestionBankItem.STATUS_APPROVED, 10L);
-        QuestionBankItem archivedItem = item(5L, QuestionBankItem.STATUS_ARCHIVED, 11L);
-
-        when(userRepository.findById(30L)).thenReturn(Optional.of(head));
-        when(resolver.resolve(head.getId())).thenReturn(Optional.of(department));
-        when(itemRepository.findByIdAndDepartmentId(10L, 5L)).thenReturn(Optional.of(approvedItem));
-        when(itemRepository.findByIdAndDepartmentId(11L, 5L)).thenReturn(Optional.of(archivedItem));
-
-        BulkResult result = service.archiveAll(30L, List.of(10L, 11L), null);
-
-        assertThat(result.succeeded()).isEqualTo(1);
-        assertThat(result.skipped()).isEqualTo(1);
-        assertThat(approvedItem.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
-    }
-
-    @Test
-    void unarchive_restores_status_before_archive() {
-        User head = user(Role.HEAD, 30L, 99L);
-        Department department = department(5L, head.getId());
-        // Archive an APPROVED item, then unarchive: it must return to APPROVED.
-        QuestionBankItem item = item(5L, QuestionBankItem.STATUS_APPROVED, 10L);
-
-        when(userRepository.findById(30L)).thenReturn(Optional.of(head));
-        when(resolver.resolve(head.getId())).thenReturn(Optional.of(department));
-        when(itemRepository.findByIdAndDepartmentId(10L, 5L)).thenReturn(Optional.of(item));
-
-        service.archive(30L, 10L, null);
-        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
-
-        service.unarchive(30L, 10L);
-
-        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_APPROVED);
-        assertThat(item.getStatusBeforeArchive()).isNull();
-        assertThat(item.getReviewedBy()).isEqualTo(30L);
-    }
-
-    @Test
-    void unarchive_requires_archived_state() {
-        User head = user(Role.HEAD, 30L, 99L);
-        Department department = department(5L, head.getId());
-        QuestionBankItem approvedItem = item(5L, QuestionBankItem.STATUS_APPROVED, 10L);
-
-        when(userRepository.findById(30L)).thenReturn(Optional.of(head));
-        when(resolver.resolve(head.getId())).thenReturn(Optional.of(department));
-        when(itemRepository.findByIdAndDepartmentId(10L, 5L)).thenReturn(Optional.of(approvedItem));
-
-        assertThatThrownBy(() -> service.unarchive(30L, 10L))
+        assertThatThrownBy(() -> service.archive(30L, 10L))
                 .isInstanceOf(QuestionBankValidationException.class);
     }
 
     @Test
-    void unarchive_legacy_null_falls_back_to_review() {
-        User head = user(Role.HEAD, 30L, 99L);
-        Department department = department(5L, head.getId());
-        // Legacy row archived before status_before_archive existed: NULL remembered status.
-        QuestionBankItem item = item(5L, QuestionBankItem.STATUS_ARCHIVED, 10L);
+    void unarchive_restores_prior_active_status() {
+        User lecturer = user(Role.LECTURER, 20L, 5L);
+        QuestionBankItem item = item(5L, 1L, lecturer.getId(), 10L, QuestionBankItem.STATUS_ARCHIVED);
+        item.archive(); // remembers ACTIVE in statusBeforeArchive
+        when(userRepository.findById(20L)).thenReturn(Optional.of(lecturer));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
 
-        when(userRepository.findById(30L)).thenReturn(Optional.of(head));
-        when(resolver.resolve(head.getId())).thenReturn(Optional.of(department));
-        when(itemRepository.findByIdAndDepartmentId(10L, 5L)).thenReturn(Optional.of(item));
+        service.unarchive(20L, 10L);
 
-        service.unarchive(30L, 10L);
-
-        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REVIEW);
+        assertThat(item.getStatus()).isEqualTo(QuestionBankItem.STATUS_ACTIVE);
         assertThat(item.getStatusBeforeArchive()).isNull();
     }
 
     @Test
-    void bulk_unarchive_counts_restored_and_skips_non_archived() {
-        User head = user(Role.HEAD, 30L, 99L);
-        Department department = department(5L, head.getId());
-        // Archive item 10 first (remembers APPROVED); item 11 is APPROVED → skipped.
-        QuestionBankItem archivable = item(5L, QuestionBankItem.STATUS_APPROVED, 10L);
-        QuestionBankItem approvedItem = item(5L, QuestionBankItem.STATUS_APPROVED, 11L);
+    void unarchive_legacy_null_status_before_archive_falls_back_to_active() {
+        User lecturer = user(Role.LECTURER, 20L, 5L);
+        // Legacy row archived before status_before_archive existed: NULL remembered status.
+        QuestionBankItem item = item(5L, 1L, lecturer.getId(), 10L, QuestionBankItem.STATUS_ARCHIVED);
+        when(userRepository.findById(20L)).thenReturn(Optional.of(lecturer));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
 
-        when(userRepository.findById(30L)).thenReturn(Optional.of(head));
-        when(resolver.resolve(head.getId())).thenReturn(Optional.of(department));
-        when(itemRepository.findByIdAndDepartmentId(10L, 5L)).thenReturn(Optional.of(archivable));
-        when(itemRepository.findByIdAndDepartmentId(11L, 5L)).thenReturn(Optional.of(approvedItem));
+        service.unarchive(20L, 10L);
 
-        service.archive(30L, 10L, null);
+        assertThat(item.getStatus()).isEqualTo(QuestionBankItem.STATUS_ACTIVE);
+        assertThat(item.getStatusBeforeArchive()).isNull();
+    }
 
-        BulkResult result = service.unarchiveAll(30L, List.of(10L, 11L));
+    @Test
+    void unarchive_requires_archived_state() {
+        User lecturer = user(Role.LECTURER, 20L, 5L);
+        QuestionBankItem item = item(5L, 1L, lecturer.getId(), 10L, QuestionBankItem.STATUS_ACTIVE);
+        when(userRepository.findById(20L)).thenReturn(Optional.of(lecturer));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
+
+        assertThatThrownBy(() -> service.unarchive(20L, 10L))
+                .isInstanceOf(QuestionBankValidationException.class);
+    }
+
+    @Test
+    void bulk_archive_counts_transitioned_and_skips_invalid() {
+        User lecturer = user(Role.LECTURER, 20L, 5L);
+        QuestionBankItem active = item(5L, 1L, lecturer.getId(), 10L, QuestionBankItem.STATUS_ACTIVE);
+        QuestionBankItem archived = item(5L, 1L, lecturer.getId(), 11L, QuestionBankItem.STATUS_ARCHIVED);
+        when(userRepository.findById(20L)).thenReturn(Optional.of(lecturer));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(active));
+        when(itemRepository.findById(11L)).thenReturn(Optional.of(archived));
+        // Item 12 does not exist → skipped.
+        when(itemRepository.findById(12L)).thenReturn(Optional.empty());
+
+        BulkResult result = service.archiveAll(20L, List.of(10L, 11L, 12L));
+
+        assertThat(result.succeeded()).isEqualTo(1);
+        assertThat(result.skipped()).isEqualTo(2);
+        assertThat(active.getStatus()).isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
+    }
+
+    @Test
+    void bulk_unarchive_restores_active_and_skips_non_archived() {
+        User lecturer = user(Role.LECTURER, 20L, 5L);
+        QuestionBankItem archivable = item(5L, 1L, lecturer.getId(), 10L, QuestionBankItem.STATUS_ACTIVE);
+        QuestionBankItem active = item(5L, 1L, lecturer.getId(), 11L, QuestionBankItem.STATUS_ACTIVE);
+        when(userRepository.findById(20L)).thenReturn(Optional.of(lecturer));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(archivable));
+        when(itemRepository.findById(11L)).thenReturn(Optional.of(active));
+
+        service.archive(20L, 10L); // remembers ACTIVE
+        BulkResult result = service.unarchiveAll(20L, List.of(10L, 11L));
 
         assertThat(result.succeeded()).isEqualTo(1);
         assertThat(result.skipped()).isEqualTo(1);
-        assertThat(archivable.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_APPROVED);
+        assertThat(archivable.getStatus()).isEqualTo(QuestionBankItem.STATUS_ACTIVE);
     }
 
     @Test
     void bulk_empty_selection_returns_zero() {
-        // No repository/user interaction expected: dedupe short-circuits an empty list.
-        BulkResult result = service.approveAll(30L, List.of());
-
+        BulkResult result = service.archiveAll(30L, List.of());
         assertThat(result.succeeded()).isZero();
         assertThat(result.skipped()).isZero();
     }
 
-    private static QuestionBankItem item(Long departmentId, String status, Long id) {
-        QuestionBankItem item = new QuestionBankItem(departmentId, 1L, 20L,
+    private static QuestionBankItem item(Long departmentId, Long subjectId, Long ownerId,
+                                         Long id, String status) {
+        QuestionBankItem item = new QuestionBankItem(
+                departmentId, subjectId, ownerId, null, 20L,
                 QuestionBankItem.TYPE_MCQ, status, "<p>Question</p>", null);
         setId(item, id);
         return item;
