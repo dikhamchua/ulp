@@ -136,9 +136,11 @@ class HeadQuestionBankMasterDetailIntegrationTest {
     @Test
     @WithUserDetails("head@ulp.edu.vn")
     void create_rejects_inactive_subject_without_writing() throws Exception {
-        Subject inactive = subjectRepository.findAllByDepartmentIdOrderByCodeAsc(cntt.getId()).stream()
-                .filter(s -> !s.isActive())
-                .findFirst().orElseThrow();
+        // Owns its fixture instead of borrowing whichever seeded subject happens
+        // to be inactive: V50 retired the UNASSIGNED placeholder that used to be
+        // the only one, and @SQLRestriction hides it from JPA entirely.
+        Subject inactive = subjectRepository.save(new Subject(cntt.getId(), "CNTT901",
+                "Môn ngừng hoạt động", "Inactive subject fixture", false, head.getId()));
         long before = itemRepository.count();
 
         mockMvc.perform(post("/head/question-bank")

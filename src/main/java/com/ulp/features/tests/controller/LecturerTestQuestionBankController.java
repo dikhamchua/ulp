@@ -53,7 +53,7 @@ public class LecturerTestQuestionBankController {
                                     @AuthenticationPrincipal UlpUserDetails user) {
         try {
             return ResponseEntity.ok(AjaxResult.success(
-                    pickerService.searchActive(user.getId(), user.getRole(), testId, chapterId, q)));
+                    pickerService.searchActiveWithScope(user.getId(), user.getRole(), testId, chapterId, q)));
         } catch (AccessDeniedException ex) {
             return forbidden();
         }

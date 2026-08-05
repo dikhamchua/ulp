@@ -79,6 +79,17 @@ public class TestAccessResolver {
         throw new AccessDeniedException(NF_MSG);
     }
 
+    /**
+     * Throws unless the user may author exams for this class. Create mode has no
+     * {@link Test} row yet, so authoring is authorized against the class instead
+     * of the exam. ADMIN leads no class and therefore gets 403, not 500.
+     */
+    public void requireClassAuthoring(Long userId, Long classId) {
+        if (!leadsClass(userId, classId)) {
+            throw new AccessDeniedException(NF_MSG);
+        }
+    }
+
     /** Returns the caller's own attempt; otherwise 404 (never leaks another user's). */
     public TestAttempt requireOwnAttempt(Long attemptId, Long userId) {
         return attemptRepository.findByIdAndUserId(attemptId, userId)
@@ -115,7 +126,8 @@ public class TestAccessResolver {
                 .orElse(false);
     }
 
-    private boolean leadsClass(Long userId, Long classId) {
+    /** True when the user leads this class, i.e. may author exams for it. */
+    public boolean leadsClass(Long userId, Long classId) {
         if (classId == null) return false;
         return classRepository.findById(classId)
                 .map(ClassEntity::getLecturerId)

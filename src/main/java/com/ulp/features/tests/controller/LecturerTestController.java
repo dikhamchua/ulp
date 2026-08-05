@@ -189,6 +189,9 @@ public class LecturerTestController {
         model.addAttribute(ATTR_EXAM_FORM, null);
         model.addAttribute(ATTR_LED_CLASSES, ledClasses);
         model.addAttribute(ATTR_CLASS_ID, preselectableClassId(classId, ledClasses));
+        // Empty on purpose: chapters depend on the class, which the author has not
+        // chosen yet. The client refetches them per selected class from
+        // /lecturer/classes/{classId}/question-bank/chapters.
         model.addAttribute(ATTR_EXAM_BANK_CHAPTERS, java.util.List.of());
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         return VIEW_TEST_LECTURER_FORM;

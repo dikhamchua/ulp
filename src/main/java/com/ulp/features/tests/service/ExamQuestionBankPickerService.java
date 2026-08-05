@@ -15,8 +15,11 @@ import com.ulp.features.subjects.repository.SubjectRepository;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankChapterOption;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
+import com.ulp.features.tests.dto.LecturerTestDtos.BankScopeInfo;
+import com.ulp.features.tests.dto.LecturerTestDtos.BankSearchResult;
 import com.ulp.features.tests.entity.Test;
 import com.ulp.features.tests.repository.TestRepository;
+import com.ulp.features.tests.support.TestAccessResolver;
 import com.ulp.security.Role;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -54,6 +57,7 @@ public class ExamQuestionBankPickerService {
     private final SubjectChapterRepository chapterRepository;
     private final QuestionBankItemRepository itemRepository;
     private final QuestionBankOptionRepository optionRepository;
+    private final TestAccessResolver accessResolver;
 
     public ExamQuestionBankPickerService(UserRepository userRepository,
                                          QuestionBankAccessPolicy accessPolicy,
@@ -62,7 +66,8 @@ public class ExamQuestionBankPickerService {
                                          SubjectRepository subjectRepository,
                                          SubjectChapterRepository chapterRepository,
                                          QuestionBankItemRepository itemRepository,
-                                         QuestionBankOptionRepository optionRepository) {
+                                         QuestionBankOptionRepository optionRepository,
+                                         TestAccessResolver accessResolver) {
         this.userRepository = userRepository;
         this.accessPolicy = accessPolicy;
         this.testRepository = testRepository;
@@ -71,6 +76,7 @@ public class ExamQuestionBankPickerService {
         this.chapterRepository = chapterRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
+        this.accessResolver = accessResolver;
     }
 
     /** Chapters of the class subject the actor may browse in the picker. */
@@ -91,12 +97,64 @@ public class ExamQuestionBankPickerService {
      * HEAD bank), labelled by source. Filtered by optional chapter + query.
      * When the class has no subject, falls back to the department and offers
      * HEAD-bank items only.
+     *
+     * <p>Kept alongside {@link #searchActiveWithScope} so callers that only want
+     * the matches need not unwrap the envelope.
      */
     @Transactional(readOnly = true)
     public List<BankItemSnapshot> searchActive(Long userId, Role role, Long testId,
                                                Long chapterId, String query) {
+        return searchActiveWithScope(userId, role, testId, chapterId, query).items();
+    }
+
+    /**
+     * Same search as {@link #searchActive}, plus the scope that produced it so
+     * the client can explain an empty result rather than guess at the cause.
+     */
+    @Transactional(readOnly = true)
+    public BankSearchResult searchActiveWithScope(Long userId, Role role, Long testId,
+                                                  Long chapterId, String query) {
         User actor = requireActor(userId, role);
         Scope scope = resolveAccessibleScope(actor, testId);
+        return searchInScope(actor, scope, chapterId, query);
+    }
+
+    /**
+     * Chapters of the class subject, resolved from the class instead of a test.
+     * Create mode has no {@link Test} row yet but already knows the class.
+     * Returns an empty list when the class has no subject bound — an empty state,
+     * never an error.
+     */
+    @Transactional(readOnly = true)
+    public List<BankChapterOption> chaptersForClass(Long userId, Role role, Long classId) {
+        User actor = requireActor(userId, role);
+        accessResolver.requireClassAuthoring(userId, classId);
+        Scope scope = resolveAccessibleScopeForClass(actor, classId);
+        if (scope.subjectId() == null) {
+            return List.of();
+        }
+        return chapterRepository.findBySubjectIdOrderByDisplayOrderAsc(scope.subjectId()).stream()
+                .map(chapter -> new BankChapterOption(chapter.getId(), chapter.getTitle()))
+                .toList();
+    }
+
+    /**
+     * Same search as {@link #searchActiveWithScope}, resolved from the class so
+     * create mode can browse the bank before the exam exists. Authoring rights
+     * are checked here because there is no {@code requireManageable} exam to gate
+     * on; a caller who does not lead the class gets 403, not an empty list.
+     */
+    @Transactional(readOnly = true)
+    public BankSearchResult searchActiveForClass(Long userId, Role role, Long classId,
+                                                 Long chapterId, String query) {
+        User actor = requireActor(userId, role);
+        accessResolver.requireClassAuthoring(userId, classId);
+        Scope scope = resolveAccessibleScopeForClass(actor, classId);
+        return searchInScope(actor, scope, chapterId, query);
+    }
+
+    /** Runs the picker query for an already-resolved scope. Single query path. */
+    private BankSearchResult searchInScope(User actor, Scope scope, Long chapterId, String query) {
         String normalizedQuery = normalizeQuery(query);
         List<QuestionBankItem> candidates = new ArrayList<>();
         if (scope.subjectId() != null) {
@@ -116,7 +174,18 @@ public class ExamQuestionBankPickerService {
                 .filter(item -> matchesQuery(item, normalizedQuery))
                 .limit(20)
                 .toList();
-        return toSnapshots(items);
+        return new BankSearchResult(toSnapshots(items), describeScope(scope, chapterId, normalizedQuery));
+    }
+
+    /** Explains the scope to the client: bound subject, class, active narrowing. */
+    private BankScopeInfo describeScope(Scope scope, Long chapterId, String normalizedQuery) {
+        Subject subject = scope.subjectId() == null
+                ? null
+                : subjectRepository.findById(scope.subjectId()).orElse(null);
+        boolean filtered = chapterId != null || normalizedQuery != null;
+        return new BankScopeInfo(scope.subjectId() != null,
+                subject == null ? null : subjectLabel(subject),
+                scope.classId(), filtered);
     }
 
     /**
@@ -239,7 +308,19 @@ public class ExamQuestionBankPickerService {
     private Scope resolveAccessibleScope(User actor, Long testId) {
         Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
-        ClassEntity clazz = classRepository.findById(test.getClassId())
+        return resolveAccessibleScopeForClass(actor, test.getClassId());
+    }
+
+    /**
+     * Resolves the bank scope from the class directly. The test-scoped entry
+     * point only uses {@code testId} to reach the class, so create mode — which
+     * has no Test row yet — can share this once it knows the class.
+     */
+    private Scope resolveAccessibleScopeForClass(User actor, Long classId) {
+        if (classId == null) {
+            throw new AccessDeniedException(MSG_FORBIDDEN);
+        }
+        ClassEntity clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
         Long departmentId = clazz.getDepartmentId();
         if (departmentId == null) {
@@ -248,7 +329,7 @@ public class ExamQuestionBankPickerService {
         if (departmentId == null || !accessPolicy.canReadHeadBank(actor, departmentId)) {
             throw new AccessDeniedException(MSG_FORBIDDEN);
         }
-        return new Scope(departmentId, clazz.getSubjectId());
+        return new Scope(clazz.getId(), departmentId, clazz.getSubjectId());
     }
 
     private static String subjectLabel(Subject subject) {
@@ -268,7 +349,11 @@ public class ExamQuestionBankPickerService {
                 .trim();
     }
 
-    /** Class subject (nullable) + its department; the picker scope. */
-    private record Scope(Long departmentId, Long subjectId) {
+    /**
+     * The picker scope: the class it was resolved from, its department, and its
+     * subject. {@code subjectId} is nullable — a class with no subject degrades
+     * the search to HEAD-bank items of the department.
+     */
+    private record Scope(Long classId, Long departmentId, Long subjectId) {
     }
 }

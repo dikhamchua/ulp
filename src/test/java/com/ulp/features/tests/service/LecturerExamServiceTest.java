@@ -1,8 +1,6 @@
 package com.ulp.features.tests.service;
 
-import com.ulp.entities.ClassEntity;
 import com.ulp.entities.TestActivity;
-import com.ulp.features.classes.repository.ClassRepository;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
 import com.ulp.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
 import com.ulp.features.tests.dto.LecturerTestDtos.ExamForm;
@@ -19,7 +17,6 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -53,7 +51,6 @@ class LecturerExamServiceTest {
 
     private final TestRepository testRepository = mock(TestRepository.class);
     private final QuestionRepository questionRepository = mock(QuestionRepository.class);
-    private final ClassRepository classRepository = mock(ClassRepository.class);
     private final TestAccessResolver accessResolver = mock(TestAccessResolver.class);
     private final TestActivityWriter activityWriter = mock(TestActivityWriter.class);
     private final TakeViewBuilder takeViewBuilder = mock(TakeViewBuilder.class);
@@ -62,7 +59,7 @@ class LecturerExamServiceTest {
             mock(ExamQuestionBankPickerService.class);
 
     private final LecturerExamService service = new LecturerExamService(
-            testRepository, questionRepository, classRepository, accessResolver,
+            testRepository, questionRepository, accessResolver,
             activityWriter, takeViewBuilder, questionBankWriter, questionBankPicker);
 
     @BeforeEach
@@ -96,19 +93,22 @@ class LecturerExamServiceTest {
                 null, null, questions, false);
     }
 
+    /** Default: the authoring gate passes, so tests can focus on write behaviour. */
     private void givenUserLeadsClass() {
-        ClassEntity owned = mock(ClassEntity.class);
-        when(owned.getLecturerId()).thenReturn(USER_ID);
-        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(owned));
+        // requireClassAuthoring is void; a lenient mock already does nothing.
+    }
+
+    /** Makes the shared authoring gate reject, whatever its internal reason. */
+    private void givenAuthoringDenied() {
+        doThrow(new AccessDeniedException(TestAccessResolver.NF_MSG))
+                .when(accessResolver).requireClassAuthoring(USER_ID, CLASS_ID);
     }
 
     // ── Save: authorization ─────────────────────────────────────────────
 
     @org.junit.jupiter.api.Test
     void saveRejectsAClassTheLecturerDoesNotLeadWithoutPersistingAnything() {
-        ClassEntity foreign = mock(ClassEntity.class);
-        when(foreign.getLecturerId()).thenReturn(999L);
-        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(foreign));
+        givenAuthoringDenied();
 
         assertThatThrownBy(() -> service.save(USER_ID, formWith(null, Test.STATUS_DRAFT, List.of(mcq("Q1")))))
                 .isInstanceOf(AccessDeniedException.class)
@@ -118,18 +118,17 @@ class LecturerExamServiceTest {
     }
 
     @org.junit.jupiter.api.Test
-    void saveRejectsAMissingClass() {
-        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.empty());
+    void saveDelegatesTheAuthoringGateToTheAccessResolver() {
+        // Pins the delegation: the create-mode bank picker relies on this being
+        // the single authoring check, so save must not grow its own copy.
+        service.save(USER_ID, formWith(null, Test.STATUS_DRAFT, List.of(mcq("Q1"))));
 
-        assertThatThrownBy(() -> service.save(USER_ID, formWith(null, Test.STATUS_DRAFT, List.of(mcq("Q1")))))
-                .isInstanceOf(AccessDeniedException.class);
-
-        verify(testRepository, never()).save(any(Test.class));
+        verify(accessResolver).requireClassAuthoring(USER_ID, CLASS_ID);
     }
 
     @org.junit.jupiter.api.Test
     void saveRunsFormValidationBeforeTouchingAuthorizationOrPersistence() {
-        // A blank title must fail fast — no repository call at all.
+        // A blank title must fail fast — no authorization or repository call.
         ExamForm invalid = formWith(null, Test.STATUS_DRAFT, List.of(mcq("Q1")));
         ExamForm blankTitle = new ExamForm(invalid.id(), "   ", null, CLASS_ID, Test.TYPE_MOCK,
                 Test.STATUS_DRAFT, Test.TIME_MODE_FIXED_WINDOW, 45, null, null, null,
@@ -138,7 +137,7 @@ class LecturerExamServiceTest {
         assertThatThrownBy(() -> service.save(USER_ID, blankTitle))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verify(classRepository, never()).findById(anyLong());
+        verify(accessResolver, never()).requireClassAuthoring(anyLong(), anyLong());
         verify(testRepository, never()).save(any(Test.class));
     }
 
