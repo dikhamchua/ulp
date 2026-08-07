@@ -25,4 +25,12 @@ public interface TestAttemptRepository extends JpaRepository<TestAttempt, Long> 
 
     /** Per-user guard: an attempt owned by the caller. */
     Optional<TestAttempt> findByIdAndUserId(Long id, Long userId);
+
+    /**
+     * Whether any student has attempted this test. Backs the Library rail's
+     * delete guard: an exam with graded work must not be soft-deletable.
+     * Deliberately an existence query — {@link #findByTestId} would load every
+     * attempt row just to test for emptiness.
+     */
+    boolean existsByTestId(Long testId);
 }

@@ -53,6 +53,15 @@ public interface IConstant {
     String PATH_LIBRARY_TARGETS = "/targets";
     String URL_LIBRARY_TARGETS  = URL_LIBRARY + PATH_LIBRARY_TARGETS;
     String URL_LIBRARY_TARGET_CLASSES = URL_LIBRARY_TARGETS + "/classes";
+    /** The library kind rail's fifth entry: lecturer-owned exams. */
+    String PATH_LIBRARY_TESTS   = "/tests";
+    String URL_LIBRARY_TESTS    = URL_LIBRARY + PATH_LIBRARY_TESTS;
+    /**
+     * Preview origin marker. A whitelisted token, never a URL: the preview
+     * back-link resolves it server-side, so no caller can steer the redirect.
+     */
+    String PARAM_PREVIEW_ORIGIN = "from";
+    String PREVIEW_ORIGIN_LIBRARY = "library";
 
     // ───────── View names ────────────────────────────────────────────
     String VIEW_LECTURER_DASHBOARD      = "lecturer/dashboard";
@@ -114,9 +123,14 @@ public interface IConstant {
     String ATTR_LIBRARY_TAB            = "libraryTab";
     String ATTR_LIBRARY_CLASS_ID       = "libraryClassId";
     String ATTR_LIBRARY_CLASS_OPTIONS  = "libraryClassOptions";
+    /** Fifth kind badge: exams the lecturer owns (library-tests-rail). */
+    String ATTR_LIBRARY_EXAM_COUNT     = "libraryExamCount";
 
     /** Library sidebar rail for lesson templates (not a file kind). */
     String LIBRARY_TAB_TEMPLATES = "TEMPLATES";
+
+    /** Library sidebar rail for lecturer-owned exams (not a file kind). */
+    String LIBRARY_TAB_TESTS = "TESTS";
 
     /** Default section title auto-created when cloning into an empty class. */
     String DEFAULT_SECTION_TITLE = "Chương 1";
@@ -387,6 +401,9 @@ public interface IConstant {
     String ATTR_SUBMISSIONS  = "submissions";
     String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
     String ATTR_PREVIEW      = "preview";
+    /** Server-resolved back-link (URL + label) for the exam preview screen. */
+    String ATTR_PREVIEW_BACK_URL   = "previewBackUrl";
+    String ATTR_PREVIEW_BACK_LABEL = "previewBackLabel";
     String ATTR_EXAM_BANK_CHAPTERS = "examBankChapters";
     String ATTR_EXAM_FILTER  = "examFilter";
     /** Led-class options backing the "Lớp" dropdown on the global exam list filter. */
@@ -425,6 +442,25 @@ public interface IConstant {
             "Nội dung câu hỏi/đáp án quá lớn. Hãy chèn ảnh bằng nút ảnh (không dán base64).";
     String MSG_PRACTICE_EMPTY_POOL   = "Không có câu hỏi phù hợp để tạo bài luyện tập";
     String MSG_PRACTICE_INVALID_SOURCE = "Nguồn câu hỏi không hợp lệ";
+
+    // Library exam rail: clone into another led class + soft delete.
+    String MSG_PREVIEW_BACK_EDIT    = "← Quay lại chỉnh sửa";
+    String MSG_PREVIEW_BACK_LIBRARY = "← Quay lại kho học liệu";
+    String MSG_EXAM_CLONE_OK          = "Đã clone bài test sang lớp (bản nháp)";
+    String MSG_EXAM_CLONE_NEEDS_CLASS = "Vui lòng chọn lớp đích để clone bài test";
+    String MSG_EXAM_CLONE_FORBIDDEN   = "Bạn không phụ trách lớp đích này";
+    /** Title suffix marking a cloned copy so it is distinguishable in the target class. */
+    String EXAM_CLONE_TITLE_SUFFIX    = " (bản sao)";
+    String MSG_EXAM_DELETE_HAS_ATTEMPTS =
+            "Bài test đã có lượt làm bài của sinh viên: không thể xoá.";
+
+    // ───────── Library exam rail (library-tests-rail) ────────────────
+    /** Clone endpoint segment under the rail, appended after the exam id. */
+    String PATH_LIBRARY_TEST_CLONE  = "/clone";
+    /** Delete endpoint segment under the rail, appended after the exam id. */
+    String PATH_LIBRARY_TEST_DELETE = "/delete";
+    /** Request param carrying the clone's destination class. */
+    String PARAM_EXAM_TARGET_CLASS  = "targetClassId";
 
     // Exam list / submissions page sizes (default + upper bound for ?size).
     int DEFAULT_EXAM_PAGE_SIZE        = 12;

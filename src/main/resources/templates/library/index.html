@@ -4,6 +4,11 @@
 <head th:replace="~{fragments/head :: head('Kho học liệu', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/library.css(v='9')}">
+  <!-- Exam rail reuses the detail-page table/filter styles and test-list row actions. -->
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/library-tests.css(v='3')}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('library')}">
@@ -84,12 +89,25 @@
           <span class="kind-count" th:text="${libraryTemplateCount != null ? libraryTemplateCount : 0}">0</span>
         </a>
       </li>
+      <li class="kind-item"
+          th:classappend="${libraryTab == 'TESTS'} ? ' active'">
+        <a class="kind-item-link" th:href="@{/lecturer/library/tests}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          <span class="kind-label">Bài test</span>
+          <span class="kind-count" th:text="${libraryExamCount != null ? libraryExamCount : 0}">0</span>
+        </a>
+      </li>
     </ul>
 
     <p class="kinds-hint"
-       th:if="${libraryTab != 'TEMPLATES'}">Tải một lần, gắn nhiều bài giảng — không nhân bản tệp trên đĩa.</p>
+       th:if="${libraryTab != 'TEMPLATES' and libraryTab != 'TESTS'}">Tải một lần, gắn nhiều bài giảng — không nhân bản tệp trên đĩa.</p>
     <p class="kinds-hint"
        th:if="${libraryTab == 'TEMPLATES'}">Mọi bài giảng trong các lớp của bạn — mở sửa hoặc clone sang lớp/chương khác.</p>
+    <p class="kinds-hint"
+       th:if="${libraryTab == 'TESTS'}">Mọi bài test bạn phụ trách — mở sửa, clone sang lớp khác hoặc xoá.</p>
   </aside>
 
   <!-- ── Right: content list ──────────────────────────────────────────── -->
@@ -98,11 +116,15 @@
     <div class="content-header">
       <div class="content-heading">
         <h1 class="content-title"
-            th:text="${libraryTab == 'TEMPLATES'} ? 'Bài giảng'
+            th:text="${libraryTab == 'TESTS'} ? 'Bài test'
+                    : (${libraryTab == 'TEMPLATES'} ? 'Bài giảng'
                     : (${libraryKind == 'DOCUMENT'} ? 'Tài liệu'
-                    : (${libraryKind == 'VIDEO'} ? 'Video' : 'Tất cả học liệu'))">Tất cả học liệu</h1>
+                    : (${libraryKind == 'VIDEO'} ? 'Video' : 'Tất cả học liệu')))">Tất cả học liệu</h1>
         <p class="content-sub"
-           th:if="${libraryPage != null}"
+           th:if="${libraryTab == 'TESTS' and examsPage != null}"
+           th:text="${examsPage.totalElements} + ' bài test'">0 bài test</p>
+        <p class="content-sub"
+           th:if="${libraryTab != 'TESTS' and libraryPage != null}"
            th:text="${libraryPage.totalElements} + ' mục'
                     + (${libraryQuery != null and !#strings.isEmpty(libraryQuery)} ? (' · tìm “' + libraryQuery + '”') : '')">0 mục</p>
       </div>
@@ -124,7 +146,17 @@
         </select>
       </div>
 
-      <div class="content-actions" th:if="${libraryTab != 'TEMPLATES'}">
+      <div class="content-actions" th:if="${libraryTab == 'TESTS'}">
+        <a class="content-create-btn" th:href="@{/lecturer/tests/new}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Tạo bài test
+        </a>
+      </div>
+
+      <div class="content-actions" th:if="${libraryTab != 'TEMPLATES' and libraryTab != 'TESTS'}">
         <div class="dropdown upload-kind" id="uploadKindDd" style="position:relative;">
           <button class="kind-select-btn" data-toggle="dropdown" type="button" aria-haspopup="true">
             <span id="uploadKindLabel">Tự nhận diện</span>
@@ -146,8 +178,63 @@
       </div>
     </div>
 
+    <!-- Exam filter bar — mirrors tests/lecturer-list.html (see design D10: the
+         duplication is deliberate; /lecturer/tests must stay untouched). -->
+    <form class="detail-filter-bar" method="get" th:if="${libraryTab == 'TESTS'}"
+          th:action="@{/lecturer/library/tests}">
+      <div class="detail-filter-field is-grow">
+        <label class="detail-filter-label" for="libExamKeyword">Từ khoá</label>
+        <input class="detail-filter-input" id="libExamKeyword" type="search" name="q"
+               placeholder="Tìm theo tiêu đề bài test"
+               th:value="${examFilter.keyword()}">
+      </div>
+      <div class="detail-filter-field">
+        <label class="detail-filter-label" for="libExamStatus">Trạng thái</label>
+        <select class="detail-filter-select" id="libExamStatus" name="status">
+          <option value="ALL" th:selected="${examFilter.status() == 'ALL'}">Tất cả</option>
+          <option value="DRAFT" th:selected="${examFilter.status() == 'DRAFT'}">Nháp</option>
+          <option value="PUBLISHED" th:selected="${examFilter.status() == 'PUBLISHED'}">Đã phát hành</option>
+          <option value="ARCHIVED" th:selected="${examFilter.status() == 'ARCHIVED'}">Lưu trữ</option>
+        </select>
+      </div>
+      <div class="detail-filter-field">
+        <label class="detail-filter-label" for="libExamType">Loại</label>
+        <select class="detail-filter-select" id="libExamType" name="type">
+          <option value="ALL" th:selected="${examFilter.type() == 'ALL'}">Tất cả</option>
+          <option value="MOCK" th:selected="${examFilter.type() == 'MOCK'}">MOCK</option>
+          <option value="MODULE" th:selected="${examFilter.type() == 'MODULE'}">MODULE</option>
+          <option value="PRACTICE" th:selected="${examFilter.type() == 'PRACTICE'}">PRACTICE</option>
+        </select>
+      </div>
+      <div class="detail-filter-field">
+        <label class="detail-filter-label" for="libExamClass">Lớp</label>
+        <!-- Empty value = "all classes"; the blank param sanitises to null. -->
+        <select class="detail-filter-select" id="libExamClass" name="classId">
+          <option value="" th:selected="${examFilter.classId() == null}">Tất cả lớp</option>
+          <option th:each="opt : ${examClassOptions}"
+                  th:value="${opt.id()}"
+                  th:selected="${examFilter.classId() != null and examFilter.classId() == opt.id()}"
+                  th:text="${opt.name()}">SE1701</option>
+        </select>
+      </div>
+      <div class="detail-filter-field">
+        <label class="detail-filter-label" for="libExamSort">Sắp xếp</label>
+        <select class="detail-filter-select" id="libExamSort" name="sort">
+          <option value="recent" th:selected="${examFilter.sort() == 'recent'}">Mới cập nhật</option>
+          <option value="title" th:selected="${examFilter.sort() == 'title'}">Tiêu đề A→Z</option>
+          <option value="closing" th:selected="${examFilter.sort() == 'closing'}">Đóng sớm nhất</option>
+        </select>
+      </div>
+      <div class="detail-filter-actions">
+        <button class="detail-filter-apply" type="submit">Áp dụng</button>
+        <!-- Reset drops every query param, returning to the unfiltered page 0. -->
+        <a class="detail-filter-reset" th:if="${!examFilter.isEmpty()}"
+           th:href="@{/lecturer/library/tests}">Xoá lọc</a>
+      </div>
+    </form>
+
     <!-- Search inside content column -->
-    <form class="content-search" method="get"
+    <form class="content-search" method="get" th:if="${libraryTab != 'TESTS'}"
           th:id="${libraryTab == 'TEMPLATES'} ? 'libraryTemplatesSearch' : 'libraryAssetsSearch'"
           th:action="${libraryTab == 'TEMPLATES'} ? @{/lecturer/library/templates} : @{/lecturer/library}"
           role="search">
@@ -173,7 +260,7 @@
 
     <!-- Bulk selection bar — assets only. -->
     <div id="librarySelectionBar" class="library-selection-bar" hidden
-         th:if="${libraryTab != 'TEMPLATES'}">
+         th:if="${libraryTab != 'TEMPLATES' and libraryTab != 'TESTS'}">
       <span class="library-selection-count" id="librarySelectionCount">Đã chọn 0 mục</span>
       <div class="library-selection-actions">
         <button type="button" class="btn-ghost" id="librarySelectionClear">Huỷ chọn</button>
@@ -209,9 +296,27 @@
       </p>
     </div>
 
+    <!-- Empty — exams rail: unfiltered (nothing owned) vs. filtered (no match). -->
+    <div class="content-empty"
+         th:if="${libraryTab == 'TESTS' and examsPage != null and examsPage.totalElements == 0}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 11l3 3L22 4"/>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+      </svg>
+      <h3 th:text="${examFilter.isEmpty()}
+                    ? 'Chưa có bài test nào'
+                    : 'Không tìm thấy bài test khớp'">Chưa có bài test</h3>
+      <p th:if="${examFilter.isEmpty()}">
+        Tạo bài test trong các lớp của bạn — chúng sẽ hiện ở đây để mở sửa, clone sang lớp khác hoặc xoá.
+      </p>
+      <p th:unless="${examFilter.isEmpty()}">
+        Thử từ khoá khác hoặc bấm <strong>Xoá lọc</strong>.
+      </p>
+    </div>
+
     <!-- Empty — assets -->
     <div class="content-empty"
-         th:if="${libraryTab != 'TEMPLATES' and (libraryPage == null or libraryPage.empty)}">
+         th:if="${libraryTab != 'TEMPLATES' and libraryTab != 'TESTS' and (libraryPage == null or libraryPage.empty)}">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
       </svg>
@@ -338,9 +443,68 @@
       </div>
     </div>
 
+    <!-- Owned exams — six columns mirroring tests/lecturer-list.html plus Thao tác. -->
+    <table class="detail-table"
+           th:if="${libraryTab == 'TESTS' and examsPage != null and examsPage.totalElements > 0}">
+      <thead>
+      <tr>
+        <th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th><th>Lớp</th>
+        <th style="white-space:nowrap">Số câu</th>
+        <th style="white-space:nowrap">Đóng lúc</th>
+        <th>Thao tác</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr th:each="exam : ${examsPage.content}">
+        <!-- Identifier column is the single entry point into the exam; the
+             Thao tác column therefore carries no "Mở sửa" (list-screen §3). -->
+        <td>
+          <a class="tst-title-link"
+             th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='info')}"
+             th:text="${exam.title()}">Tên</a>
+        </td>
+        <td><span class="detail-type-badge" th:text="${exam.type()}">MOCK</span></td>
+        <td>
+          <!-- PUBLISHED reads as active; DRAFT/ARCHIVED share the muted look. -->
+          <span class="status-pill"
+                th:classappend="${exam.status() == 'PUBLISHED'} ? 'status-active' : 'status-inactive'"
+                th:text="${exam.status()}">DRAFT</span>
+        </td>
+        <!-- classId is nullable by design: an exam with no class renders "—". -->
+        <td th:text="${exam.className() != null ? exam.className() : '—'}">Lớp</td>
+        <td th:text="${exam.totalQuestions()}">0</td>
+        <td style="white-space:nowrap"
+            th:text="${exam.endAt() != null ? #temporals.format(exam.endAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
+        <td class="tst-row-actions">
+          <!-- Preview renders the exam paper read-only; it is not the entity's
+               detail page, which the title column now owns. Kept here because
+               dropping it would leave the rail with no route to /preview. -->
+          <!-- from=library so preview's back-link returns to this rail. -->
+          <a class="btn-ghost btn-sm"
+             th:href="@{'/lecturer/tests/' + ${exam.id()} + '/preview'(from='library')}">Xem trước</a>
+          <button type="button" class="btn-ghost btn-sm" data-action="clone-exam"
+                  th:attr="data-exam-id=${exam.id()},data-exam-title=${exam.title()}">
+            Clone sang lớp khác
+          </button>
+          <button type="button" class="btn-ghost btn-sm is-danger" data-action="delete-exam"
+                  th:attr="data-exam-id=${exam.id()},data-exam-title=${exam.title()}">
+            Xoá
+          </button>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+
+    <!-- params carries the active filter so paging never resets it. The th:if
+         lives on a WRAPPER: th:replace on the same element would override it and
+         evaluate the fragment on every tab, where examsPage is null. -->
+    <th:block th:if="${libraryTab == 'TESTS' and examsPage != null}">
+      <div th:replace="~{fragments/pager :: pager(${examsPage}, '/lecturer/library/tests', ${params})}"></div>
+    </th:block>
+
     <!-- Column list (no avatar/thumb) — mirrors classes manage list-head rows. -->
     <div class="asset-table"
-         th:if="${libraryTab != 'TEMPLATES' and libraryPage != null and !libraryPage.empty}">
+         th:if="${libraryTab != 'TEMPLATES' and libraryTab != 'TESTS' and libraryPage != null and !libraryPage.empty}">
       <div class="asset-list-head" role="row">
         <div class="col col-check">
           <label class="library-check">
@@ -457,7 +621,7 @@
       </div>
     </div>
 
-    <nav th:if="${libraryTab != 'TEMPLATES' and libraryPage != null and libraryPage.totalPages > 1}"
+    <nav th:if="${libraryTab != 'TEMPLATES' and libraryTab != 'TESTS' and libraryPage != null and libraryPage.totalPages > 1}"
          class="library-pagination" aria-label="Phân trang kho học liệu">
       <a class="page-link"
          th:if="${!libraryPage.first}"
@@ -549,5 +713,6 @@
 <script th:src="@{/js/library-bulk-select.js(v='1')}" defer></script>
 <script th:src="@{/js/lesson-clone-wizard.js(v='2')}" defer></script>
 <script th:src="@{/js/lesson-bulk-select.js(v='1')}" defer></script>
+<script th:src="@{/js/exam-clone-dialog.js(v='2')}" defer></script>
 </body>
 </html>

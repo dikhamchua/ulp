@@ -1,0 +1,49 @@
+/* Library "Bài test" rail — only what detail-page.css / test-list.css / main.css
+ * do not already provide. The table, filter bar and status pills come from
+ * detail-page.css; the row actions are real .btn-ghost buttons (main.css) per
+ * the list-screen pattern, so only their small-size modifier and the identifier
+ * link need defining here. */
+
+/* Identifier column: the single entry point into the exam (list-screen §3). */
+.tst-title-link {
+  color: var(--primary, #1E88E5);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tst-title-link:hover {
+  color: var(--primary-dark, #1565C0);
+  text-decoration: underline;
+}
+
+/* btn-sm lives only in page-scoped sheets this page does not load, so the
+ * compact row-action size is defined here rather than pulled in wholesale. */
+.tst-row-actions .btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.tst-row-actions .btn-ghost {
+  margin-right: 8px;
+  text-decoration: none;
+}
+
+.tst-row-actions .btn-ghost:last-child { margin-right: 0; }
+
+/* Destructive action keeps ghost weight but reads red on intent. */
+.tst-row-actions .btn-ghost.is-danger { color: var(--danger, #dc2626); }
+
+.tst-row-actions .btn-ghost.is-danger:hover:not(:disabled) {
+  border-color: var(--danger, #dc2626);
+  color: var(--danger, #dc2626);
+  background: #fef2f2;
+}
+
+/* One-step clone picker. The class rows reuse .library-attach-list /
+ * .library-attach-item from library.css, so they inherit the dialog's own
+ * gutters and selected state — only the empty state needs styling here, and it
+ * matches the item padding so the text lines up with the rows it replaces. */
+.exam-clone-empty {
+  color: var(--muted, #6b7280);
+  padding: 0.75rem 1.1rem;
+}

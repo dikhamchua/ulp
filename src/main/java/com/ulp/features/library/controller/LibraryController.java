@@ -1,6 +1,7 @@
 package com.ulp.features.library.controller;
 
 import com.ulp.features.lessons.repository.LessonRepository;
+import com.ulp.features.library.controller.support.LibraryBadgeCounts;
 import com.ulp.features.library.dto.LibraryDtos.LibraryAssetRow;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPageView;
 import com.ulp.features.library.dto.LibraryDtos.LibraryPickerPage;
@@ -33,15 +34,11 @@ import java.util.Map;
 
 import static com.ulp.common.IConstant.ATTR_FLASH_ERROR;
 import static com.ulp.common.IConstant.ATTR_FLASH_SUCCESS;
-import static com.ulp.common.IConstant.ATTR_LIBRARY_DOCUMENT_COUNT;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_KIND;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_PAGE;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_QUERY;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_SIZE;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_TAB;
-import static com.ulp.common.IConstant.ATTR_LIBRARY_TEMPLATE_COUNT;
-import static com.ulp.common.IConstant.ATTR_LIBRARY_TOTAL_COUNT;
-import static com.ulp.common.IConstant.ATTR_LIBRARY_VIDEO_COUNT;
 import static com.ulp.common.IConstant.ATTR_PAGER_PARAMS;
 import static com.ulp.common.IConstant.BASE_LECTURER;
 import static com.ulp.common.IConstant.DEFAULT_LIBRARY_PAGE_SIZE;
@@ -74,11 +71,14 @@ public class LibraryController {
 
     private final LibraryService libraryService;
     private final LessonRepository lessonRepository;
+    private final LibraryBadgeCounts badgeCounts;
 
     public LibraryController(LibraryService libraryService,
-                             LessonRepository lessonRepository) {
+                             LessonRepository lessonRepository,
+                             LibraryBadgeCounts badgeCounts) {
         this.libraryService = libraryService;
         this.lessonRepository = lessonRepository;
+        this.badgeCounts = badgeCounts;
     }
 
     @GetMapping
@@ -100,11 +100,11 @@ public class LibraryController {
         model.addAttribute(ATTR_LIBRARY_KIND, view.kind());
         model.addAttribute(ATTR_LIBRARY_TAB, "");
         model.addAttribute(ATTR_LIBRARY_SIZE, view.page().getSize());
-        model.addAttribute(ATTR_LIBRARY_TOTAL_COUNT, view.totalCount());
-        model.addAttribute(ATTR_LIBRARY_DOCUMENT_COUNT, view.documentCount());
-        model.addAttribute(ATTR_LIBRARY_VIDEO_COUNT, view.videoCount());
-        // Sidebar "Bài giảng" badge = live lessons across owned classes.
-        model.addAttribute(ATTR_LIBRARY_TEMPLATE_COUNT,
+        // All five badges, not just this rail's: the shell renders every kind,
+        // and a missing attribute silently displays 0. "Bài giảng" is the count
+        // of live lessons across owned classes.
+        badgeCounts.populate(model, user.getId(), view.totalCount(),
+                view.documentCount(), view.videoCount(),
                 lessonRepository.countByLecturerId(user.getId(), null));
         model.addAttribute(ATTR_PAGER_PARAMS, pagerParams(view.q(), view.kind(), view.page().getSize()));
         return VIEW_LIBRARY;

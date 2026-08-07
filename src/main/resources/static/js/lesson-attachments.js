@@ -190,10 +190,28 @@
     xhr.send(form);
   }
 
+  /**
+   * Confirms through the shared UlpModal; native dialogs are banned project-wide
+   * (CLAUDE.md §9). The window.confirm branch stays as a hard fallback for the
+   * unlikely case app.js fails to load, matching library.js / sections.js.
+   */
   function deleteAttachment(card, item) {
     var url = item.getAttribute('data-delete-url');
     if (!url) return;
-    if (!window.confirm('Xoá tệp đính kèm này?')) return;
+    var body = 'Xoá tệp đính kèm này? Hành động này không thể hoàn tác.';
+    if (window.UlpModal && typeof window.UlpModal.confirm === 'function') {
+      window.UlpModal.confirm({
+        title: 'Xoá tệp đính kèm?',
+        body: body,
+        confirmLabel: 'Xoá',
+        onConfirm: function () { sendDeleteAttachment(card, item, url); }
+      });
+    } else if (window.confirm(body)) {
+      sendDeleteAttachment(card, item, url);
+    }
+  }
+
+  function sendDeleteAttachment(card, item, url) {
     var csrf = csrfPair();
     var headers = { 'Accept': 'application/json' };
     if (csrf) headers[csrf.header] = csrf.token;
