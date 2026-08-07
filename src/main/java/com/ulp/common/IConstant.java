@@ -56,6 +56,12 @@ public interface IConstant {
     /** The library kind rail's fifth entry: lecturer-owned exams. */
     String PATH_LIBRARY_TESTS   = "/tests";
     String URL_LIBRARY_TESTS    = URL_LIBRARY + PATH_LIBRARY_TESTS;
+    /**
+     * Preview origin marker. A whitelisted token, never a URL: the preview
+     * back-link resolves it server-side, so no caller can steer the redirect.
+     */
+    String PARAM_PREVIEW_ORIGIN = "from";
+    String PREVIEW_ORIGIN_LIBRARY = "library";
 
     // ───────── View names ────────────────────────────────────────────
     String VIEW_LECTURER_DASHBOARD      = "lecturer/dashboard";
@@ -395,6 +401,9 @@ public interface IConstant {
     String ATTR_SUBMISSIONS  = "submissions";
     String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
     String ATTR_PREVIEW      = "preview";
+    /** Server-resolved back-link (URL + label) for the exam preview screen. */
+    String ATTR_PREVIEW_BACK_URL   = "previewBackUrl";
+    String ATTR_PREVIEW_BACK_LABEL = "previewBackLabel";
     String ATTR_EXAM_BANK_CHAPTERS = "examBankChapters";
     String ATTR_EXAM_FILTER  = "examFilter";
     /** Led-class options backing the "Lớp" dropdown on the global exam list filter. */
@@ -435,6 +444,8 @@ public interface IConstant {
     String MSG_PRACTICE_INVALID_SOURCE = "Nguồn câu hỏi không hợp lệ";
 
     // Library exam rail: clone into another led class + soft delete.
+    String MSG_PREVIEW_BACK_EDIT    = "← Quay lại chỉnh sửa";
+    String MSG_PREVIEW_BACK_LIBRARY = "← Quay lại kho học liệu";
     String MSG_EXAM_CLONE_OK          = "Đã clone bài test sang lớp (bản nháp)";
     String MSG_EXAM_CLONE_NEEDS_CLASS = "Vui lòng chọn lớp đích để clone bài test";
     String MSG_EXAM_CLONE_FORBIDDEN   = "Bạn không phụ trách lớp đích này";

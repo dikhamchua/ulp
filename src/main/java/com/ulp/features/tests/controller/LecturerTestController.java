@@ -57,6 +57,8 @@ import static com.ulp.common.IConstant.ATTR_MODE;
 import static com.ulp.common.IConstant.ATTR_MONITOR;
 import static com.ulp.common.IConstant.ATTR_PAGER_PARAMS;
 import static com.ulp.common.IConstant.ATTR_PREVIEW;
+import static com.ulp.common.IConstant.ATTR_PREVIEW_BACK_LABEL;
+import static com.ulp.common.IConstant.ATTR_PREVIEW_BACK_URL;
 import static com.ulp.common.IConstant.ATTR_SUBMISSIONS;
 import static com.ulp.common.IConstant.ATTR_TEST;
 import static com.ulp.common.IConstant.ATTR_TEST_ACTIVITIES_PAGE;
@@ -64,16 +66,21 @@ import static com.ulp.common.IConstant.BASE_LECTURER_TESTS;
 import static com.ulp.common.IConstant.MODE_CREATE;
 import static com.ulp.common.IConstant.MODE_EDIT;
 import static com.ulp.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
+import static com.ulp.common.IConstant.MSG_PREVIEW_BACK_EDIT;
+import static com.ulp.common.IConstant.MSG_PREVIEW_BACK_LIBRARY;
 import static com.ulp.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
 import static com.ulp.common.IConstant.PARAM_EXAM_CLASS;
 import static com.ulp.common.IConstant.PARAM_EXAM_KEYWORD;
 import static com.ulp.common.IConstant.PARAM_EXAM_SORT;
 import static com.ulp.common.IConstant.PARAM_EXAM_STATUS;
 import static com.ulp.common.IConstant.PARAM_EXAM_TYPE;
+import static com.ulp.common.IConstant.PARAM_PREVIEW_ORIGIN;
+import static com.ulp.common.IConstant.PREVIEW_ORIGIN_LIBRARY;
 import static com.ulp.common.IConstant.TAB_HISTORY;
 import static com.ulp.common.IConstant.TAB_INFO;
 import static com.ulp.common.IConstant.TAB_MONITOR;
 import static com.ulp.common.IConstant.TAB_SUBMISSIONS;
+import static com.ulp.common.IConstant.URL_LIBRARY_TESTS;
 import static com.ulp.common.IConstant.VIEW_TEST_LECTURER_FORM;
 import static com.ulp.common.IConstant.VIEW_TEST_LECTURER_LIST;
 import static com.ulp.common.IConstant.VIEW_TEST_LECTURER_PREVIEW;
@@ -205,13 +212,27 @@ public class LecturerTestController {
 
     /**
      * Student-style preview of an owned exam. Read-only: no attempt is started
-     * and answers cannot be submitted. Used from the edit toolbar "Xem trước".
+     * and answers cannot be submitted. Reached from the edit toolbar and from
+     * the Library "Bài test" rail.
+     *
+     * <p>{@code from} carries where the user came from so the back-link returns
+     * there instead of always landing on the edit screen. It is a whitelisted
+     * token resolved server-side, never a caller-supplied URL — an unknown or
+     * absent value falls back to the edit screen, so there is nothing to steer.
      */
     @GetMapping("/{id}/preview")
     public String preview(@PathVariable Long id,
+                          @RequestParam(name = PARAM_PREVIEW_ORIGIN, required = false) String from,
                           @AuthenticationPrincipal UlpUserDetails user, Model model) {
         PreviewView preview = examService.previewAsStudent(id, user.getId());
+        boolean fromLibrary = PREVIEW_ORIGIN_LIBRARY.equals(from);
         model.addAttribute(ATTR_PREVIEW, preview);
+        model.addAttribute(ATTR_PREVIEW_BACK_URL, fromLibrary
+                ? URL_LIBRARY_TESTS
+                : BASE_LECTURER_TESTS + "/" + id + "/edit?tab=" + TAB_INFO);
+        model.addAttribute(ATTR_PREVIEW_BACK_LABEL, fromLibrary
+                ? MSG_PREVIEW_BACK_LIBRARY
+                : MSG_PREVIEW_BACK_EDIT);
         return VIEW_TEST_LECTURER_PREVIEW;
     }
 

@@ -479,8 +479,9 @@
           <!-- Preview renders the exam paper read-only; it is not the entity's
                detail page, which the title column now owns. Kept here because
                dropping it would leave the rail with no route to /preview. -->
+          <!-- from=library so preview's back-link returns to this rail. -->
           <a class="btn-ghost btn-sm"
-             th:href="@{'/lecturer/tests/' + ${exam.id()} + '/preview'}">Xem trước</a>
+             th:href="@{'/lecturer/tests/' + ${exam.id()} + '/preview'(from='library')}">Xem trước</a>
           <button type="button" class="btn-ghost btn-sm" data-action="clone-exam"
                   th:attr="data-exam-id=${exam.id()},data-exam-title=${exam.title()}">
             Clone sang lớp khác

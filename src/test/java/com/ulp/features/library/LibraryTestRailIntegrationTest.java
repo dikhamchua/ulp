@@ -43,6 +43,7 @@ import static com.ulp.common.IConstant.ATTR_LIBRARY_TAB;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_TEMPLATE_COUNT;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_TOTAL_COUNT;
 import static com.ulp.common.IConstant.ATTR_LIBRARY_VIDEO_COUNT;
+import static com.ulp.common.IConstant.ATTR_PREVIEW_BACK_URL;
 import static com.ulp.common.IConstant.LIBRARY_TAB_TESTS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -392,6 +393,35 @@ class LibraryTestRailIntegrationTest {
                 .andExpect(status().isForbidden());
 
         assertThat(isDeletedFlag(foreignExam)).isFalse();
+    }
+
+    @org.junit.jupiter.api.Test
+    @WithUserDetails(LECTURER)
+    void preview_reached_from_the_rail_offers_a_back_link_to_the_rail() throws Exception {
+        mockMvc.perform(get("/lecturer/tests/" + richExamId + "/preview").param("from", "library"))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute(ATTR_PREVIEW_BACK_URL, RAIL_URL));
+    }
+
+    @org.junit.jupiter.api.Test
+    @WithUserDetails(LECTURER)
+    void preview_without_an_origin_still_returns_to_the_edit_screen() throws Exception {
+        mockMvc.perform(get("/lecturer/tests/" + richExamId + "/preview"))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute(ATTR_PREVIEW_BACK_URL,
+                        "/lecturer/tests/" + richExamId + "/edit?tab=info"));
+    }
+
+    @org.junit.jupiter.api.Test
+    @WithUserDetails(LECTURER)
+    void preview_ignores_an_unknown_origin_rather_than_redirecting_to_it() throws Exception {
+        // The origin is a whitelisted token, never a URL — an attacker-supplied
+        // value must fall back to the edit screen, not steer the back-link.
+        mockMvc.perform(get("/lecturer/tests/" + richExamId + "/preview")
+                        .param("from", "https://evil.example.com"))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute(ATTR_PREVIEW_BACK_URL,
+                        "/lecturer/tests/" + richExamId + "/edit?tab=info"));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

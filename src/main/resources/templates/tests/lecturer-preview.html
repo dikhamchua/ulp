@@ -14,8 +14,12 @@
       <strong>Chế độ xem trước</strong>
       <span>Đây là giao diện sinh viên sẽ thấy. Bạn có thể chọn đáp án để thử, nhưng không nộp bài / không chấm điểm.</span>
     </div>
+    <!-- Back target and label are resolved server-side from the ?from= origin,
+         so preview returns where the user actually came from. -->
     <a class="tst-btn"
-       th:href="@{'/lecturer/tests/' + ${preview.testId()} + '/edit'(tab='info')}">← Quay lại chỉnh sửa</a>
+       th:href="${previewBackUrl != null ? previewBackUrl
+                  : '/lecturer/tests/' + preview.testId() + '/edit?tab=info'}"
+       th:text="${previewBackLabel != null ? previewBackLabel : '← Quay lại chỉnh sửa'}">← Quay lại chỉnh sửa</a>
   </div>
 
   <div class="tk-bar">
