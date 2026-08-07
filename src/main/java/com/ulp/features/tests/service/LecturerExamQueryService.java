@@ -68,6 +68,20 @@ public class LecturerExamQueryService {
     }
 
     /**
+     * How many exams the lecturer owns, for the Library rail's "Bài test" badge.
+     *
+     * <p>Deliberately routed through the same unfiltered {@link #listOwned} call
+     * the rail itself uses rather than a fresh count query: the ownership
+     * predicate — and the {@code -1L} sentinel that keeps its JPQL {@code IN}
+     * clause valid for a lecturer with no class — then stays defined in exactly
+     * one place. A role that owns nothing gets {@code 0}, not an exception.
+     */
+    @Transactional(readOnly = true)
+    public long countOwned(Long userId) {
+        return listOwned(userId, 0).getTotalElements();
+    }
+
+    /**
      * One page of exams belonging to a single class. Class-level authorization
      * is the caller's responsibility: {@code ClassDetailController} gates the
      * tests tab with {@code classesService.getViewable(...)} (LECTURER-owns /
