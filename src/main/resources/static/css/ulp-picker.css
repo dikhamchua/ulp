@@ -1,0 +1,263 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * ULP picker modal — the shared shell behind UlpModal.picker().
+ *
+ * One chrome for every "choose something from a list inside a modal" flow:
+ * attaching an asset to a lesson, cloning a lesson, cloning an exam. The
+ * shell owns the frame (backdrop, dialog, head, steps, search, foot); each
+ * caller owns only what goes in the body.
+ *
+ * Formerly .library-attach-* in library.css — renamed because three
+ * different features share it, none of which is only about "attaching".
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+.ulp-picker-modal[hidden] { display: none !important; }
+
+.ulp-picker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ulp-picker-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.ulp-picker-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(560px, calc(100vw - 2rem));
+  max-height: min(86vh, 760px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border, #D8DCF0);
+}
+
+.ulp-picker-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 0.75rem;
+  border-bottom: 1px solid var(--border-soft, #EDEFF7);
+}
+
+.ulp-picker-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--heading, #22313F);
+  font-weight: 700;
+}
+
+.ulp-picker-asset {
+  margin: 0.25rem 0 0;
+  font-size: 13px;
+  color: var(--muted, #6B7280);
+}
+
+.ulp-picker-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0.65rem 1.1rem;
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-soft, #EDEFF7);
+  background: var(--bg-soft, #F7F8FC);
+}
+
+.ulp-picker-steps li {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #6B7280);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--border-soft, #EDEFF7);
+}
+
+.ulp-picker-steps li.is-active {
+  color: #fff;
+  background: var(--primary, #1E88E5);
+  border-color: var(--primary, #1E88E5);
+}
+
+.ulp-picker-steps li.is-done {
+  color: var(--primary, #1E88E5);
+  border-color: var(--primary-soft, #E8F2FD);
+  background: var(--primary-soft, #E8F2FD);
+}
+
+.ulp-picker-tools {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  border-bottom: 1px solid var(--border-soft, #EDEFF7);
+}
+
+.ulp-picker-tools[hidden] { display: none !important; }
+
+.ulp-picker-tools input {
+  flex: 1;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border, #D8DCF0);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.ulp-picker-tools input:focus {
+  outline: none;
+  border-color: var(--primary, #1E88E5);
+  box-shadow: 0 0 0 3px var(--primary-soft, #E8F2FD);
+}
+
+.ulp-picker-body {
+  overflow: auto;
+  min-height: 14rem;
+  padding: 0.35rem 0 0.5rem;
+}
+
+.ulp-picker-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ulp-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 0.75rem 1.1rem;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft, #EDEFF7);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ulp-picker-item:hover,
+.ulp-picker-item:focus-visible {
+  background: var(--primary-soft, #E8F2FD);
+  outline: none;
+}
+
+.ulp-picker-item.is-selected {
+  background: var(--primary-soft, #E8F2FD);
+  box-shadow: inset 3px 0 0 var(--primary, #1E88E5);
+}
+
+.ulp-picker-item-title {
+  font-weight: 700;
+  color: var(--fg, #202227);
+  font-size: 14px;
+}
+
+.ulp-picker-item-meta {
+  color: var(--muted, #6B7280);
+  font-size: 12.5px;
+}
+
+.ulp-picker-summary {
+  margin: 0.35rem 1.1rem 0.65rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: var(--bg-soft, #F7F8FC);
+  border: 1px solid var(--border-soft, #EDEFF7);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 13px;
+}
+
+.ulp-picker-summary .k {
+  color: var(--muted, #6B7280);
+  font-weight: 600;
+  min-width: 5.5rem;
+  display: inline-block;
+}
+
+.ulp-picker-summary .v {
+  color: var(--fg, #202227);
+  font-weight: 600;
+}
+
+.ulp-picker-empty,
+.ulp-picker-loading,
+.ulp-picker-error {
+  padding: 1.75rem 1.1rem;
+  text-align: center;
+  color: var(--muted, #6B7280);
+  font-size: 13.5px;
+}
+
+.ulp-picker-empty strong {
+  display: block;
+  color: var(--heading, #22313F);
+  margin-bottom: 0.35rem;
+  font-size: 14px;
+}
+
+.ulp-picker-empty p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.ulp-picker-error { color: #b42318; }
+
+.ulp-picker-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem 0.25rem;
+  font-size: 12.5px;
+  color: var(--muted, #6B7280);
+}
+
+.ulp-picker-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.1rem;
+  border-top: 1px solid var(--border-soft, #EDEFF7);
+  background: var(--bg, #fff);
+}
+
+.ulp-picker-foot-spacer { flex: 1; }
+
+/* Wizard foot/head reuse global .btn-primary/.btn-ghost; keep size compact. */
+.ulp-picker-foot .btn-primary,
+.ulp-picker-foot .btn-ghost,
+.ulp-picker-head .btn-ghost,
+.ulp-picker-tools .btn-ghost,
+.ulp-picker-pager .btn-ghost {
+  min-height: 36px;
+  padding: 8px 16px;
+}
+
+.ulp-picker-foot .btn-sm,
+.ulp-picker-head .btn-sm,
+.ulp-picker-tools .btn-sm,
+.ulp-picker-pager .btn-sm {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Guard against any local display: overrides on foot controls. */
+.ulp-picker-foot [hidden],
+.ulp-picker-head [hidden] {
+  display: none !important;
+}

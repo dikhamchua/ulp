@@ -21,7 +21,7 @@
     busy: false
   };
 
-  var root = null;
+  var picker = null;
 
   function toast(kind, message) {
     if (window.UlpToast && typeof window.UlpToast[kind] === 'function') {
@@ -53,76 +53,30 @@
     return out;
   }
 
-  function ensureDom() {
-    if (root) return root;
-    root = document.createElement('div');
-    root.id = 'examCloneDialog';
-    root.className = 'library-attach-modal';
-    root.hidden = true;
-    root.innerHTML =
-      '<div class="library-attach-backdrop" data-exam-clone-close></div>' +
-      '<div class="library-attach-dialog" role="dialog" aria-modal="true" aria-labelledby="examCloneTitle">' +
-      '  <div class="library-attach-head">' +
-      '    <div>' +
-      '      <h3 id="examCloneTitle">Clone bài test sang lớp khác</h3>' +
-      '      <p class="library-attach-asset" id="examCloneLabel"></p>' +
-      '    </div>' +
-      '    <button type="button" class="btn-ghost btn-sm" data-exam-clone-close aria-label="Đóng">Đóng</button>' +
-      '  </div>' +
-      // Same tools slot the lesson clone wizard uses; filtering is client-side
-      // because the whole led-class list is already in the DOM.
-      '  <div class="library-attach-tools">' +
-      '    <input type="search" id="examCloneClassQ" autocomplete="off"' +
-      '           aria-label="Tìm lớp" placeholder="Tìm lớp theo tên…"/>' +
-      '  </div>' +
-      '  <div class="library-attach-body" id="examCloneBody"></div>' +
-      '  <div class="library-attach-foot">' +
-      '    <div class="library-attach-foot-spacer"></div>' +
-      '    <button type="button" class="btn-ghost" data-exam-clone-close>Huỷ</button>' +
-      '    <button type="button" class="btn-primary" id="examCloneConfirm" disabled>Clone (nháp)</button>' +
-      '  </div>' +
-      '</div>';
-    document.body.appendChild(root);
-
-    root.querySelectorAll('[data-exam-clone-close]').forEach(function (el) {
-      el.addEventListener('click', close);
-    });
-    var confirm = document.getElementById('examCloneConfirm');
-    if (confirm) confirm.addEventListener('click', doClone);
-
-    var search = document.getElementById('examCloneClassQ');
-    if (search) {
-      search.addEventListener('input', function () {
-        state.query = search.value || '';
-        renderClasses();
-      });
-      // Enter would otherwise bubble out and submit the surrounding page form.
-      search.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') e.preventDefault();
-      });
-    }
-    return root;
-  }
-
   function syncConfirm() {
-    var confirm = document.getElementById('examCloneConfirm');
-    if (confirm) confirm.disabled = !state.classId || state.busy;
+    if (!picker) return;
+    picker.setButtons({
+      next: {
+        disabled: !state.classId || state.busy,
+        label: state.busy ? 'Đang clone…' : 'Clone (nháp)'
+      }
+    });
   }
 
   /**
    * Renders the led-class list, narrowed by the search box. Reuses the attach
-   * wizard's .library-attach-item so rows keep the dialog's own gutters instead
-   * of running edge to edge.
+   * shared .ulp-picker-item so rows keep the dialog's own gutters instead of
+   * running edge to edge.
    *
    * <p>Selection survives filtering: the selected id lives in state, so a class
    * filtered out of view stays chosen and the confirm button stays enabled.
    */
   function renderClasses() {
-    var body = document.getElementById('examCloneBody');
-    if (!body) return;
+    if (!picker) return;
+    var body = picker.body();
     var classes = ledClasses();
     if (!classes.length) {
-      body.innerHTML = '<div class="exam-clone-empty">Bạn chưa phụ trách lớp nào để clone sang.</div>';
+      picker.empty('Bạn chưa phụ trách lớp nào để clone sang.');
       return;
     }
     var needle = state.query.trim().toLowerCase();
@@ -130,16 +84,16 @@
       ? classes.filter(function (c) { return c.name.toLowerCase().indexOf(needle) !== -1; })
       : classes;
     if (!shown.length) {
-      body.innerHTML = '<div class="exam-clone-empty">Không tìm thấy lớp phù hợp.</div>';
+      picker.empty('Không tìm thấy lớp phù hợp.');
       return;
     }
-    var html = '<div class="library-attach-list">';
+    var html = '<div class="ulp-picker-list">';
     shown.forEach(function (c) {
       var selected = String(c.id) === String(state.classId);
-      html += '<button type="button" class="library-attach-item'
+      html += '<button type="button" class="ulp-picker-item'
         + (selected ? ' is-selected' : '')
         + '" data-class-id="' + escapeAttr(c.id) + '">'
-        + '<span class="library-attach-item-title">' + escapeHtml(c.name) + '</span>'
+        + '<span class="ulp-picker-item-title">' + escapeHtml(c.name) + '</span>'
         + '</button>';
     });
     html += '</div>';
@@ -147,7 +101,7 @@
     body.querySelectorAll('[data-class-id]').forEach(function (el) {
       el.addEventListener('click', function () {
         state.classId = el.getAttribute('data-class-id');
-        body.querySelectorAll('.library-attach-item').forEach(function (item) {
+        body.querySelectorAll('.ulp-picker-item').forEach(function (item) {
           item.classList.toggle('is-selected', item === el);
         });
         syncConfirm();
@@ -156,25 +110,28 @@
   }
 
   function open(examId, examTitle) {
-    ensureDom();
     state.examId = examId;
     state.examTitle = examTitle || '';
     state.classId = null;
     state.query = '';
     state.busy = false;
-    root.hidden = false;
-    var search = document.getElementById('examCloneClassQ');
-    if (search) search.value = '';
-    var label = document.getElementById('examCloneLabel');
-    if (label) label.textContent = state.examTitle;
-    var confirm = document.getElementById('examCloneConfirm');
-    if (confirm) confirm.textContent = 'Clone (nháp)';
+
+    picker = window.UlpModal.picker({
+      title: 'Clone bài test sang lớp khác',
+      subtitle: state.examTitle,
+      confirmLabel: 'Clone (nháp)'
+    });
+    picker.setSearch(function (q) {
+      state.query = q;
+      renderClasses();
+    }, 'Tìm lớp theo tên…');
+    picker.setButtons({ next: { onClick: doClone } });
     renderClasses();
     syncConfirm();
   }
 
   function close() {
-    if (root) root.hidden = true;
+    if (picker) picker.close();
   }
 
   function postJson(url, body) {
@@ -199,10 +156,10 @@
 
   function doClone() {
     if (!state.examId || !state.classId || state.busy) return;
+    // syncConfirm() owns both the label and the disabled state, so the busy
+    // flag alone drives the "Đang clone…" text.
     state.busy = true;
     syncConfirm();
-    var confirm = document.getElementById('examCloneConfirm');
-    if (confirm) confirm.textContent = 'Đang clone…';
 
     var params = new URLSearchParams();
     params.set('targetClassId', String(state.classId));
@@ -210,7 +167,6 @@
     postJson(CLONE_BASE + state.examId + '/clone', params.toString())
       .then(function (res) {
         state.busy = false;
-        if (confirm) confirm.textContent = 'Clone (nháp)';
         syncConfirm();
         if (!res.ok) {
           toast('error', messageOf(res, 'Không clone được bài test'));
@@ -222,7 +178,6 @@
       })
       .catch(function () {
         state.busy = false;
-        if (confirm) confirm.textContent = 'Clone (nháp)';
         syncConfirm();
         toast('error', 'Không clone được bài test');
       });
