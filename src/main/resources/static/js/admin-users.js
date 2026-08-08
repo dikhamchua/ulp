@@ -236,7 +236,7 @@
       closeConfirmModal();
     }
     // Click on overlay (but not on inner box) closes the modal.
-    if (ev.target.classList.contains('modal-overlay')) {
+    if (ev.target.classList.contains('ulp-dialog-overlay')) {
       closeLockModal();
       closeResetModal();
       closeConfirmModal();

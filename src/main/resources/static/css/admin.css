@@ -434,40 +434,9 @@
   background: #fef2f2;
 }
 
-/* ── Modal overlay + danger button ────────────────────────────────────────────
-   Confirm / lock / reset-password dialogs. Shared by the users list, the user
-   detail page, and the categories delete confirm. Previously lived only in
-   admin-users.css, which left the categories delete modal unstyled. */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(17, 24, 39, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-overlay[hidden] {
-  display: none;
-}
-
-.modal-box {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  width: 100%;
-  max-width: 480px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-/* Wider modal for multi-field create forms (AI provider, …). */
-.modal-box.modal-box-lg {
-  max-width: 560px;
-  max-height: min(90vh, 720px);
-  overflow-y: auto;
-}
-
+/* ── Danger button + AI provider create form ──────────────────────────────────
+   The modal overlay/box shell moved to ulp-dialog.css so every server-rendered
+   dialog shares one presentation layer. What stays here is admin-specific. */
 .ai-provider-create-form .form-row {
   margin-bottom: 14px;
 }
@@ -503,37 +472,8 @@
   margin-bottom: 8px;
 }
 
-.ai-provider-create-form .modal-actions {
+.ai-provider-create-form .ulp-dialog-actions {
   margin-top: 8px;
-}
-
-.modal-box h3 {
-  margin: 0 0 8px;
-  font-size: 18px;
-  color: #111827;
-}
-
-.modal-box p {
-  margin: 0 0 16px;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.modal-box textarea,
-.modal-box input[type=text],
-.modal-box input[type=password] {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  margin-bottom: 16px;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
 }
 
 .btn-danger {

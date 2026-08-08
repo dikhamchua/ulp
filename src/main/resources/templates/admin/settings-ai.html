@@ -3,7 +3,8 @@
 <head th:replace="~{fragments/head :: head('Admin | Cài đặt AI', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/ulp-dialog.css(v='1')}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css(v='1')}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
@@ -185,10 +186,10 @@
     <!-- ===== Create provider modal =====
          Opens on "Thêm provider" click, or when the server re-renders with
          validation errors (showForm=true), or when the URL has ?new=1. -->
-    <div class="modal-overlay" id="aiProviderCreateModal"
+    <div class="ulp-dialog-overlay" id="aiProviderCreateModal"
          th:attr="hidden=${showForm != true} ? 'hidden' : null"
          role="dialog" aria-modal="true" aria-labelledby="aiProviderCreateTitle">
-      <div class="modal-box modal-box-lg ai-provider-create-box">
+      <div class="ulp-dialog-box ulp-dialog-box-lg ai-provider-create-box">
         <h3 id="aiProviderCreateTitle">Thêm AI provider</h3>
         <p>Provider mới luôn được thêm vào cuối chuỗi fallback.</p>
 
@@ -249,7 +250,7 @@
             </label>
           </div>
 
-          <div class="modal-actions">
+          <div class="ulp-dialog-actions">
             <button type="button" class="btn btn-ghost" id="aiProviderCreateCancel">Hủy</button>
             <button type="submit" class="btn btn-primary">Thêm provider</button>
           </div>
@@ -258,15 +259,15 @@
     </div>
 
     <!-- ===== Delete confirmation ===== -->
-    <div class="modal-overlay" id="aiDeleteModal" hidden
+    <div class="ulp-dialog-overlay" id="aiDeleteModal" hidden
          role="dialog" aria-modal="true" aria-labelledby="aiDeleteTitle">
-      <div class="modal-box">
+      <div class="ulp-dialog-box">
         <h3 id="aiDeleteTitle">Xoá AI provider</h3>
         <p>Bạn có chắc muốn xoá provider <strong id="aiDeleteName"></strong>?
           Thao tác này không thể hoàn tác.</p>
         <form method="post" id="aiDeleteForm">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-          <div class="modal-actions">
+          <div class="ulp-dialog-actions">
             <button type="button" class="btn btn-ghost" id="aiDeleteCancel">Hủy</button>
             <button type="submit" class="btn-danger">Xoá</button>
           </div>

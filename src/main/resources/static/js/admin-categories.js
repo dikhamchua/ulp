@@ -72,7 +72,7 @@
   // ── Cancel / overlay / Esc close ─────────────────────────────────
   document.addEventListener('click', function (ev) {
     if (ev.target.matches('[data-modal-cancel]')) closeConfirm();
-    if (ev.target.classList.contains('modal-overlay')) closeConfirm();
+    if (ev.target.classList.contains('ulp-dialog-overlay')) closeConfirm();
   });
   document.addEventListener('keydown', function (ev) {
     if (ev.key === 'Escape') closeConfirm();
