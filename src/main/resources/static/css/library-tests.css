@@ -39,8 +39,8 @@
   background: #fef2f2;
 }
 
-/* One-step clone picker. The class rows reuse .library-attach-list /
- * .library-attach-item from library.css, so they inherit the dialog's own
+/* One-step clone picker. The class rows reuse .ulp-picker-list /
+ * .ulp-picker-item from ulp-picker.css, so they inherit the dialog's own
  * gutters and selected state — only the empty state needs styling here, and it
  * matches the item padding so the text lines up with the rows it replaces. */
 .exam-clone-empty {
