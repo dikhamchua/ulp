@@ -50,6 +50,8 @@
     }
   }
 
+  var picker = null;
+
   function el(id) {
     return document.getElementById(id);
   }
@@ -156,37 +158,27 @@
   }
 
   function setStepChrome() {
-    var steps = document.querySelectorAll('#libraryAttachSteps li');
-    steps.forEach(function (li) {
-      var n = Number(li.getAttribute('data-step'));
-      // Multi-mode: step 4 label is preview, still data-step="4".
-      li.classList.toggle('is-active', n === state.step);
-      li.classList.toggle('is-done', n < state.step);
-      if (n === 4) {
-        li.textContent = state.multi ? 'Xem trước' : 'Vai trò';
-      }
+    if (!picker) return;
+    picker.setStep(state.step);
+    // Multi-mode replaces the role step with a preview of the planned binds.
+    picker.setStepLabel(4, state.multi ? 'Xem trước' : 'Vai trò');
+    picker.showSearch(state.step === STEP_CLASS);
+
+    var finishDisabled;
+    if (state.multi) {
+      var hasJobs = state.plan && state.plan.jobs && state.plan.jobs.length > 0;
+      finishDisabled = !hasJobs || state.binding;
+    } else {
+      finishDisabled = !state.role || state.binding;
+    }
+    picker.setButtons({
+      back: { hidden: state.step === STEP_CLASS || state.binding },
+      next: {
+        hidden: state.step === finalStep() || state.binding,
+        disabled: !canAdvance() || state.binding
+      },
+      finish: { hidden: state.step !== finalStep(), disabled: finishDisabled }
     });
-
-    var tools = el('libraryAttachTools');
-    if (tools) tools.hidden = state.step !== STEP_CLASS;
-
-    var back = el('libraryAttachBack');
-    var next = el('libraryAttachNext');
-    var finish = el('libraryAttachFinish');
-    if (back) back.hidden = state.step === STEP_CLASS || state.binding;
-    if (next) {
-      next.hidden = state.step === finalStep() || state.binding;
-      next.disabled = !canAdvance() || state.binding;
-    }
-    if (finish) {
-      finish.hidden = state.step !== finalStep();
-      if (state.multi) {
-        var hasJobs = state.plan && state.plan.jobs && state.plan.jobs.length > 0;
-        finish.disabled = !hasJobs || state.binding;
-      } else {
-        finish.disabled = !state.role || state.binding;
-      }
-    }
   }
 
   function canAdvance() {
@@ -197,34 +189,21 @@
   }
 
   function bodyLoading(text) {
-    var body = el('libraryAttachBody');
-    if (!body) return;
-    body.innerHTML = '<div class="library-attach-loading">' +
-      (text || 'Đang tải…') + '</div>';
+    if (picker) picker.loading(text);
   }
 
   function bodyEmpty(title, hint) {
-    var body = el('libraryAttachBody');
-    if (!body) return;
-    body.innerHTML =
-      '<div class="library-attach-empty">' +
-      '<strong></strong><p></p></div>';
-    body.querySelector('strong').textContent = title || 'Không có dữ liệu';
-    body.querySelector('p').textContent = hint || '';
+    if (picker) picker.empty(title, hint);
   }
 
   function bodyError(message) {
-    var body = el('libraryAttachBody');
-    if (!body) return;
-    body.innerHTML = '<div class="library-attach-error"></div>';
-    body.querySelector('.library-attach-error').textContent =
-      message || 'Không tải được dữ liệu. Thử lại.';
+    if (picker) picker.error(message || 'Không tải được dữ liệu. Thử lại.');
   }
 
   function selectItem(btn, selected) {
     var list = btn.parentElement;
     if (list) {
-      list.querySelectorAll('.library-attach-item').forEach(function (node) {
+      list.querySelectorAll('.ulp-picker-item').forEach(function (node) {
         node.classList.remove('is-selected');
       });
     }
@@ -232,7 +211,7 @@
   }
 
   function renderClassList(page) {
-    var body = el('libraryAttachBody');
+    var body = picker && picker.body();
     if (!body) return;
     var items = (page && page.items) || [];
     state.classPage = page ? (page.page || 0) : 0;
@@ -251,17 +230,17 @@
 
     body.innerHTML = '';
     var list = document.createElement('div');
-    list.className = 'library-attach-list';
+    list.className = 'ulp-picker-list';
     items.forEach(function (item) {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'library-attach-item';
+      btn.className = 'ulp-picker-item';
       if (state.classId === item.id) btn.classList.add('is-selected');
       btn.innerHTML =
-        '<span class="library-attach-item-title"></span>' +
-        '<span class="library-attach-item-meta"></span>';
-      btn.querySelector('.library-attach-item-title').textContent = item.name || ('Lớp #' + item.id);
-      btn.querySelector('.library-attach-item-meta').textContent =
+        '<span class="ulp-picker-item-title"></span>' +
+        '<span class="ulp-picker-item-meta"></span>';
+      btn.querySelector('.ulp-picker-item-title').textContent = item.name || ('Lớp #' + item.id);
+      btn.querySelector('.ulp-picker-item-meta').textContent =
         item.code ? ('Mã: ' + item.code) : '';
       btn.addEventListener('click', function () {
         if (state.binding) return;
@@ -282,7 +261,7 @@
 
     if (state.classTotalPages > 1) {
       var pager = document.createElement('div');
-      pager.className = 'library-attach-pager';
+      pager.className = 'ulp-picker-pager';
       var prev = document.createElement('button');
       prev.type = 'button';
       prev.className = 'btn-ghost btn-sm';
@@ -318,7 +297,7 @@
   }
 
   function renderSimpleList(items, selectedId, getTitle, getMeta, onPick, emptyTitle, emptyHint) {
-    var body = el('libraryAttachBody');
+    var body = picker && picker.body();
     if (!body) return;
     if (!items || !items.length) {
       bodyEmpty(emptyTitle, emptyHint);
@@ -327,18 +306,18 @@
     }
     body.innerHTML = '';
     var list = document.createElement('div');
-    list.className = 'library-attach-list';
+    list.className = 'ulp-picker-list';
     items.forEach(function (item) {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'library-attach-item';
+      btn.className = 'ulp-picker-item';
       if (selectedId === item.id) btn.classList.add('is-selected');
       btn.innerHTML =
-        '<span class="library-attach-item-title"></span>' +
-        '<span class="library-attach-item-meta"></span>';
-      btn.querySelector('.library-attach-item-title').textContent = getTitle(item);
+        '<span class="ulp-picker-item-title"></span>' +
+        '<span class="ulp-picker-item-meta"></span>';
+      btn.querySelector('.ulp-picker-item-title').textContent = getTitle(item);
       var meta = getMeta ? getMeta(item) : '';
-      btn.querySelector('.library-attach-item-meta').textContent = meta || '';
+      btn.querySelector('.ulp-picker-item-meta').textContent = meta || '';
       btn.addEventListener('click', function () {
         if (state.binding) return;
         onPick(item, btn);
@@ -352,7 +331,7 @@
   }
 
   function renderRoles() {
-    var body = el('libraryAttachBody');
+    var body = picker && picker.body();
     if (!body) return;
     var roles = rolesForAsset(state.asset);
     if (!roles.length) {
@@ -362,7 +341,7 @@
     }
     body.innerHTML = '';
     var summary = document.createElement('div');
-    summary.className = 'library-attach-summary';
+    summary.className = 'ulp-picker-summary';
     summary.innerHTML =
       '<div><span class="k">Lớp</span> <span class="v" data-k="class"></span></div>' +
       '<div><span class="k">Chương</span> <span class="v" data-k="section"></span></div>' +
@@ -373,14 +352,14 @@
     body.appendChild(summary);
 
     var list = document.createElement('div');
-    list.className = 'library-attach-list library-attach-roles';
+    list.className = 'ulp-picker-list ulp-picker-roles';
     roles.forEach(function (role) {
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'library-attach-item';
+      btn.className = 'ulp-picker-item';
       if (state.role === role.key) btn.classList.add('is-selected');
-      btn.innerHTML = '<span class="library-attach-item-title"></span>';
-      btn.querySelector('.library-attach-item-title').textContent = role.label;
+      btn.innerHTML = '<span class="ulp-picker-item-title"></span>';
+      btn.querySelector('.ulp-picker-item-title').textContent = role.label;
       btn.addEventListener('click', function () {
         if (state.binding) return;
         state.role = role.key;
@@ -394,21 +373,21 @@
     // Single role: auto-select so Finish is one click away.
     if (roles.length === 1 && !state.role) {
       state.role = roles[0].key;
-      var first = list.querySelector('.library-attach-item');
+      var first = list.querySelector('.ulp-picker-item');
       if (first) first.classList.add('is-selected');
     }
     setStepChrome();
   }
 
   function renderPreview() {
-    var body = el('libraryAttachBody');
+    var body = picker && picker.body();
     if (!body) return;
     state.plan = planMultiRoles(state.assets);
     var plan = state.plan;
 
     body.innerHTML = '';
     var summary = document.createElement('div');
-    summary.className = 'library-attach-summary';
+    summary.className = 'ulp-picker-summary';
     summary.innerHTML =
       '<div><span class="k">Lớp</span> <span class="v" data-k="class"></span></div>' +
       '<div><span class="k">Chương</span> <span class="v" data-k="section"></span></div>' +
@@ -423,7 +402,7 @@
 
     if (!plan.jobs.length && !plan.skippedVideos.length) {
       var empty = document.createElement('div');
-      empty.className = 'library-attach-empty';
+      empty.className = 'ulp-picker-empty';
       empty.innerHTML = '<strong></strong><p></p>';
       empty.querySelector('strong').textContent = 'Không có mục để gắn';
       empty.querySelector('p').textContent = MSG_EMPTY_JOBS;
@@ -433,30 +412,30 @@
     }
 
     var list = document.createElement('div');
-    list.className = 'library-attach-list';
+    list.className = 'ulp-picker-list';
     plan.jobs.forEach(function (job) {
       var row = document.createElement('div');
-      row.className = 'library-attach-item';
+      row.className = 'ulp-picker-item';
       row.style.cursor = 'default';
       row.innerHTML =
-        '<span class="library-attach-item-title"></span>' +
-        '<span class="library-attach-item-meta"></span>';
+        '<span class="ulp-picker-item-title"></span>' +
+        '<span class="ulp-picker-item-meta"></span>';
       var title = job.asset.title || job.asset.filename || ('#' + job.asset.id);
-      row.querySelector('.library-attach-item-title').textContent = title;
-      row.querySelector('.library-attach-item-meta').textContent =
+      row.querySelector('.ulp-picker-item-title').textContent = title;
+      row.querySelector('.ulp-picker-item-meta').textContent =
         roleLabel(job.role);
       list.appendChild(row);
     });
     plan.skippedVideos.forEach(function (asset) {
       var row = document.createElement('div');
-      row.className = 'library-attach-item';
+      row.className = 'ulp-picker-item';
       row.style.cursor = 'default';
       row.innerHTML =
-        '<span class="library-attach-item-title"></span>' +
-        '<span class="library-attach-item-meta"></span>';
+        '<span class="ulp-picker-item-title"></span>' +
+        '<span class="ulp-picker-item-meta"></span>';
       var title = asset.title || asset.filename || ('#' + asset.id);
-      row.querySelector('.library-attach-item-title').textContent = title;
-      row.querySelector('.library-attach-item-meta').textContent =
+      row.querySelector('.ulp-picker-item-title').textContent = title;
+      row.querySelector('.ulp-picker-item-meta').textContent =
         'Bỏ qua — mỗi bài chỉ 1 video chính';
       list.appendChild(row);
     });
@@ -612,8 +591,7 @@
     if (state.binding || !state.asset || !state.role) return;
     state.binding = true;
     setStepChrome();
-    var finish = el('libraryAttachFinish');
-    if (finish) finish.textContent = 'Đang gắn…';
+    if (picker) picker.setButtons({ finish: { label: 'Đang gắn…' } });
 
     postBind(state.role, state.asset.id)
       .then(function (result) {
@@ -666,8 +644,7 @@
 
     state.binding = true;
     setStepChrome();
-    var finish = el('libraryAttachFinish');
-    if (finish) finish.textContent = 'Đang gắn…';
+    if (picker) picker.setButtons({ finish: { label: 'Đang gắn…' } });
 
     var ok = 0;
     var fail = 0;
@@ -719,10 +696,8 @@
       doBind();
       return;
     }
-    var finish = el('libraryAttachFinish');
-    if (finish) {
-      finish.disabled = true;
-      finish.textContent = 'Đang kiểm tra…';
+    if (picker) {
+      picker.setButtons({ finish: { disabled: true, label: 'Đang kiểm tra…' } });
     }
     fetchContentSummary().then(function (summary) {
       if (finish) finish.textContent = 'Gắn vào bài';
@@ -766,10 +741,8 @@
       return;
     }
 
-    var finish = el('libraryAttachFinish');
-    if (finish) {
-      finish.disabled = true;
-      finish.textContent = 'Đang kiểm tra…';
+    if (picker) {
+      picker.setButtons({ finish: { disabled: true, label: 'Đang kiểm tra…' } });
     }
 
     var needsPdfCheck = plan.hasMainPdf;
@@ -834,6 +807,31 @@
     state.plan = null;
   }
 
+  /** Opens the shared picker shell and wires this wizard's controls into it. */
+  function openPicker(title, subtitle) {
+    picker = window.UlpModal.picker({
+      title: title,
+      subtitle: subtitle,
+      steps: ['Lớp', 'Chương', 'Bài giảng', 'Vai trò'],
+      // Binding runs a loop of POSTs; abandoning it midway would leave a
+      // partial result, so dismissal is ignored until it finishes.
+      onCancel: function () { if (!state.binding) state.open = false; }
+    });
+    // Server-side class search — fires on Enter or the Tìm button only.
+    picker.setSearch(function (q) {
+      if (state.binding) return;
+      state.classQ = q;
+      state.classPage = 0;
+      state.classId = null;
+      loadClasses();
+    }, 'Tìm lớp theo tên hoặc mã…', 'submit');
+    picker.setButtons({
+      back: { onClick: goBack },
+      next: { onClick: goNext },
+      finish: { onClick: confirmReplaceIfNeededThenBind, label: 'Gắn vào bài' }
+    });
+  }
+
   function open(asset) {
     if (!asset || !asset.id) return;
     resetCommon();
@@ -841,18 +839,9 @@
     state.asset = asset;
     state.assets = [];
 
-    var modal = el('libraryAttachWizard');
-    var label = el('libraryAttachAssetLabel');
-    var qInput = el('libraryAttachClassQ');
-    var title = el('libraryAttachTitle');
-    if (title) title.textContent = 'Thêm vào lớp';
-    if (label) {
-      var kindLabel = asset.kind === 'VIDEO' ? 'Video' : 'Tài liệu';
-      label.textContent = (asset.title || asset.filename || ('#' + asset.id)) +
-        ' · ' + kindLabel;
-    }
-    if (qInput) qInput.value = '';
-    if (modal) modal.hidden = false;
+    var kindLabel = asset.kind === 'VIDEO' ? 'Video' : 'Tài liệu';
+    openPicker('Thêm vào lớp',
+      (asset.title || asset.filename || ('#' + asset.id)) + ' · ' + kindLabel);
     showStep();
   }
 
@@ -864,16 +853,7 @@
     state.asset = null;
     state.assets = list;
 
-    var modal = el('libraryAttachWizard');
-    var label = el('libraryAttachAssetLabel');
-    var qInput = el('libraryAttachClassQ');
-    var title = el('libraryAttachTitle');
-    if (title) title.textContent = 'Gắn vào lớp';
-    if (label) {
-      label.textContent = list.length + ' học liệu đã chọn';
-    }
-    if (qInput) qInput.value = '';
-    if (modal) modal.hidden = false;
+    openPicker('Gắn vào lớp', list.length + ' học liệu đã chọn');
     showStep();
   }
 
@@ -884,15 +864,9 @@
     state.binding = false;
     state.multi = false;
     state.plan = null;
-    var modal = el('libraryAttachWizard');
-    if (modal) modal.hidden = true;
-    var finish = el('libraryAttachFinish');
-    if (finish) finish.textContent = 'Gắn vào bài';
-    var title = el('libraryAttachTitle');
-    if (title) title.textContent = 'Thêm vào lớp';
-    // Restore step 4 label for next single open.
-    var step4 = document.querySelector('#libraryAttachSteps li[data-step="4"]');
-    if (step4) step4.textContent = 'Vai trò';
+    // Title, finish label and the step-4 label no longer need resetting here:
+    // each open() builds the shell afresh with the right values.
+    if (picker) picker.close();
   }
 
   function goNext() {
@@ -925,42 +899,9 @@
   }
 
   function bindUi() {
-    var modal = el('libraryAttachWizard');
-    if (!modal) return;
-
-    modal.querySelectorAll('[data-attach-close]').forEach(function (node) {
-      node.addEventListener('click', close);
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && state.open) close();
-    });
-
-    var next = el('libraryAttachNext');
-    var back = el('libraryAttachBack');
-    var finish = el('libraryAttachFinish');
-    var searchBtn = el('libraryAttachClassSearch');
-    var qInput = el('libraryAttachClassQ');
-
-    if (next) next.addEventListener('click', goNext);
-    if (back) back.addEventListener('click', goBack);
-    if (finish) finish.addEventListener('click', confirmReplaceIfNeededThenBind);
-    if (searchBtn) {
-      searchBtn.addEventListener('click', function () {
-        if (state.binding) return;
-        state.classQ = (qInput && qInput.value) || '';
-        state.classPage = 0;
-        state.classId = null;
-        loadClasses();
-      });
-    }
-    if (qInput) {
-      qInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          if (searchBtn) searchBtn.click();
-        }
-      });
-    }
+    // Shell controls (close, Escape, back/next/finish, search) are wired by
+    // UlpModal.picker() in openPicker(); only the page's own triggers below
+    // need binding here.
 
     document.querySelectorAll('[data-action="attach-to-class"]').forEach(function (btn) {
       btn.addEventListener('click', function () {

@@ -300,15 +300,18 @@ class LibraryControllerTest {
                 lecturer.getId(),
                 new MockMultipartFile("file", "menu.pdf", "application/pdf", pdfBytes()),
                 "DOCUMENT");
+        // The wizard's own chrome ("Thêm vào lớp", "Gắn vào lớp", the modal
+        // element) is no longer server-rendered — UlpModal.picker() builds it
+        // on open. What the page must still ship is the trigger, the script and
+        // the shared shell's stylesheet.
         mockMvc.perform(get("/lecturer/library"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Thêm vào lớp")))
+                .andExpect(content().string(containsString("attach-to-class")))
                 .andExpect(content().string(containsString("library-attach-wizard.js")))
-                .andExpect(content().string(containsString("libraryAttachWizard")))
+                .andExpect(content().string(containsString("ulp-picker.css")))
                 .andExpect(content().string(containsString("library-bulk-select.js")))
                 .andExpect(content().string(containsString("librarySelectAll")))
                 .andExpect(content().string(containsString("librarySelectionBar")))
-                .andExpect(content().string(containsString("library-row-check")))
-                .andExpect(content().string(containsString("Gắn vào lớp")));
+                .andExpect(content().string(containsString("library-row-check")));
     }
 }

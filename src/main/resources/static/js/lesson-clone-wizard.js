@@ -29,7 +29,7 @@
     binding: false
   };
 
-  var root = null;
+  var picker = null;
 
   function toast(kind, message) {
     if (window.UlpToast && typeof window.UlpToast[kind] === 'function') {
@@ -49,69 +49,6 @@
     return headers;
   }
 
-  function ensureDom() {
-    if (root) return root;
-    root = document.createElement('div');
-    root.id = 'lessonCloneWizard';
-    root.className = 'library-attach-modal';
-    root.hidden = true;
-    root.innerHTML =
-      '<div class="library-attach-backdrop" data-clone-close></div>' +
-      '<div class="library-attach-dialog" role="dialog" aria-modal="true" aria-labelledby="lessonCloneTitle">' +
-      '  <div class="library-attach-head">' +
-      '    <div>' +
-      '      <h3 id="lessonCloneTitle">Clone sang lớp</h3>' +
-      '      <p class="library-attach-asset" id="lessonCloneLabel"></p>' +
-      '    </div>' +
-      '    <button type="button" class="btn-ghost btn-sm" data-clone-close aria-label="Đóng">Đóng</button>' +
-      '  </div>' +
-      '  <ol class="library-attach-steps" id="lessonCloneSteps" aria-label="Các bước">' +
-      '    <li data-step="1" class="is-active">Lớp</li>' +
-      '    <li data-step="2">Chương</li>' +
-      '  </ol>' +
-      '  <div class="library-attach-tools" id="lessonCloneTools">' +
-      '    <input type="search" id="lessonCloneClassQ" placeholder="Tìm lớp theo tên hoặc mã…" autocomplete="off"/>' +
-      '    <button type="button" class="btn-ghost btn-sm" id="lessonCloneClassSearch">Tìm</button>' +
-      '  </div>' +
-      '  <div class="library-attach-body" id="lessonCloneBody"><div class="library-attach-loading">Đang tải…</div></div>' +
-      '  <div class="library-attach-foot">' +
-      '    <button type="button" class="btn-ghost" id="lessonCloneBack" hidden>Quay lại</button>' +
-      '    <div class="library-attach-foot-spacer"></div>' +
-      '    <button type="button" class="btn-ghost" data-clone-close>Huỷ</button>' +
-      '    <button type="button" class="btn-primary" id="lessonCloneNext" disabled>Tiếp</button>' +
-      '    <button type="button" class="btn-primary" id="lessonCloneFinish" hidden disabled>Clone (nháp)</button>' +
-      '  </div>' +
-      '</div>';
-    document.body.appendChild(root);
-
-    root.querySelectorAll('[data-clone-close]').forEach(function (el) {
-      el.addEventListener('click', close);
-    });
-    var back = document.getElementById('lessonCloneBack');
-    var next = document.getElementById('lessonCloneNext');
-    var finish = document.getElementById('lessonCloneFinish');
-    var searchBtn = document.getElementById('lessonCloneClassSearch');
-    var searchInput = document.getElementById('lessonCloneClassQ');
-    if (back) back.addEventListener('click', goBack);
-    if (next) next.addEventListener('click', goNext);
-    if (finish) finish.addEventListener('click', doClone);
-    if (searchBtn) searchBtn.addEventListener('click', function () {
-      state.classQ = (searchInput && searchInput.value) || '';
-      state.classPage = 0;
-      loadClasses();
-    });
-    if (searchInput) {
-      searchInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          state.classQ = searchInput.value || '';
-          state.classPage = 0;
-          loadClasses();
-        }
-      });
-    }
-    return root;
-  }
 
   function normalizeLessons(opts) {
     var list = [];
@@ -144,7 +81,6 @@
       toast('error', 'Thiếu URL clone');
       return;
     }
-    ensureDom();
     state.open = true;
     state.step = STEP_CLASS;
     state.mode = opts.mode || (lessons.length > 1 ? 'lesson' : 'template');
@@ -162,84 +98,85 @@
     state.classTotalPages = 0;
     state.classQ = '';
     state.binding = false;
-    root.hidden = false;
-    var label = document.getElementById('lessonCloneLabel');
-    if (label) label.textContent = state.title || '';
-    var finish = document.getElementById('lessonCloneFinish');
-    if (finish) {
-      finish.textContent = state.bulk
-        ? ('Clone ' + lessons.length + ' bài (nháp)')
-        : 'Clone (nháp)';
-    }
+
+    picker = window.UlpModal.picker({
+      title: 'Clone sang lớp',
+      subtitle: state.title,
+      steps: ['Lớp', 'Chương'],
+      onCancel: function () { state.open = false; }
+    });
+    // Server-side search: firing per keystroke would hit /targets/classes on
+    // every letter, so the query only runs on Enter or the Tìm button.
+    picker.setSearch(function (q) {
+      state.classQ = q;
+      state.classPage = 0;
+      loadClasses();
+    }, 'Tìm lớp theo tên hoặc mã…', 'submit');
+    picker.setButtons({
+      back: { onClick: goBack },
+      next: { onClick: goNext },
+      finish: {
+        onClick: doClone,
+        label: state.bulk ? ('Clone ' + lessons.length + ' bài (nháp)') : 'Clone (nháp)'
+      }
+    });
     syncChrome();
     loadClasses();
   }
 
   function close() {
-    if (!root) return;
     state.open = false;
-    root.hidden = true;
+    if (picker) picker.close();
   }
 
   function syncChrome() {
-    var steps = document.getElementById('lessonCloneSteps');
-    if (steps) {
-      steps.querySelectorAll('li').forEach(function (li) {
-        var s = parseInt(li.getAttribute('data-step'), 10);
-        li.classList.toggle('is-active', s === state.step);
-        li.classList.toggle('is-done', s < state.step);
-      });
-    }
-    var tools = document.getElementById('lessonCloneTools');
-    if (tools) tools.hidden = state.step !== STEP_CLASS;
-    var back = document.getElementById('lessonCloneBack');
-    var next = document.getElementById('lessonCloneNext');
-    var finish = document.getElementById('lessonCloneFinish');
-    if (back) back.hidden = state.step === STEP_CLASS;
-    if (next) {
-      next.hidden = state.step !== STEP_CLASS;
-      next.disabled = !state.classId;
-    }
-    if (finish) {
-      finish.hidden = state.step !== STEP_SECTION;
-      finish.disabled = !state.sectionId || state.binding;
-    }
+    if (!picker) return;
+    picker.setStep(state.step);
+    // Search only applies to the class step; the section list is short.
+    picker.showSearch(state.step === STEP_CLASS);
+    picker.setButtons({
+      back: { hidden: state.step === STEP_CLASS },
+      next: { hidden: state.step !== STEP_CLASS, disabled: !state.classId },
+      finish: {
+        hidden: state.step !== STEP_SECTION,
+        disabled: !state.sectionId || state.binding
+      }
+    });
   }
 
   function setBodyHtml(html) {
-    var body = document.getElementById('lessonCloneBody');
-    if (body) body.innerHTML = html;
+    if (picker) picker.body().innerHTML = html;
   }
 
   function loadClasses() {
-    setBodyHtml('<div class="library-attach-loading">Đang tải lớp…</div>');
+    setBodyHtml('<div class="ulp-picker-loading">Đang tải lớp…</div>');
     var q = encodeURIComponent(state.classQ || '');
     var url = TARGETS + '/classes?page=' + state.classPage + '&size=12&q=' + q;
     fetch(url, { headers: csrfHeaders(), credentials: 'same-origin' })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
       .then(function (res) {
         if (!res.ok) {
-          setBodyHtml('<div class="library-attach-empty">Không tải được danh sách lớp.</div>');
+          setBodyHtml('<div class="ulp-picker-empty">Không tải được danh sách lớp.</div>');
           return;
         }
         var items = (res.body && res.body.items) || [];
         state.classTotalPages = (res.body && res.body.totalPages) || 0;
         if (!items.length) {
-          setBodyHtml('<div class="library-attach-empty">Không có lớp nào bạn được chỉnh sửa.</div>');
+          setBodyHtml('<div class="ulp-picker-empty">Không có lớp nào bạn được chỉnh sửa.</div>');
           return;
         }
-        var html = '<ul class="library-attach-list">';
+        var html = '<ul class="ulp-picker-list">';
         items.forEach(function (c) {
           var selected = state.classId === c.id ? ' is-selected' : '';
-          html += '<li class="library-attach-item' + selected + '" data-class-id="' + c.id + '"'
+          html += '<li class="ulp-picker-item' + selected + '" data-class-id="' + c.id + '"'
             + ' data-class-name="' + escapeAttr(c.name || '') + '">'
-            + '<span class="library-attach-item-title">' + escapeHtml(c.name || '') + '</span>'
-            + (c.code ? '<span class="library-attach-item-meta">' + escapeHtml(c.code) + '</span>' : '')
+            + '<span class="ulp-picker-item-title">' + escapeHtml(c.name || '') + '</span>'
+            + (c.code ? '<span class="ulp-picker-item-meta">' + escapeHtml(c.code) + '</span>' : '')
             + '</li>';
         });
         html += '</ul>';
         if (state.classTotalPages > 1) {
-          html += '<div class="library-attach-pager">';
+          html += '<div class="ulp-picker-pager">';
           if (state.classPage > 0) {
             html += '<button type="button" class="btn-ghost btn-sm" data-clone-page="' + (state.classPage - 1) + '">‹ Trước</button>';
           }
@@ -253,19 +190,19 @@
         bindClassClicks();
       })
       .catch(function () {
-        setBodyHtml('<div class="library-attach-empty">Không tải được danh sách lớp.</div>');
+        setBodyHtml('<div class="ulp-picker-empty">Không tải được danh sách lớp.</div>');
       });
   }
 
   function bindClassClicks() {
-    var body = document.getElementById('lessonCloneBody');
+    var body = picker && picker.body();
     if (!body) return;
     body.querySelectorAll('[data-class-id]').forEach(function (el) {
       el.addEventListener('click', function () {
         state.classId = parseInt(el.getAttribute('data-class-id'), 10);
         state.className = el.getAttribute('data-class-name') || '';
         state.sectionId = null;
-        body.querySelectorAll('.library-attach-item').forEach(function (li) {
+        body.querySelectorAll('.ulp-picker-item').forEach(function (li) {
           li.classList.toggle('is-selected', li === el);
         });
         syncChrome();
@@ -280,22 +217,22 @@
   }
 
   function renderSections(items) {
-    var html = '<ul class="library-attach-list">';
+    var html = '<ul class="ulp-picker-list">';
     items.forEach(function (s) {
       var selected = state.sectionId === s.id ? ' is-selected' : '';
-      html += '<li class="library-attach-item' + selected + '" data-section-id="' + s.id + '"'
+      html += '<li class="ulp-picker-item' + selected + '" data-section-id="' + s.id + '"'
         + ' data-section-title="' + escapeAttr(s.title || '') + '">'
-        + '<span class="library-attach-item-title">' + escapeHtml(s.title || '') + '</span>'
+        + '<span class="ulp-picker-item-title">' + escapeHtml(s.title || '') + '</span>'
         + '</li>';
     });
     html += '</ul>';
     setBodyHtml(html);
-    var body = document.getElementById('lessonCloneBody');
+    var body = picker && picker.body();
     body.querySelectorAll('[data-section-id]').forEach(function (el) {
       el.addEventListener('click', function () {
         state.sectionId = parseInt(el.getAttribute('data-section-id'), 10);
         state.sectionTitle = el.getAttribute('data-section-title') || '';
-        body.querySelectorAll('.library-attach-item').forEach(function (li) {
+        body.querySelectorAll('.ulp-picker-item').forEach(function (li) {
           li.classList.toggle('is-selected', li === el);
         });
         syncChrome();
@@ -312,25 +249,25 @@
   }
 
   function loadSections() {
-    setBodyHtml('<div class="library-attach-loading">Đang tải chương…</div>');
+    setBodyHtml('<div class="ulp-picker-loading">Đang tải chương…</div>');
     var url = TARGETS + '/classes/' + state.classId + '/sections';
     fetch(url, { headers: csrfHeaders(), credentials: 'same-origin' })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
       .then(function (res) {
         if (!res.ok) {
-          setBodyHtml('<div class="library-attach-empty">Không tải được danh sách chương.</div>');
+          setBodyHtml('<div class="ulp-picker-empty">Không tải được danh sách chương.</div>');
           return;
         }
         var items = Array.isArray(res.body) ? res.body : [];
         // Backend auto-creates "Chương 1" when empty; still guard empty responses.
         if (!items.length) {
-          setBodyHtml('<div class="library-attach-empty">Không tạo được chương mặc định. Thử lại.</div>');
+          setBodyHtml('<div class="ulp-picker-empty">Không tạo được chương mặc định. Thử lại.</div>');
           return;
         }
         renderSections(items);
       })
       .catch(function () {
-        setBodyHtml('<div class="library-attach-empty">Không tải được danh sách chương.</div>');
+        setBodyHtml('<div class="ulp-picker-empty">Không tải được danh sách chương.</div>');
       });
   }
 
@@ -385,8 +322,7 @@
     if (!state.lessons.length || !state.classId || !state.sectionId || state.binding) return;
     state.binding = true;
     syncChrome();
-    var finish = document.getElementById('lessonCloneFinish');
-    if (finish) finish.textContent = 'Đang clone…';
+    if (picker) picker.setButtons({ finish: { label: 'Đang clone…' } });
 
     if (!state.bulk) {
       postClone(state.lessons[0].cloneUrl)
