@@ -15,7 +15,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/sections.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-attachments.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css(v='2')}">
   <link class="page-css" rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
 </head>
@@ -569,32 +569,12 @@
 <script th:if="${mode == 'edit'}" th:src="@{/js/lesson-clone-wizard.js(v='3')}" defer></script>
 <!-- Lesson attachments uploader (ULP-4.0c) — only active in edit mode. -->
 <script th:if="${mode == 'edit'}" th:src="@{/js/lesson-attachments.js}" defer></script>
-<!-- Lesson content-type picker + sub-section toggling + confirm modal. -->
-<script th:src="@{/js/lesson-form-type.js}" defer
+<!-- Lesson content-type picker + sub-section toggling. The switch-type
+     confirmation is built on demand by the shared UlpModal.confirm dialog
+     (app.js), so no SSR modal markup is needed here. -->
+<script th:src="@{/js/lesson-form-type.js(v='2')}" defer
         th:attr="data-original-type=${form.contentType ?: 'RICHTEXT'},
                  data-lesson-persisted=${mode == 'edit' and lesson != null}"></script>
-
-<!-- Confirm modal — surfaces when the lecturer flips the type for a
-     persisted lesson. Not rendered while creating: there is no prior
-     content to destroy yet. lesson-form-type.js binds the buttons. -->
-<div th:if="${mode == 'edit' and lesson != null}"
-     id="lessonTypeConfirmModal" class="lct-modal" hidden role="dialog"
-     aria-modal="true" aria-labelledby="lessonTypeConfirmTitle">
-  <div class="lct-modal-backdrop" data-modal-cancel></div>
-  <div class="lct-modal-panel">
-    <h3 id="lessonTypeConfirmTitle" class="lct-modal-title">
-      Đổi loại nội dung?
-    </h3>
-    <p class="lct-modal-body">
-      Khi đổi loại nội dung, dữ liệu của loại trước đó sẽ bị xoá vĩnh viễn
-      (bao gồm cả tệp đã tải lên trên máy chủ). Bạn có chắc muốn tiếp tục?
-    </p>
-    <div class="lct-modal-actions">
-      <button type="button" class="btn-secondary" data-modal-cancel>Huỷ</button>
-      <button type="button" class="btn-primary" data-modal-confirm>Đổi loại</button>
-    </div>
-  </div>
-</div>
 <!-- Quill 2.x from CDN — pinned to a minor version so the editor surface
      doesn't drift unannounced. -->
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>

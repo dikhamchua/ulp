@@ -6,9 +6,9 @@
  *   2. Wire the PDF upload + MP4 upload + URL-set buttons to their
  *      respective content endpoints (XHR with progress for files, fetch
  *      for the URL endpoint).
- *   3. Pop the confirm modal when the lecturer attempts to switch the
- *      type for a persisted lesson — block the form submit until the
- *      confirmation is acknowledged.
+ *   3. Pop the shared UlpModal.confirm dialog when the lecturer attempts
+ *      to switch the type for a persisted lesson — block the form submit
+ *      until the confirmation is acknowledged.
  *
  * Notifications use window.UlpToast per project rule (no alert/inline).
  */
@@ -493,30 +493,31 @@
     function bindSubmitFlow() {
         var form = document.getElementById('lessonForm');
         if (!form) return;
-        var modal = document.getElementById('lessonTypeConfirmModal');
         var proceeding = false;
 
         function confirmTypeSwitch(next) {
-            if (!modal) { next(true); return; }
             // Creating a lesson: nothing persisted yet, so switching the type
             // destroys nothing and must not prompt.
             if (!isLessonPersisted()) { next(true); return; }
             if (getSelectedContentType() === getOriginalType()) { next(true); return; }
-            var settled = false;
-            function settle(ok) {
-                if (settled) return;
-                settled = true;
-                modal.hidden = true;
-                next(ok);
+            // Prefer the shared UlpModal.confirm dialog (defined in app.js) so
+            // destructive actions across the app share one visual + i18n
+            // surface. Native window.confirm() is a hard fallback in case
+            // app.js fails to load — extremely unlikely but cheap to handle.
+            if (window.UlpModal && typeof window.UlpModal.confirm === 'function') {
+                window.UlpModal.confirm({
+                    title: 'Đổi loại nội dung?',
+                    body: 'Khi đổi loại nội dung, dữ liệu của loại trước đó sẽ bị'
+                          + ' xoá vĩnh viễn (bao gồm cả tệp đã tải lên trên máy'
+                          + ' chủ). Bạn có chắc muốn tiếp tục?',
+                    confirmLabel: 'Đổi loại',
+                    onConfirm: function () { next(true); },
+                    onCancel: function () { next(false); }
+                });
+                return;
             }
-            modal.hidden = false;
-            var confirmBtn = modal.querySelector('[data-modal-confirm]');
-            modal.querySelectorAll('[data-modal-cancel]').forEach(function (el) {
-                el.addEventListener('click', function () { settle(false); }, { once: true });
-            });
-            if (confirmBtn) {
-                confirmBtn.addEventListener('click', function () { settle(true); }, { once: true });
-            }
+            next(window.confirm('Đổi loại nội dung? Dữ liệu của loại trước đó sẽ'
+                    + ' bị xoá vĩnh viễn.'));
         }
 
         /**

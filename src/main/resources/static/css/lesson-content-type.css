@@ -219,52 +219,6 @@
     display: none !important;
 }
 
-/* ── Confirm modal ───────────────────────────────────────────────── */
-.lct-modal[hidden] {
-    display: none;
-}
-
-.lct-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.lct-modal-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.55);
-}
-
-.lct-modal-panel {
-    position: relative;
-    background: #fff;
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 460px;
-    width: calc(100% - 32px);
-    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
-}
-
-.lct-modal-title {
-    margin: 0 0 12px;
-    font-size: 1.15rem;
-}
-
-.lct-modal-body {
-    margin: 0 0 20px;
-    color: #475569;
-}
-
-.lct-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-}
-
 /* ── List badge (detail-lessons page) ────────────────────────────── */
 .lesson-type-badge {
     display: inline-flex;
