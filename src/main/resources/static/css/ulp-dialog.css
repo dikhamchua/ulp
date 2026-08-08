@@ -1,0 +1,73 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ULP — Server-rendered dialog shell (.ulp-dialog-*)
+   Overlay + box for modals whose markup is rendered by Thymeleaf, so the
+   form inside keeps its server-issued CSRF token and server-side validation.
+
+   Sibling system: .ulp-modal in main.css backs window.UlpModal.confirm, which
+   builds a native <dialog> from JS. That one suits body-only confirmations;
+   this one suits dialogs that submit a real <form> (lock, reset password,
+   provider create, delete confirms).
+
+   Naming is deliberately namespaced: the previous .modal-overlay / .modal-box
+   were unprefixed and collided conceptually with the .ulp-modal family.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ulp-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* JS toggles the `hidden` attribute; flex on the host would otherwise win. */
+.ulp-dialog-overlay[hidden] {
+  display: none;
+}
+
+.ulp-dialog-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Wider box for multi-field create forms (AI provider, …). */
+.ulp-dialog-box.ulp-dialog-box-lg {
+  max-width: 560px;
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
+}
+
+.ulp-dialog-box h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #111827;
+}
+
+.ulp-dialog-box p {
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.ulp-dialog-box textarea,
+.ulp-dialog-box input[type=text],
+.ulp-dialog-box input[type=password] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.ulp-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
